@@ -128,7 +128,7 @@ Class 8A1
 
 Strategy A (một assignment trỏ class) **không** dùng trong MVP.
 
-Quản lý lớp: bảng `classes`, `class_members` — xem [database-target.md](../database-target.md).
+Quản lý lớp (CRUD, thành viên, API): [class-management.md](./class-management.md). Schema: [database-target.md](../database-target.md).
 
 ## 7. Quyền
 

@@ -85,11 +85,7 @@ Khi attempt có câu cần chấm thủ công, trạng thái chuyển theo mục
 submitted → needs_grading → graded
 ```
 
-Teacher có thể:
-
-- nhập điểm.
-- đánh dấu đúng/sai.
-- thêm feedback.
+Chi tiết queue, API grade/regrade, feedback và quyền teacher: [manual-grading.md](./manual-grading.md).
 
 ## 7. Score Calculation
 

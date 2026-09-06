@@ -1,10 +1,15 @@
 # Database (Supabase)
 
-Schema legacy: [`supabase/schema.sql`](../supabase/schema.sql). Schema đích: [database-target.md](./database-target.md). Quy ước: [features/_cross-cutting.md](./features/_cross-cutting.md).
+| Tài liệu / file | Nội dung |
+| :--- | :--- |
+| [database-target.md](./database-target.md) | Spec schema đích |
+| [`supabase/migrations/`](../supabase/migrations/) | Migration SQL đích |
+| [`supabase/seed.sql`](../supabase/seed.sql) | Seed local |
+| [features/_cross-cutting.md](./features/_cross-cutting.md) | Quy ước chung |
 
 Không dùng Prisma / ORM — truy vấn qua Supabase JS client với **service role**.
 
-> **Lưu ý:** Phần dưới mô tả **schema legacy hiện tại** (`quizzes`, câu hỏi nhúng JSONB). Mô hình đích với các bảng `questions`, `exams`, `exam_assignments`, `attempts`, `exp_ledger`, … được mô tả trong [structure.md](./structure.md). Tài liệu feature trong `doc/features/` mô tả mô hình đích, không mô tả trực tiếp schema legacy.
+> **Lưu ý:** Phần dưới mô tả **schema legacy** (`quizzes`, câu hỏi nhúng JSONB) để tham chiếu migrate. Schema đích đã có SQL trong `supabase/` — không nhầm với snapshot đích `supabase/schema.sql`.
 
 ## Bảng `users`
 

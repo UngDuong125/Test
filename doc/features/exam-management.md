@@ -150,9 +150,66 @@ POST   /api/exams/:id/duplicate
 POST   /api/exams/generate
 ```
 
+### `POST /api/exams/generate`
+
+Sinh đề nháp (`status=draft`) từ Question Bank / filter — dùng cùng pipeline random với [question-bank.md](./question-bank.md).
+
+**Request:**
+
+```json
+{
+  "title": "Ôn tập phân số - tuần 3",
+  "subjectId": "math",
+  "grade": 7,
+  "type": "practice",
+  "duration": 30,
+  "bankId": "bank_001",
+  "selection": {
+    "count": 10,
+    "topicIds": ["fractions"],
+    "difficulty": { "easy": 0.4, "medium": 0.4, "hard": 0.2 },
+    "types": ["multiple_choice", "fill_blank", "short_answer"]
+  },
+  "sectionTitle": "Phần trắc nghiệm",
+  "defaultPoints": 1
+}
+```
+
+| Field | Bắt buộc | Mô tả |
+| :--- | :--- | :--- |
+| `title`, `subjectId`, `grade`, `type` | Có | Metadata exam |
+| `duration` | Có | Phút |
+| `bankId` | Không | Giới hạn trong một bank; thiếu → filter theo subject/grade |
+| `selection` | Có | Rule lấy mẫu (chỉ câu `published`) |
+| `defaultPoints` | Không | Gán `ExamQuestion.points` nếu không lấy từ `Question.points` |
+
+**Response (201):**
+
+```json
+{
+  "exam": {
+    "id": "exam_001",
+    "status": "draft",
+    "totalPoints": 10,
+    "questionCount": 10
+  },
+  "warnings": []
+}
+```
+
+**Lỗi thường gặp:**
+
+| Code | Khi nào |
+| :--- | :--- |
+| `422` | Không đủ câu published thỏa filter / tỷ lệ difficulty |
+| `403` | Không quyền bank hoặc subject |
+
+Teacher chỉnh section/điểm rồi `POST /api/exams/:id/publish` như đề thủ công. Generate **không** publish sẵn.
+
 ## 11. Acceptance Criteria
 
 - Tạo đề thủ công từ Question Bank.
+- Sinh đề nháp qua `/api/exams/generate` theo filter/difficulty.
 - Sắp xếp câu hỏi theo section/order.
 - Thay đổi điểm từng câu.
 - Preview đề.

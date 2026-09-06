@@ -79,7 +79,16 @@ Không dùng permission granular riêng `assign_exam`. Quyền giao đề nằm 
 
 - **Nguồn truth:** bảng `exp_ledger` (một bản ghi idempotent / attempt đã `graded`).
 - **Cache/projection:** `users.math_exp`, … — aggregate từ ledger; có thể rebuild.
+- **Policy theo `Exam.type`:** xem [exp.md](./exp.md) (`practice`/`quiz`/`homework`/…).
 - Legacy `PATCH /api/quizzes` + `users.*_exp` trực tiếp: chỉ giai đoạn migrate.
+
+## Class, grading, media, analytics
+
+- Lớp: [class-management.md](./class-management.md)
+- Chấm thủ công: [manual-grading.md](./manual-grading.md)
+- Upload: [media-upload.md](./media-upload.md)
+- Analytics: [analytics.md](./analytics.md)
+- Migrate legacy: [migration-legacy.md](../migration-legacy.md)
 
 ## Mã lỗi HTTP (gợi ý)
 

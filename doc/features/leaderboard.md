@@ -70,42 +70,92 @@ Khớp `TAG_MAP` trong `frontend/constants/tags.ts`:
 | `hist_geo` | Lịch sử - Địa lý |
 | `civic` | Giáo dục công dân |
 
-## 6. API
+## 6. Kỳ xếp hạng (seasonal) — P4
+
+Ngoài all-time, leaderboard hỗ trợ cửa sổ thời gian:
+
+| `period` | Ý nghĩa |
+| :--- | :--- |
+| `all` (mặc định) | Tổng từ mọi `exp_ledger` |
+| `week` | ISO week hiện tại (UTC hoặc timezone trường học cấu hình) |
+| `month` | Tháng hiện tại |
+| `term` | Học kỳ — dùng bảng `leaderboard_periods` |
+| `custom` | `from` + `to` query |
+
+```text
+GET /api/leaderboard?period=week&limit=20
+GET /api/leaderboard?period=term&periodId=term_2026_1&subjectId=math
+GET /api/leaderboard?period=custom&from=2026-09-01&to=2026-12-01
+```
+
+Công thức trong kỳ:
+
+```text
+subject_exp = Σ exp_ledger.exp_earned WHERE created_at ∈ [from, to) AND subject_id = …
+total_exp   = Σ subject_exp
+```
+
+Regrade (MVP): filter theo `created_at` lần ghi nhận đầu; adjustment cùng `attempt_id` không đổi `created_at`.
+
+UI: tab **Tất cả / Tuần / Tháng / Học kỳ** trên `/leaderboard`.
+
+### Bảng `leaderboard_periods`
+
+| Cột | Kiểu | Mô tả |
+| :--- | :--- | :--- |
+| `id` | text PK | Ví dụ `term_2026_1` |
+| `label` | text | “HK1 2026–2027” |
+| `starts_at` | timestamptz | |
+| `ends_at` | timestamptz | |
+
+## 7. API
 
 | Method | Endpoint | Mục đích |
 | :--- | :--- | :--- |
-| `GET` | `/api/leaderboard?limit=20` | Lấy bảng xếp hạng tổng hợp |
-| `GET` | `/api/leaderboard?subjectId=math&limit=20` | Lấy bảng xếp hạng theo môn |
-| `GET` | `/api/students/:id/exp` | Xem EXP của một student nếu có quyền |
+| `GET` | `/api/leaderboard?limit=20` | All-time tổng hợp |
+| `GET` | `/api/leaderboard?subjectId=math&limit=20` | All-time theo môn |
+| `GET` | `/api/leaderboard?period=week\|month\|term\|custom&…` | Theo kỳ |
+| `GET` | `/api/leaderboard/periods` | Danh sách học kỳ |
+| `GET` | `/api/students/:id/exp` | EXP một student (có quyền) |
 
-API phải tính thứ hạng sau khi áp dụng filter, giới hạn và tie-break; không trả toàn bộ user rồi để frontend `.slice(0, 20)`.
+API tính thứ hạng sau filter/limit/tie-break; không để frontend `.slice(0, 20)`.
 
-## 7. UI
+```json
+{
+  "period": "week",
+  "from": "2026-09-01T00:00:00Z",
+  "to": "2026-09-08T00:00:00Z",
+  "entries": []
+}
+```
+
+## 8. UI
 
 - Hiển thị hạng, tên hiển thị (hoặc email), tổng EXP và EXP theo môn.
 - Có empty state: *“Chưa có dữ liệu xếp hạng.”*
 - Có loading và error state.
-- Có thể lọc theo môn nếu backend hỗ trợ.
+- Có thể lọc theo môn và theo kỳ (tuần/tháng/học kỳ).
 - Không hiển thị điểm/answer key của người khác.
 - Link tới dashboard chỉ dành cho thao tác làm bài; link tới result phải kiểm tra quyền truy cập.
 
-## 8. File liên quan
+## 9. File liên quan
 
 | Layer | Path |
 | :--- | :--- |
 | UI | `frontend/app/leaderboard/page.tsx` |
-| API | `backend/src/server.ts` → leaderboard route |
-| EXP policy | `doc/features/exp.md` |
-| Attempt/result | `doc/features/attempt-and-result.md` |
+| API | `backend/src/modules/leaderboard/` |
+| EXP policy | [exp.md](./exp.md) |
+| Migration | [migration-legacy.md](../migration-legacy.md) |
+| Attempt/result | [attempt-and-result.md](./attempt-and-result.md) |
 | Tags | `frontend/constants/tags.ts` |
 
-## 9. Tương thích với implementation hiện tại
+## 10. Tương thích với implementation hiện tại
 
-Implementation hiện tại dùng `GET /api/leaderboard`, tổng hợp trực tiếp các cột `*_exp` trên `users` và giới hạn ở backend/frontend hiện có. Đây là cách lưu aggregate legacy có thể giữ trong giai đoạn chuyển tiếp, nhưng nguồn tạo EXP phải được chuyển sang kết quả `Attempt`.
+Implementation hiện tại dùng `GET /api/leaderboard`, tổng hợp trực tiếp các cột `*_exp` trên `users`. Nguồn tạo EXP phải chuyển sang `exp_ledger` — lộ trình: [migration-legacy.md](../migration-legacy.md).
 
 Các điểm cần migrate:
 
-- `/api/leaderboard` → API leaderboard có filter/limit rõ ràng;
-- `users.*_exp` → aggregate từ `exp_ledger` (schema đích); giữ cột legacy trong migrate.
-- thứ tự hòa điểm phụ thuộc query DB → tie-break xác định;
+- `/api/leaderboard` → filter/limit/period rõ ràng ở backend;
+- `users.*_exp` → projection từ ledger;
+- tie-break xác định;
 - `.slice(0, 20)` ở frontend → limit và rank do backend trả về.

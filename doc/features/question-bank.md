@@ -76,7 +76,9 @@ Nên có:
 
 ## 5. Question Usage
 
-Nên theo dõi:
+Chi tiết metric và API: [analytics.md](./analytics.md).
+
+Tóm tắt — theo dõi (tính từ Attempt `graded`, không copy khi duplicate):
 
 ```json
 {
@@ -86,7 +88,7 @@ Nên theo dõi:
 }
 ```
 
-Các thống kê này có thể được tính từ Attempt thay vì lưu trực tiếp nếu cần consistency cao.
+Endpoint: `GET /api/questions/:id/stats`.
 
 ## 6. Random Question Selection
 

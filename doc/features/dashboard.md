@@ -124,7 +124,9 @@ Request lưu answer chỉ chứa giá trị student chọn/nhập, ví dụ:
 | UI | `frontend/app/dashboard/page.tsx` |
 | Exam | `doc/features/exam-management.md` |
 | Assignment | `doc/features/exam-distribution.md` |
+| Class | `doc/features/class-management.md` |
 | Attempt/result | `doc/features/attempt-and-result.md` |
+| Manual grading | `doc/features/manual-grading.md` |
 | Question | `doc/features/question-management.md` |
 
 ## 10. Tương thích với implementation hiện tại
@@ -137,4 +139,4 @@ Implementation hiện tại vẫn dùng `/api/quizzes` và bảng `quizzes` vớ
 - `high_score` → kết quả của từng `Attempt` và các thống kê được tính từ attempt;
 - `attemptSeed` và lấy mẫu phía client → snapshot/question order do backend tạo khi bắt đầu attempt.
 
-Trong giai đoạn chuyển tiếp, endpoint legacy không được dùng làm cơ sở cho đặc tả business mới và không được xem là thay thế cho lịch sử `Attempt`.
+Trong giai đoạn chuyển tiếp, endpoint legacy không được dùng làm cơ sở cho đặc tả business mới. Lộ trình: [migration-legacy.md](../migration-legacy.md).

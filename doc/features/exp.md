@@ -24,15 +24,30 @@ percentage = score / maxScore * 100
 expEarned  = expPolicy(exam, assignment, attempt)
 ```
 
-MVP có thể dùng chính `score` làm EXP:
+### Policy theo `Exam.type` (MVP)
 
 ```text
-expEarned = floor(score)
+baseExp = floor(score)
+expEarned = applyTypePolicy(Exam.type, baseExp, percentage)
 ```
 
-Nếu hệ thống muốn thưởng theo phần trăm hoặc độ khó, policy phải được định nghĩa ở backend và áp dụng nhất quán. Không lấy `display_count` làm `maxScore` khi câu hỏi có `points` khác nhau.
+| `Exam.type` | `expEarned` (MVP) |
+| :--- | :--- |
+| `practice` | `baseExp` |
+| `worksheet` | `baseExp` |
+| `homework` | `floor(baseExp * 0.8)` |
+| `quiz` | `percentage ≥ 80` → `floor(baseExp * 1.2)` ; ngược lại `baseExp` |
+| `midterm` | `floor(baseExp * 1.5)` |
+| `final` | `floor(baseExp * 2.0)` |
+
+- Policy chạy **chỉ trên backend** khi attempt → `graded`.
+- `expEarned` không âm; ceiling tùy chọn = `floor(maxScore * multiplier)` để tránh điểm bất thường.
+- Không lấy `display_count` làm `maxScore` khi câu hỏi có `points` khác nhau.
+- Assignment **không** override multiplier trong MVP (tránh phức tạp); có thể thêm sau qua `assignment.settings.expMultiplier`.
 
 Mỗi attempt đã được chấm chỉ được ghi nhận EXP một lần. Việc submit lại, gọi retry hoặc gọi API lặp không được cộng trùng.
+
+Ví dụ: quiz score 8/10 (80%) → `baseExp=8` → `floor(8 * 1.2) = 9`.
 
 ## 4. Ánh xạ môn → EXP
 
@@ -60,6 +75,38 @@ Legacy (`PATCH /api/quizzes`, cập nhật trực tiếp `users.*_exp`): chỉ g
 
 Tag không hợp lệ phải bị từ chối hoặc được ánh xạ qua policy rõ ràng; không tự động dồn vào `math_exp`.
 
+### Bản ghi `exp_ledger`
+
+```json
+{
+  "id": "ledger_001",
+  "attemptId": "attempt_001",
+  "userId": "student_001",
+  "subjectId": "math",
+  "expEarned": 9,
+  "examType": "quiz",
+  "idempotencyKey": "attempt_001:graded",
+  "createdAt": "..."
+}
+```
+
+| Rule | Chi tiết |
+| :--- | :--- |
+| Unique | `(attempt_id)` — một dòng ledger / attempt |
+| Insert | Chỉ khi attempt lần đầu → `graded` |
+| Regrade | `UPDATE exp_earned` (+ δ projection); không INSERT mới |
+| Admin adjust | Có thể INSERT dòng `attempt_id=null` với `reason` **hoặc** API riêng ghi `exp_adjustments` — MVP: `POST /api/admin/exp/adjust` cập nhật projection + audit, không bịa attempt |
+
+Transaction gợi ý khi grade:
+
+```text
+BEGIN
+  update attempt score/status
+  upsert exp_ledger
+  update users.<subject>_exp += delta
+COMMIT
+```
+
 ## 5. Quy tắc nghiệp vụ
 
 1. Kết quả thuộc về từng `Attempt`; không dùng `Exam.highScore` hoặc kỷ lục toàn cục để quyết định EXP.
@@ -73,9 +120,10 @@ Tag không hợp lệ phải bị từ chối hoặc được ánh xạ qua poli
 
 | Attempt | `score` | EXP môn | Ghi chú |
 | :--- | ---: | ---: | :--- |
-| User A đạt 8/10 | 8 | +8 | Ghi nhận một lần |
-| User A làm lại (attempt mới) 7/10 | 7 | +7 | Mỗi attempt được chấm ghi EXP riêng; không so sánh với attempt trước |
-| User B đạt 10/10 | 10 | +10 | Ghi vào môn của Exam |
+| User A đạt 8/10 (practice) | 8 | +8 | `practice` → `baseExp` |
+| User A làm lại (attempt mới) 7/10 trên practice | 7 | +7 | `practice` → `baseExp` |
+| User B quiz 8/10 (80%) | 8 | +9 | `floor(8 * 1.2)` |
+| User C homework 10/10 | 10 | +8 | `floor(10 * 0.8)` |
 
 ## 6. UI và thông báo
 
@@ -108,14 +156,8 @@ Response kết quả có thể gồm:
 }
 ```
 
-## 8. Tương thích với implementation hiện tại
+## 8. Tương thích / migrate
 
-Implementation hiện tại vẫn cộng EXP qua `PATCH /api/quizzes` bằng cách so sánh `quizzes.high_score` và tin `score` từ frontend. Đây là logic legacy cần migrate:
+Xem lộ trình đầy đủ: [migration-legacy.md](../migration-legacy.md).
 
-- `quizzes.high_score` → kết quả của từng `Attempt`;
-- `{ quizId, userId, tag, score }` → submit/grade attempt;
-- chấm điểm frontend → validate và calculate ở backend;
-- cộng EXP theo phần vượt kỷ lục → policy EXP trên kết quả attempt;
-- update quiz rồi user tuần tự → transaction hoặc cơ chế idempotency/audit.
-
-Trong giai đoạn chuyển tiếp, không dùng `high_score` để suy ra lịch sử attempt hoặc thành tích cá nhân.
+Tóm tắt: `PATCH /api/quizzes` + `high_score` là legacy; EXP mới chỉ từ attempt `graded` → `exp_ledger`.

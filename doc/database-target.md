@@ -2,7 +2,7 @@
 
 Schema mô tả **mô hình đích** sau migrate. Schema legacy (`quizzes`, …) xem [database.md](./database.md).
 
-Types TypeScript dự kiến: `backend/types/domain.ts`. Migration: `supabase/migrations/`.
+Types TypeScript dự kiến: `backend/types/domain.ts`. Migration: [`supabase/migrations/`](../supabase/migrations/). Snapshot: [`supabase/schema.sql`](../supabase/schema.sql). Seed: [`supabase/seed.sql`](../supabase/seed.sql).
 
 ## Identity
 
@@ -274,15 +274,52 @@ Nguồn truth cho EXP. Unique `(attempt_id)`.
 
 Projection `users.*_exp` cập nhật trong cùng transaction khi insert/adjust ledger.
 
+Optional columns: `exam_type` (text), `updated_at` (timestamptz khi regrade).
+
+### `leaderboard_periods`
+
+| Cột | Kiểu | Mô tả |
+| :--- | :--- | :--- |
+| `id` | text PK | Ví dụ `term_2026_1` |
+| `label` | text | |
+| `starts_at` | timestamptz | |
+| `ends_at` | timestamptz | |
+
+### `media`
+
+| Cột | Kiểu | Mô tả |
+| :--- | :--- | :--- |
+| `id` | uuid PK | |
+| `url` | text | |
+| `public_id` | text | Cloudinary |
+| `mime_type` | text | |
+| `byte_size` | int | |
+| `uploaded_by` | uuid FK → users | |
+| `created_at` | timestamptz | |
+
+### `question_stats` (optional materialize)
+
+| Cột | Kiểu | Mô tả |
+| :--- | :--- | :--- |
+| `question_id` | uuid PK FK | |
+| `usage_count` | int | |
+| `correct_rate` | numeric | |
+| `average_points_earned` | numeric | |
+| `updated_at` | timestamptz | |
+
+Rebuild từ `attempt_answers` — xem [analytics.md](./features/analytics.md).
+
 ## Quan hệ tóm tắt
 
 ```text
 subjects → topics
 users → question_banks → question_bank_items → questions
+media → questions.content (mediaId)
 questions → exam_questions → exams
 users → classes → class_members
 exams → exam_assignments → attempts → attempt_answers
 attempts → exp_ledger → (projection) users.*_exp
+leaderboard_periods → (filter) exp_ledger for seasonal ranks
 ```
 
-Chi tiết nghiệp vụ: [features/_cross-cutting.md](./features/_cross-cutting.md).
+Chi tiết nghiệp vụ: [features/_cross-cutting.md](./features/_cross-cutting.md). Migrate: [migration-legacy.md](./migration-legacy.md).

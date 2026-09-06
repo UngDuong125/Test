@@ -11,17 +11,22 @@ TestArchive/
     ├── api.md
     ├── database.md              # Schema legacy
     ├── database-target.md       # Schema đích
+    ├── migration-legacy.md      # P3 deprecate quizzes → Attempt/EXP
     ├── overview.md
     ├── structure.md
     └── features/
         ├── _cross-cutting.md
+        ├── analytics.md
         ├── authentication-and-authorization.md
         ├── attempt-and-result.md
+        ├── class-management.md
         ├── dashboard.md
         ├── exam-distribution.md
         ├── exam-management.md
         ├── exp.md
         ├── leaderboard.md
+        ├── manual-grading.md
+        ├── media-upload.md
         ├── question-bank.md
         └── question-management.md
 ```
@@ -71,6 +76,8 @@ TestArchive/
 │   │   ├── question-banks/page.tsx   # Quản lý ngân hàng câu hỏi
 │   │   ├── questions/page.tsx        # Tạo, sửa, review question
 │   │   ├── assignments/page.tsx      # Teacher giao đề
+│   │   ├── classes/page.tsx          # Quản lý lớp
+│   │   ├── grading/page.tsx          # Queue chấm thủ công
 │   │   ├── attempts/[id]/page.tsx    # Làm bài theo snapshot
 │   │   ├── results/[id]/page.tsx     # Kết quả attempt
 │   │   ├── leaderboard/page.tsx
@@ -108,7 +115,9 @@ TestArchive/
 │       │   ├── questionBanks.routes.ts
 │       │   ├── exams.routes.ts
 │       │   ├── assignments.routes.ts
+│       │   ├── classes.routes.ts
 │       │   ├── attempts.routes.ts
+│       │   ├── grading.routes.ts
 │       │   ├── leaderboard.routes.ts
 │       │   └── upload.routes.ts
 │       ├── modules/
@@ -118,8 +127,9 @@ TestArchive/
 │       │   ├── question-banks/       # Filter và random selection
 │       │   ├── exams/                # Section, ordering, publish
 │       │   ├── assignments/          # Giao đề, deadline, attempt limit
+│       │   ├── classes/              # Lớp và thành viên
 │       │   ├── attempts/             # Snapshot, answer, submit
-│       │   ├── grading/              # Auto/manual grading
+│       │   ├── grading/              # Auto/manual grading queue
 │       │   ├── exp/                  # Idempotent EXP policy
 │       │   └── leaderboard/          # Aggregate và tie-break
 │       ├── services/
@@ -131,9 +141,11 @@ TestArchive/
 │       ├── validators/               # Zod/schema request
 │       └── types/                    # DTO và type dùng chung backend
 ├── supabase/
+│   ├── README.md
 │   ├── migrations/                   # Migration tăng dần, không sửa lịch sử
-│   ├── seed.sql
-│   └── schema.sql                    # Snapshot schema dễ dựng môi trường mới
+│   │   └── 20260906000000_init_target_schema.sql
+│   ├── seed.sql                      # Subjects, demo users, class, sample question
+│   └── schema.sql                    # Snapshot schema đích (greenfield)
 └── tests/
     ├── integration/                  # API + database
     └── e2e/                          # Login, giao đề, làm bài, kết quả
@@ -163,18 +175,22 @@ Chi tiết field schema đích: [database-target.md](database-target.md). Schema
 | Question Management | `app/questions` | `modules/questions` | `questions`, `question_options` |
 | Question Bank | `app/question-banks` | `modules/question-banks` | `question_banks`, `question_bank_items` |
 | Exam Management | `app/exams` | `modules/exams` | `exams`, `exam_sections`, `exam_questions` |
-| Distribution | `app/assignments` | `modules/assignments` | `exam_assignments`, `classes`, `class_members` |
-| Dashboard & Attempt | `app/dashboard`, `app/attempts`, `app/results` | `modules/attempts`, `modules/grading` | `attempts`, `attempt_answers`, snapshots |
-| EXP & Leaderboard | `app/leaderboard` | `modules/exp`, `modules/leaderboard` | `exp_ledger` |
+| Class Management | `app/classes` | `modules/classes` | `classes`, `class_members` |
+| Exam Distribution | `app/assignments` | `modules/assignments` | `exam_assignments` |
+| Dashboard & Attempt | `app/dashboard`, `app/attempts`, `app/results` | `modules/attempts` | `attempts`, `attempt_answers`, snapshots |
+| Manual Grading | `app/grading` | `modules/grading` | `grading_records`, `attempt_answers` |
+| Media Upload | (question editor) | `routes/upload`, `services/upload` | `media` |
+| Analytics | (embedded in questions/exams/classes) | `modules/analytics` | `question_stats` (optional) |
+| EXP & Leaderboard | `app/leaderboard` | `modules/exp`, `modules/leaderboard` | `exp_ledger`, `leaderboard_periods` |
 
 ## Lộ trình triển khai
 
-1. Dựng workspace, frontend, backend và Supabase migration; hoàn thiện auth, session và RBAC.
+1. Dựng workspace, frontend, backend và apply `supabase/migrations` + `seed.sql`; hoàn thiện auth, session và RBAC.
 2. Xây `Question`/`QuestionBank`, validation, upload media và lifecycle publish.
 3. Xây `Exam`, section, chọn câu thủ công/random và publish validation.
 4. Xây `ExamAssignment`, class membership và kiểm tra quyền truy cập student.
 5. Xây `Attempt` snapshot, lưu answer, submit, auto/manual grading và result.
-6. Ghi EXP theo ledger có idempotency, sau đó xây leaderboard từ ledger.
-7. Migrate dữ liệu legacy `quizzes` và loại bỏ các endpoint cập nhật score/EXP từ frontend.
+6. Ghi EXP theo ledger có idempotency, seasonal leaderboard, analytics câu hỏi/đề/lớp.
+7. Migrate dữ liệu legacy `quizzes` theo [migration-legacy.md](migration-legacy.md) và loại bỏ endpoint cập nhật score/EXP từ frontend.
 
 Mỗi bước cần có test integration cho quyền truy cập và trạng thái nghiệp vụ; các rule bảo mật không được chỉ kiểm tra ở frontend.

@@ -12,6 +12,8 @@ Quy ước API đích (naming, lỗi, idempotency): [features/_cross-cutting.md]
 | `/attempts/[id]` | `frontend/app/attempts/[id]/page.tsx` | Làm bài theo snapshot |
 | `/results/[id]` | `frontend/app/results/[id]/page.tsx` | Kết quả attempt |
 | `/assignments` | `frontend/app/assignments/page.tsx` | Teacher giao đề |
+| `/classes` | `frontend/app/classes/page.tsx` | Quản lý lớp |
+| `/grading` | `frontend/app/grading/page.tsx` | Queue chấm thủ công |
 | `/admin` | `frontend/app/admin/page.tsx` | Công cụ admin |
 | `/leaderboard` | `frontend/app/leaderboard/page.tsx` | Xếp hạng EXP |
 
@@ -51,21 +53,25 @@ Chi tiết: [authentication-and-authorization.md](./features/authentication-and-
 | Question banks | `POST/GET /api/question-banks`, search | [question-bank.md](./features/question-bank.md) |
 | Exams | `POST/GET/PATCH /api/exams`, `…/publish`, `…/generate` | [exam-management.md](./features/exam-management.md) |
 | Assignments | `POST/GET/PATCH /api/exam-assignments`, `POST /api/exams/:id/assign` | [exam-distribution.md](./features/exam-distribution.md) |
+| Classes | `POST/GET/PATCH /api/classes`, `…/members` | [class-management.md](./features/class-management.md) |
 | Attempts | `POST /api/exam-assignments/:id/attempts`, `POST /api/attempts/:id/submit` | [attempt-and-result.md](./features/attempt-and-result.md) |
+| Grading | `GET /api/grading/queue`, `POST /api/attempts/:id/grade` | [manual-grading.md](./features/manual-grading.md) |
 | Student | `GET /api/students/:id/assignments` | [dashboard.md](./features/dashboard.md) |
-| Leaderboard | `GET /api/leaderboard`, `GET /api/students/:id/exp` | [leaderboard.md](./features/leaderboard.md) |
-| Upload | `POST /api/upload` | Cloudinary signed upload |
+| Leaderboard | `GET /api/leaderboard`, `?period=`, `/periods` | [leaderboard.md](./features/leaderboard.md) |
+| Analytics | `GET /api/questions/:id/stats`, `…/exams/:id/analytics` | [analytics.md](./features/analytics.md) |
+| Upload | `POST /api/upload` | [media-upload.md](./features/media-upload.md) |
+| Admin EXP | `POST /api/admin/exp/rebuild-projections`, `…/adjust` | [migration-legacy.md](./migration-legacy.md) |
 
 ### Legacy (giai đoạn migrate — deprecate)
 
-> Các endpoint dưới đây map từ implementation cũ. Không dùng làm spec nghiệp vụ mới.
+> Không dùng làm spec nghiệp vụ mới. Lộ trình A→D: [migration-legacy.md](./migration-legacy.md).
 
-| Method | Endpoint | Thay thế đích |
-| :--- | :--- | :--- |
-| `GET` | `/api/quizzes` | `GET /api/students/:id/assignments` + exam snapshot |
-| `PATCH` | `/api/quizzes` | `POST /api/attempts/:id/submit` + `exp_ledger` |
-| `GET/PATCH/DELETE` | `/api/admin/quizzes` | `/api/exams`, `/api/exam-assignments` |
-| `PATCH` | `/api/admin/users` (action-based) | `/api/admin/users/:id/status`, `…/role` |
-| `GET` | `/api/leaderboard` | Giữ path; đổi nguồn dữ liệu sang `exp_ledger` |
+| Method | Endpoint | Thay thế đích | Trạng thái mục tiêu |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/quizzes` | assignments + snapshot | Phase B: read-only + `Sunset` header |
+| `PATCH` | `/api/quizzes` | `POST /api/attempts/:id/submit` + ledger | Phase B: `410` hoặc proxy có flag |
+| `GET/PATCH/DELETE` | `/api/admin/quizzes` | `/api/exams`, assignments | Phase D: remove |
+| `PATCH` | `/api/admin/users` (action) | `/api/admin/users/:id/status`, `…/role` | Phase B |
+| `GET` | `/api/leaderboard` | Giữ path; nguồn = `exp_ledger` + `period` | Phase A |
 
 Mọi endpoint bảo vệ lấy danh tính từ session, không tin `userId` client gửi. `401` / `403` theo [\_cross-cutting.md](./features/_cross-cutting.md).

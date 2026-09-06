@@ -74,6 +74,8 @@ Có thể mở rộng:
 ]
 ```
 
+Chi tiết: [media-upload.md](./media-upload.md).
+
 Điều này cho phép sử dụng chung cho Toán, Tiếng Anh và KHTN.
 
 ## 6. Answer

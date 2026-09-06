@@ -9,10 +9,10 @@ Các feature chính:
 - Quản lý câu hỏi có nội dung rich content (text, LaTeX, hình ảnh), đáp án, lời giải và vòng đời draft/review/published/archived.
 - Tổ chức câu hỏi vào **Question Bank**, tìm kiếm/lọc và chọn câu thủ công hoặc ngẫu nhiên để tạo đề.
 - Quản lý **Exam** theo section, thứ tự câu, điểm số, thời lượng, loại đề và trạng thái xuất bản.
-- Tạo **ExamAssignment** cho từng học sinh hoặc lớp, kèm thời gian mở, deadline, số lần làm và quyền hiển thị kết quả.
+- Tạo **ExamAssignment** cho từng học sinh hoặc lớp (expand per student), kèm thời gian mở, deadline, số lần làm và quyền hiển thị kết quả.
 - Cho phép học sinh tạo **Attempt**, lưu **Answer**, nộp bài và xem kết quả theo quyền của assignment.
-- Tự động chấm các dạng câu hỏi phù hợp; chuyển câu tự luận hoặc câu cần đánh giá nội dung sang teacher chấm thủ công.
-- Ghi nhận EXP sau khi attempt được backend chấm hoàn tất và tổng hợp bảng xếp hạng theo môn.
+- Tự động chấm các dạng câu hỏi phù hợp; chuyển câu tự luận hoặc câu cần đánh giá nội dung sang teacher chấm thủ công ([manual grading](features/manual-grading.md)).
+- Ghi nhận EXP theo `Exam.type` sau khi attempt `graded` và tổng hợp bảng xếp hạng theo môn.
 
 Luồng nghiệp vụ chính:
 
@@ -85,14 +85,16 @@ EXP chỉ được ghi nhận một lần sau khi attempt hợp lệ ở trạng
 
 ## Trạng thái implementation
 
-Tài liệu feature mô tả mô hình đích của hệ thống. Implementation hiện tại vẫn đang chuyển tiếp từ mô hình legacy:
+Tài liệu feature mô tả mô hình đích. Implementation có thể còn legacy — lộ trình deprecate đầy đủ: **[migration-legacy.md](./migration-legacy.md)** (P3).
 
-- `quizzes.questions` còn lưu câu hỏi nhúng thay vì Question/QuestionBank riêng.
-- `target_user_ids` và `is_global` đang đại diện tạm thời cho việc phân phối đề.
-- `PATCH /api/quizzes` vẫn cập nhật `high_score` và EXP từ score gửi bởi frontend.
-- Bảng `users.*_exp` và leaderboard hiện là aggregate legacy; lịch sử `Attempt` chưa được lưu đầy đủ.
+Tóm tắt khoảng cách hiện tại:
 
-Khi migrate, submit/grade attempt và tính EXP phải được thực hiện ở backend, có kiểm tra quyền, snapshot và idempotency.
+- `quizzes.questions` nhúng JSONB thay vì Question/QuestionBank.
+- `target_user_ids` / `is_global` thay cho `ExamAssignment`.
+- `PATCH /api/quizzes` cập nhật `high_score` + EXP từ score frontend.
+- `users.*_exp` / leaderboard là aggregate legacy; thiếu lịch sử Attempt đầy đủ.
+
+Khi migrate: submit/grade + EXP trên backend, snapshot, idempotency, dual-write rồi cutover.
 
 ## Môn học (tag)
 
