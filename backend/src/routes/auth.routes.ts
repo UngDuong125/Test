@@ -13,23 +13,19 @@ import {
 
 export const authRouter = Router();
 
-function sessionCookieOptions(expiresAt: Date): CookieOptions {
+/** Cross-origin (Vercel ↔ Render) needs SameSite=None + Secure; local HTTP keeps Lax. */
+function sessionCookieOptions(expiresAt?: Date): CookieOptions {
   return {
     httpOnly: true,
     secure: env.cookieSecure,
-    sameSite: 'lax',
+    sameSite: env.cookieSecure ? 'none' : 'lax',
     path: '/',
-    expires: expiresAt,
+    ...(expiresAt ? { expires: expiresAt } : {}),
   };
 }
 
 function clearSessionCookie(res: Response) {
-  res.clearCookie(env.SESSION_COOKIE_NAME, {
-    httpOnly: true,
-    secure: env.cookieSecure,
-    sameSite: 'lax',
-    path: '/',
-  });
+  res.clearCookie(env.SESSION_COOKIE_NAME, sessionCookieOptions());
 }
 
 authRouter.post('/login', loginRateLimit, async (req, res, next) => {

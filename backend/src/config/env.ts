@@ -16,9 +16,12 @@ const envSchema = z.object({
   SESSION_COOKIE_NAME: z.string().default('ta_session'),
   SESSION_TTL_HOURS: z.coerce.number().positive().default(168),
   COOKIE_SECURE: z
-    .string()
+    .enum(['true', 'false', '1', '0'])
     .optional()
-    .transform((v) => v === 'true' || v === '1'),
+    .transform((v) => {
+      if (v === undefined) return undefined;
+      return v === 'true' || v === '1';
+    }),
   PASSWORD_MIN_LENGTH: z.coerce.number().int().min(8).default(8),
   MAX_FAILED_LOGINS: z.coerce.number().int().positive().default(5),
   LOCKOUT_MINUTES: z.coerce.number().int().positive().default(15),

@@ -138,6 +138,7 @@ Spec: [class-management.md](doc/features/class-management.md), [exam-distributio
 | Backend thoát ngay khi start | Thiếu `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` trong `backend/.env` |
 | Login 401 dù đúng mật khẩu | Chưa chạy `seed.sql`, hoặc hash/seed trên DB khác |
 | CORS / cookie không gửi | `FRONTEND_ORIGIN` phải khớp origin frontend; client gọi API với `credentials: 'include'` |
+| Login ok nhưng `/me` 401 (Vercel+Render) | Set `COOKIE_SECURE=true` trên Render (cookie dùng `SameSite=None`); `FRONTEND_ORIGIN` = URL Vercel chính xác |
 | Invite không nhận email | Bình thường nếu chưa SMTP — xem log `[email:dev-fallback]` trên backend |
 | `403 Password change required` | Hoàn tất `/change-password` trước khi gọi API khác |
 | Giao đề 422 `EXAM_NOT_PUBLISHED` | Publish exam trên `/exams` trước |
