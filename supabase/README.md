@@ -14,6 +14,8 @@ Schema đích theo [doc/database-target.md](../doc/database-target.md). Legacy `
 
 ```bash
 psql "$DATABASE_URL" -f supabase/migrations/20260906000000_init_target_schema.sql
+# Chỉ cần nếu DB đã apply bản init cũ (chưa có cột username):
+psql "$DATABASE_URL" -f supabase/migrations/20260906180000_add_users_username.sql
 psql "$DATABASE_URL" -f supabase/seed.sql
 ```
 
@@ -25,11 +27,11 @@ supabase db reset   # chạy migrations + seed nếu cấu hình trong config.to
 
 ## Seed demo
 
-| Email | Role | Mật khẩu local |
-| :--- | :--- | :--- |
-| `admin@testarchive.local` | admin | `ChangeMe123!` |
-| `teacher@testarchive.local` | teacher | `ChangeMe123!` |
-| `student1@testarchive.local` | student | `ChangeMe123!` |
-| `student2@testarchive.local` | student | `ChangeMe123!` |
+| Email | Username | Role | Mật khẩu local |
+| :--- | :--- | :--- | :--- |
+| `admin@testarchive.local` | `admin` | admin | `ChangeMe123!` |
+| `teacher@testarchive.local` | `teacher` | teacher | `ChangeMe123!` |
+| `student1@testarchive.local` | `student1` | student | `ChangeMe123!` |
+| `student2@testarchive.local` | `student2` | student | `ChangeMe123!` |
 
-Hash tạo bằng `pgcrypto.crypt()` trong `seed.sql` — không commit plaintext hash cố định. Đổi mật khẩu ngay trên môi trường dùng chung.
+Đăng nhập bằng email hoặc username. Hash tạo bằng `pgcrypto.crypt()` trong `seed.sql` — không commit plaintext hash cố định. Đổi mật khẩu ngay trên môi trường dùng chung.

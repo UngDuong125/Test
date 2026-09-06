@@ -1,0 +1,145 @@
+'use client';
+
+import { uploadMedia, ApiError } from '@/lib/api-client';
+import type { ContentBlock } from '@/types/content';
+
+type Props = {
+  blocks: ContentBlock[];
+  onChange: (blocks: ContentBlock[]) => void;
+  mediaUrls?: Record<string, string>;
+  onMediaUrl?: (mediaId: string, url: string) => void;
+};
+
+export function ContentBlocksEditor({ blocks, onChange, mediaUrls = {}, onMediaUrl }: Props) {
+  function updateBlock(index: number, next: ContentBlock) {
+    const copy = [...blocks];
+    copy[index] = next;
+    onChange(copy);
+  }
+
+  function removeBlock(index: number) {
+    onChange(blocks.filter((_, i) => i !== index));
+  }
+
+  function moveBlock(index: number, dir: -1 | 1) {
+    const target = index + dir;
+    if (target < 0 || target >= blocks.length) return;
+    const copy = [...blocks];
+    const tmp = copy[index]!;
+    copy[index] = copy[target]!;
+    copy[target] = tmp;
+    onChange(copy);
+  }
+
+  async function addImage(file: File | null) {
+    if (!file) return;
+    try {
+      const res = await uploadMedia(file);
+      onChange([...blocks, { type: 'image', mediaId: res.mediaId }]);
+      onMediaUrl?.(res.mediaId, res.url);
+    } catch (err) {
+      throw err instanceof ApiError ? err : new Error('Upload thất bại');
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      {blocks.map((block, index) => (
+        <div key={index} className="rounded-md border border-mist bg-white p-3">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <span className="text-xs font-medium uppercase text-slate-500">{block.type}</span>
+            <div className="flex gap-1 text-xs">
+              <button
+                type="button"
+                className="rounded border border-mist px-2 py-0.5 hover:border-accent"
+                onClick={() => moveBlock(index, -1)}
+                disabled={index === 0}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                className="rounded border border-mist px-2 py-0.5 hover:border-accent"
+                onClick={() => moveBlock(index, 1)}
+                disabled={index === blocks.length - 1}
+              >
+                ↓
+              </button>
+              <button
+                type="button"
+                className="rounded border border-mist px-2 py-0.5 text-red-600 hover:border-red-300"
+                onClick={() => removeBlock(index)}
+              >
+                Xóa
+              </button>
+            </div>
+          </div>
+
+          {block.type === 'text' && (
+            <textarea
+              rows={3}
+              className="w-full rounded-md border border-mist px-3 py-2 text-sm"
+              value={block.value}
+              onChange={(e) => updateBlock(index, { type: 'text', value: e.target.value })}
+              placeholder="Nội dung văn bản…"
+            />
+          )}
+          {block.type === 'latex' && (
+            <textarea
+              rows={2}
+              className="w-full rounded-md border border-mist px-3 py-2 font-mono text-sm"
+              value={block.value}
+              onChange={(e) => updateBlock(index, { type: 'latex', value: e.target.value })}
+              placeholder="\\frac{a}{b}"
+            />
+          )}
+          {block.type === 'image' && (
+            <div className="text-sm text-slate-600">
+              <p className="font-mono text-xs">mediaId: {block.mediaId}</p>
+              {mediaUrls[block.mediaId] && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={mediaUrls[block.mediaId]}
+                  alt=""
+                  className="mt-2 max-h-40 rounded border border-mist object-contain"
+                />
+              )}
+            </div>
+          )}
+        </div>
+      ))}
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="rounded-md border border-mist px-3 py-1.5 text-sm hover:border-accent"
+          onClick={() => onChange([...blocks, { type: 'text', value: '' }])}
+        >
+          + Text
+        </button>
+        <button
+          type="button"
+          className="rounded-md border border-mist px-3 py-1.5 text-sm hover:border-accent"
+          onClick={() => onChange([...blocks, { type: 'latex', value: '' }])}
+        >
+          + LaTeX
+        </button>
+        <label className="cursor-pointer rounded-md border border-mist px-3 py-1.5 text-sm hover:border-accent">
+          + Ảnh
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0] ?? null;
+              e.target.value = '';
+              void addImage(file).catch((err: unknown) => {
+                alert(err instanceof Error ? err.message : 'Upload thất bại');
+              });
+            }}
+          />
+        </label>
+      </div>
+    </div>
+  );
+}

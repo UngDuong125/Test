@@ -132,7 +132,46 @@ Attempt cũ vẫn giữ nội dung/version cũ
 
 Không để việc chỉnh sửa question làm thay đổi lịch sử bài đã làm.
 
-## 10. API gợi ý
+## 10. Trình soạn đề tích hợp (Exam Composer)
+
+Màn hình tạo/sửa đề (`/exams/new`, `/exams/[id]/edit`) cho phép nhập metadata, thêm câu từ ngân hàng **hoặc tạo câu mới**, xem trước và publish — **không** nhúng/copy nội dung câu vào đề. Câu mới vẫn là `Question` (thường `status=draft`); đề chỉ lưu liên kết qua `exam_questions`, tương thích snapshot khi học sinh làm bài và tái sử dụng ở đề khác.
+
+### Luồng
+
+```text
+Tạo đề nháp
+  → nhập thông tin đề (autosave)
+  → thêm câu từ ngân hàng hoặc “Tạo câu hỏi mới”
+  → câu mới: Question draft + exam_questions (transaction)
+  → xem trước / chỉnh điểm / sắp xếp section
+  → validate → xuất bản (publish câu draft hợp lệ nếu xác nhận + publish đề)
+```
+
+### UI (MVP — 3 vùng)
+
+| Vùng | Nội dung |
+| :--- | :--- |
+| Cột trái | Thông tin đề: tên, môn, lớp, thời lượng, loại, tổng điểm, hướng dẫn |
+| Giữa | Section + danh sách câu trên đề: chỉnh điểm, bỏ khỏi đề, (phase 2: kéo-thả) |
+| Phải / modal | “Thêm từ ngân hàng” và “Tạo câu hỏi mới” — form tái sử dụng question editor |
+
+### Quy tắc lưu
+
+- **Tạo đề** → `Exam.status = draft`.
+- **Tạo câu trong composer** → `Question.status = draft`, rồi tạo `exam_questions` ngay (cùng transaction / rollback nếu gắn đề thất bại).
+- **Autosave** metadata đề (PATCH); UI hiển thị `Đã lưu` / `Đang lưu` / `Có lỗi`.
+- **Bỏ câu khỏi đề** → chỉ xóa liên kết `exam_questions`; không tự xóa `Question`. Có thể “xóa bản nháp chưa dùng” riêng (phase 2 hoặc action tùy chọn).
+- **Lưu vào ngân hàng** (`bankId` khi tạo): tùy chọn; mặc định theo bank đã chọn trong UI — tránh đầy kho bằng draft không mong muốn.
+- **Publish**: mọi câu gắn đề phải hợp lệ và `published`; `Σ ExamQuestion.points = Exam.totalPoints`. Có thể yêu cầu xác nhận `publishDraftQuestions` để publish các câu draft (do composer tạo) trước khi publish đề.
+
+### Roadmap
+
+| Đợt | Phạm vi |
+| :--- | :--- |
+| **MVP** | Đề nháp, tạo câu mới trong editor, thêm từ bank, autosave, preview, validate trước publish |
+| **Hoàn thiện** | Kéo-thả, section template, phím tắt, duplicate question, cảnh báo chưa vào bank, version/draft recovery |
+
+## 11. API gợi ý
 
 ```text
 POST   /api/exams
@@ -141,14 +180,31 @@ PATCH  /api/exams/:id
 DELETE /api/exams/:id
 
 POST   /api/exams/:id/questions
+POST   /api/exams/:id/questions/create
+PATCH  /api/exams/:id/questions/:questionId
 DELETE /api/exams/:id/questions/:questionId
 
+POST   /api/exams/:id/validate
 POST   /api/exams/:id/publish
 POST   /api/exams/:id/archive
 POST   /api/exams/:id/duplicate
 
 POST   /api/exams/generate
 ```
+
+### Composer endpoints
+
+| Method | Path | Mô tả |
+| :--- | :--- | :--- |
+| `POST` | `/api/exams/:id/questions` | Gắn câu có sẵn (từ bank / published / draft của mình) |
+| `POST` | `/api/exams/:id/questions/create` | Tạo `Question` draft (+ optional `bankId`) **và** gắn `exam_questions` trong một bước; rollback nếu gắn thất bại |
+| `PATCH` | `/api/exams/:id/questions/:questionId` | Đổi `sectionId`, `order`, `points` override |
+| `POST` | `/api/exams/:id/validate` | Trả toàn bộ lỗi/cảnh báo trước publish (không mutate) |
+| `POST` | `/api/exams/:id/publish` | Body tùy chọn `{ "publishDraftQuestions": true }` — publish các câu draft hợp lệ trên đề rồi publish đề |
+
+`GET /api/exams/:id` trả thêm `questionDetails` (payload `Question` đầy đủ của các câu đang gắn) để composer không phải N+1.
+
+API tạo/cập nhật question độc lập (`/api/questions`) vẫn giữ nguyên cho quản lý ngân hàng.
 
 ### `POST /api/exams/generate`
 
@@ -206,14 +262,17 @@ Sinh đề nháp (`status=draft`) từ Question Bank / filter — dùng cùng pi
 
 Teacher chỉnh section/điểm rồi `POST /api/exams/:id/publish` như đề thủ công. Generate **không** publish sẵn.
 
-## 11. Acceptance Criteria
+## 12. Acceptance Criteria
 
 - Tạo đề thủ công từ Question Bank.
+- Tạo đề trong composer: thêm câu mới (Question draft + link) mà không copy nội dung vào đề.
 - Sinh đề nháp qua `/api/exams/generate` theo filter/difficulty.
 - Sắp xếp câu hỏi theo section/order.
 - Thay đổi điểm từng câu.
+- Autosave metadata đề; reload không mất nội dung đã lưu.
 - Preview đề.
-- Validate tổng điểm.
-- Publish đề.
-- Không cho published exam chứa câu hỏi không hợp lệ.
+- Validate tổng điểm và trạng thái câu trước publish (`POST …/validate`).
+- Publish đề (và tùy chọn publish câu draft hợp lệ trên đề).
+- Không cho published exam chứa câu hỏi không hợp lệ / chưa published.
+- Bỏ câu khỏi đề không xóa Question.
 - Có thể duplicate đề.

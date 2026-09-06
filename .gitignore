@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# Env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Logs / OS
+logs/
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# IDE / tooling
+.idea/
+.vscode/*
+!.vscode/extensions.json
+.cursor/
+
+# Coverage / test
+coverage/
+.nyc_output/
+
+# Supabase local
+supabase/.branches
+supabase/.temp

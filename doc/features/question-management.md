@@ -192,5 +192,6 @@ POST   /api/questions/:id/duplicate
 - Có thể chọn loại câu hỏi.
 - Có thể khai báo đáp án và lời giải.
 - Có thể preview câu hỏi trước khi publish.
-- Câu hỏi draft không xuất hiện trong đề published.
+- Câu hỏi draft không xuất hiện trong đề published (có thể gắn vào đề **nháp** qua composer; publish đề sẽ publish hoặc từ chối các draft chưa hợp lệ).
 - Câu hỏi published có thể tái sử dụng trong nhiều bộ đề.
+- Tạo câu trong [Exam Composer](./exam-management.md#10-trình-soạn-đề-tích-hợp-exam-composer) vẫn tạo `Question` độc lập (không copy vào exam).

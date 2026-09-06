@@ -2,6 +2,7 @@
 
 Bộ tài liệu feature cho hệ thống tạo bài học, ngân hàng câu hỏi, bộ đề và phân phối đề cho học sinh THCS.
 
+- Setup chạy code: [../SETUP.md](../SETUP.md)
 - Tổng quan: [overview.md](./overview.md)
 - Cấu trúc: [structure.md](./structure.md)
 - Quy ước: [features/_cross-cutting.md](./features/_cross-cutting.md)
@@ -16,7 +17,7 @@ Bộ tài liệu feature cho hệ thống tạo bài học, ngân hàng câu h�
 2. [question-management.md](./features/question-management.md) — Quản lý câu hỏi
 3. [question-bank.md](./features/question-bank.md) — Ngân hàng câu hỏi
 4. [media-upload.md](./features/media-upload.md) — Upload ảnh Cloudinary
-5. [exam-management.md](./features/exam-management.md) — Quản lý bộ đề (kể cả generate)
+5. [exam-management.md](./features/exam-management.md) — Quản lý bộ đề (composer tích hợp, generate)
 6. [class-management.md](./features/class-management.md) — Quản lý lớp
 7. [exam-distribution.md](./features/exam-distribution.md) — Phân phối/giao đề
 8. [attempt-and-result.md](./features/attempt-and-result.md) — Làm bài và chấm tự động

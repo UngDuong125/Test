@@ -37,7 +37,7 @@ Tên workspace npm: `test-archive-workspace`.
 | Frontend | Next.js 14 (App Router), React 18, Tailwind CSS | `frontend/`, port **3000** |
 | Backend | Express 4 + TypeScript (`tsx` khi dev) | `backend/src/server.ts`, port **4000** |
 | Database | Supabase (PostgreSQL) | Schema: `supabase/schema.sql` |
-| Auth | Email + mật khẩu, session/token và RBAC | Cookie `HttpOnly`; tài khoản mới dùng mật khẩu tạm gửi qua email và bắt buộc đổi ở lần đầu |
+| Auth | Email **hoặc** username + mật khẩu, session/token và RBAC | Cookie `HttpOnly`; tài khoản mới dùng mật khẩu tạm gửi qua email và bắt buộc đổi ở lần đầu |
 | Ảnh câu hỏi | Cloudinary (upload ký từ backend) | `POST /api/upload` |
 | ORM | Không dùng | Truy vấn qua `@supabase/supabase-js` (service role) |
 

@@ -27,6 +27,7 @@ $$;
 CREATE TABLE public.users (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   email citext NOT NULL,
+  username citext NOT NULL,
   display_name text,
   password_hash text NOT NULL,
   role text NOT NULL DEFAULT 'student'
@@ -47,7 +48,11 @@ CREATE TABLE public.users (
   civic_exp integer NOT NULL DEFAULT 0 CHECK (civic_exp >= 0),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT users_email_unique UNIQUE (email)
+  CONSTRAINT users_email_unique UNIQUE (email),
+  CONSTRAINT users_username_unique UNIQUE (username),
+  CONSTRAINT users_username_format CHECK (
+    username ~ '^[a-zA-Z0-9][a-zA-Z0-9._-]{2,31}$'
+  )
 );
 
 CREATE TRIGGER users_set_updated_at

@@ -7,10 +7,13 @@ Quy ước API đích (naming, lỗi, idempotency): [features/_cross-cutting.md]
 | Path | File | Mô tả |
 | :--- | :--- | :--- |
 | `/` | `frontend/app/page.tsx` | Landing |
-| `/login` | `frontend/app/login/page.tsx` | Đăng nhập email + mật khẩu |
+| `/login` | `frontend/app/login/page.tsx` | Đăng nhập email hoặc username + mật khẩu |
 | `/dashboard` | `frontend/app/dashboard/page.tsx` | Danh sách assignment & làm bài |
 | `/attempts/[id]` | `frontend/app/attempts/[id]/page.tsx` | Làm bài theo snapshot |
 | `/results/[id]` | `frontend/app/results/[id]/page.tsx` | Kết quả attempt |
+| `/exams` | `frontend/app/exams/page.tsx` | Danh sách đề / generate |
+| `/exams/new` | `frontend/app/exams/new/page.tsx` | Tạo đề nháp → composer |
+| `/exams/[id]/edit` | `frontend/app/exams/[id]/edit/page.tsx` | Trình soạn đề tích hợp |
 | `/assignments` | `frontend/app/assignments/page.tsx` | Teacher giao đề |
 | `/classes` | `frontend/app/classes/page.tsx` | Quản lý lớp |
 | `/grading` | `frontend/app/grading/page.tsx` | Queue chấm thủ công |
@@ -27,7 +30,7 @@ CORS: `FRONTEND_ORIGIN` (mặc định `http://localhost:3000`). Giới hạn bo
 
 | Method | Endpoint | Body / Query | Kết quả |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/auth/login` | `{ email, password }` | Session cookie + user/role |
+| `POST` | `/api/auth/login` | `{ login, password }` (`login` = email hoặc username; cũng chấp nhận `email` / `username`) | Session cookie + user/role |
 | `POST` | `/api/auth/logout` | — | Hủy session |
 | `GET` | `/api/auth/me` | — | User hiện tại |
 | `POST` | `/api/auth/change-password` | `{ currentPassword, newPassword }` | Đổi mật khẩu |
@@ -51,7 +54,7 @@ Chi tiết: [authentication-and-authorization.md](./features/authentication-and-
 | :--- | :--- | :--- |
 | Questions | `POST/GET/PATCH /api/questions`, `…/publish` | [question-management.md](./features/question-management.md) |
 | Question banks | `POST/GET /api/question-banks`, search | [question-bank.md](./features/question-bank.md) |
-| Exams | `POST/GET/PATCH /api/exams`, `…/publish`, `…/generate` | [exam-management.md](./features/exam-management.md) |
+| Exams | `POST/GET/PATCH /api/exams`, `…/questions`, `…/questions/create`, `…/validate`, `…/publish`, `…/generate` | [exam-management.md](./features/exam-management.md) |
 | Assignments | `POST/GET/PATCH /api/exam-assignments`, `POST /api/exams/:id/assign` | [exam-distribution.md](./features/exam-distribution.md) |
 | Classes | `POST/GET/PATCH /api/classes`, `…/members` | [class-management.md](./features/class-management.md) |
 | Attempts | `POST /api/exam-assignments/:id/attempts`, `POST /api/attempts/:id/submit` | [attempt-and-result.md](./features/attempt-and-result.md) |

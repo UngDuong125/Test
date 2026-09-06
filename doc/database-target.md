@@ -11,8 +11,9 @@ Types TypeScript dự kiến: `backend/types/domain.ts`. Migration: [`supabase/m
 | Cột | Kiểu | Mô tả |
 | :--- | :--- | :--- |
 | `id` | uuid PK | |
-| `email` | citext unique | Đăng nhập |
-| `display_name` | text nullable | Tên hiển thị (leaderboard, UI); fallback UI → local-part của email |
+| `email` | citext unique | Định danh đăng nhập (khi identifier chứa `@`) |
+| `username` | citext unique | Tên đăng nhập (3–32 ký tự `[A-Za-z0-9._-]`); đăng nhập song song với email |
+| `display_name` | text nullable | Tên hiển thị (leaderboard, UI); fallback UI → `username` rồi local-part của email |
 | `password_hash` | text | |
 | `role` | text | `admin` \| `teacher` \| `student` |
 | `status` | text | `invited` \| `active` \| `locked` \| `disabled` |
@@ -163,7 +164,7 @@ Invite / reset password — giống [database.md](./database.md#bảng-auth_toke
 | :--- | :--- | :--- |
 | `exam_id` | uuid FK | |
 | `section_id` | uuid FK nullable | |
-| `question_id` | uuid FK | |
+| `question_id` | uuid FK | Liên kết tới `questions` — **không** nhúng nội dung câu vào đề (Exam Composer tạo Question rồi gắn qua bảng này) |
 | `order` | int | |
 | `points` | numeric | Override điểm trên đề |
 

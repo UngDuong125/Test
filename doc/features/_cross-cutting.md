@@ -57,6 +57,12 @@ subjects (TagKey: math, lang, …)
 - `ExamQuestion.points`: **override** trên từng đề; giá trị này dùng khi chấm attempt.
 - Khi publish exam: `Σ ExamQuestion.points` phải bằng `Exam.totalPoints`.
 
+## Exam Composer
+
+- Đề chỉ lưu **liên kết** (`exam_questions`), không nhúng nội dung câu.
+- Tạo câu trong composer → `Question` draft + link; tái sử dụng được ở đề khác; snapshot attempt vẫn dựa trên Question/version.
+- Chi tiết luồng, UI, API: [exam-management.md](./exam-management.md#10-trình-soạn-đề-tích-hợp-exam-composer).
+
 ## Question types — MVP vs mở rộng
 
 **MVP** (tạo + chấm + hiển thị): `multiple_choice`, `true_false`, `fill_blank`, `short_answer`, `essay`.

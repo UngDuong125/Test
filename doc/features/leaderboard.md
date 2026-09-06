@@ -53,7 +53,7 @@ Nếu một attempt được chấm lại, aggregate phải phản ánh đúng p
 }
 ```
 
-`displayName` map từ `users.display_name` (nullable); UI fallback → local-part của `email`. Không dùng `username` — đăng nhập bằng `email`. Schema: [database-target.md](../database-target.md).
+`displayName` map từ `users.display_name` (nullable); UI fallback → `username` rồi local-part của `email`. Đăng nhập bằng `email` **hoặc** `username`. Schema: [database-target.md](../database-target.md).
 
 Tên field API có thể dùng `camelCase`; frontend không nên tự cộng các cột để quyết định thứ hạng.
 

@@ -40,6 +40,7 @@ SET
 INSERT INTO public.users (
   id,
   email,
+  username,
   display_name,
   password_hash,
   role,
@@ -50,6 +51,7 @@ INSERT INTO public.users (
   (
     '00000000-0000-4000-8000-000000000001',
     'admin@testarchive.local',
+    'admin',
     'Admin',
     crypt('ChangeMe123!', gen_salt('bf')),
     'admin',
@@ -60,6 +62,7 @@ INSERT INTO public.users (
   (
     '00000000-0000-4000-8000-000000000002',
     'teacher@testarchive.local',
+    'teacher',
     'Giáo viên Toán',
     crypt('ChangeMe123!', gen_salt('bf')),
     'teacher',
@@ -70,6 +73,7 @@ INSERT INTO public.users (
   (
     '00000000-0000-4000-8000-000000000003',
     'student1@testarchive.local',
+    'student1',
     'Học sinh A',
     crypt('ChangeMe123!', gen_salt('bf')),
     'student',
@@ -80,6 +84,7 @@ INSERT INTO public.users (
   (
     '00000000-0000-4000-8000-000000000004',
     'student2@testarchive.local',
+    'student2',
     'Học sinh B',
     crypt('ChangeMe123!', gen_salt('bf')),
     'student',

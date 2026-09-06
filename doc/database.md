@@ -16,7 +16,8 @@ Không dùng Prisma / ORM — truy vấn qua Supabase JS client với **service 
 | Cột | Kiểu | Mô tả |
 | :--- | :--- | :--- |
 | `id` | uuid PK | `uuid_generate_v4()` |
-| `email` | citext unique | Định danh đăng nhập, unique không phân biệt hoa thường |
+| `email` | citext unique | Định danh đăng nhập qua email, unique không phân biệt hoa thường |
+| `username` | citext unique | *(Schema đích)* Tên đăng nhập song song — xem [database-target.md](./database-target.md) |
 | `display_name` | text nullable | *(Schema đích)* Tên hiển thị — xem [database-target.md](./database-target.md) |
 | `password_hash` | text | Hash mật khẩu, không lưu plaintext |
 | `role` | text | `'admin'` \| `'teacher'` \| `'student'` (mặc định `student`) |
