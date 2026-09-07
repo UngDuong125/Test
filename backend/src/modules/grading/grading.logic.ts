@@ -6,8 +6,14 @@ import type {
   StudentAnswerValue,
 } from '../../types/domain.js';
 
+/** Normalize short_answer / fill_blank text for comparison: lowercase, collapse spaces, strip trailing periods. */
 function normalizeText(value: string): string {
-  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/\.+$/, '')
+    .trim();
 }
 
 function arraysEqualAsSets(a: string[], b: string[]): boolean {
