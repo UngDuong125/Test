@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { getMedia } from '@/lib/api-client';
+import { normalizeLatexInput } from '@/lib/latex';
 import type { ContentBlock, QuestionOption } from '@/types/content';
 
 function Latex({ value, displayMode = true }: { value: string; displayMode?: boolean }) {
+  const source = normalizeLatexInput(value);
   try {
-    const html = katex.renderToString(value, { throwOnError: false, displayMode });
+    const html = katex.renderToString(source, { throwOnError: false, displayMode });
     if (displayMode) {
       return (
         <div

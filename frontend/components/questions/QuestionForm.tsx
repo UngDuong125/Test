@@ -25,6 +25,7 @@ import {
   normalizeOptionContent,
   optionHasContent,
 } from './QuestionPreview';
+import { normalizeLatexInput } from '@/lib/latex';
 
 export type FormOption = { id: string; content: ContentBlock[] };
 
@@ -132,10 +133,14 @@ function buildPayload(values: QuestionFormValues): {
   tags: string[];
   bankId?: string;
 } {
-  const content = values.content.filter((b) => {
-    if (b.type === 'image') return Boolean(b.mediaId);
-    return b.value.trim().length > 0;
-  });
+  const content = values.content
+    .filter((b) => {
+      if (b.type === 'image') return Boolean(b.mediaId);
+      return b.value.trim().length > 0;
+    })
+    .map((b) =>
+      b.type === 'latex' ? { ...b, value: normalizeLatexInput(b.value) } : b,
+    );
 
   let options: QuestionOption[] = [];
   if (isOptionBasedType(values.type)) {
@@ -145,7 +150,9 @@ function buildPayload(values: QuestionFormValues): {
         : values.options.filter((o) => optionHasContent(o.content));
     options = source.map((o, i) => ({
       id: o.id,
-      content: filterOptionBlocks(o.content),
+      content: filterOptionBlocks(o.content).map((b) =>
+        b.type === 'latex' ? { ...b, value: normalizeLatexInput(b.value) } : b,
+      ),
       order: i + 1,
     }));
   }

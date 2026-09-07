@@ -1,6 +1,9 @@
 'use client';
 
+import katex from 'katex';
+import 'katex/dist/katex.min.css';
 import { uploadMedia, ApiError } from '@/lib/api-client';
+import { normalizeLatexInput } from '@/lib/latex';
 import type { ContentBlock } from '@/types/content';
 
 type Props = {
@@ -11,6 +14,33 @@ type Props = {
   /** Giao diện gọn hơn (phương án trắc nghiệm). */
   compact?: boolean;
 };
+
+function LatexLivePreview({ value }: { value: string }) {
+  const source = normalizeLatexInput(value.trim());
+  if (!source) {
+    return <p className="text-xs text-slate-400">Xem trước LaTeX sẽ hiện ở đây…</p>;
+  }
+
+  try {
+    const html = katex.renderToString(source, { throwOnError: true, displayMode: false });
+    return (
+      <div className="space-y-1">
+        <div
+          className="overflow-x-auto text-ink"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+        {source !== value.trim() && (
+          <p className="text-[11px] text-amber-700">
+            Đã tự sửa escape thừa (ví dụ <code>\\frac</code> → <code>\frac</code>).
+          </p>
+        )}
+      </div>
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'LaTeX không hợp lệ';
+    return <p className="text-xs text-red-600">{message}</p>;
+  }
+}
 
 export function ContentBlocksEditor({
   blocks,
@@ -101,13 +131,30 @@ export function ContentBlocksEditor({
             />
           )}
           {block.type === 'latex' && (
-            <textarea
-              rows={compact ? 1 : 2}
-              className="w-full rounded-md border border-mist px-3 py-2 font-mono text-sm"
-              value={block.value}
-              onChange={(e) => updateBlock(index, { type: 'latex', value: e.target.value })}
-              placeholder="\\frac{a}{b}"
-            />
+            <div className="space-y-2">
+              <textarea
+                rows={compact ? 1 : 2}
+                className="w-full rounded-md border border-mist px-3 py-2 font-mono text-sm"
+                value={block.value}
+                onChange={(e) => updateBlock(index, { type: 'latex', value: e.target.value })}
+                onBlur={(e) => {
+                  const normalized = normalizeLatexInput(e.target.value);
+                  if (normalized !== e.target.value) {
+                    updateBlock(index, { type: 'latex', value: normalized });
+                  }
+                }}
+                placeholder={String.raw`\frac{a}{b}`}
+                spellCheck={false}
+              />
+              <p className="text-[11px] text-slate-500">
+                Một dấu backslash trước lệnh, ví dụ <code className="font-mono">{String.raw`\frac{a}{b}`}</code>,{' '}
+                <code className="font-mono">{String.raw`\sqrt{2}`}</code>. Không cần gõ{' '}
+                <code className="font-mono">\\</code>.
+              </p>
+              <div className="rounded-md border border-dashed border-mist bg-paper/60 px-3 py-2">
+                <LatexLivePreview value={block.value} />
+              </div>
+            </div>
           )}
           {block.type === 'image' && (
             <div className="text-sm text-slate-600">
