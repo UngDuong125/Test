@@ -55,6 +55,28 @@ async function assertMediaBlocksExist(content: ContentBlock[]) {
   }
 }
 
+function optionContentBlocks(options: QuestionOption[]): ContentBlock[] {
+  const blocks: ContentBlock[] = [];
+  for (const opt of options) {
+    const c = opt.content;
+    if (Array.isArray(c)) {
+      for (const block of c) {
+        if (block && typeof block === 'object' && 'type' in block) {
+          blocks.push(block as ContentBlock);
+        }
+      }
+    } else if (c && typeof c === 'object' && 'type' in c) {
+      blocks.push(c as ContentBlock);
+    }
+  }
+  return blocks;
+}
+
+async function assertQuestionMediaExist(content: ContentBlock[], options: QuestionOption[]) {
+  await assertMediaBlocksExist(content);
+  await assertMediaBlocksExist(optionContentBlocks(options));
+}
+
 async function assertTopicsValid(topicIds: string[], subjectId: TagKey) {
   if (!topicIds.length) return;
   const topics = await findTopicsByIds(topicIds);
@@ -92,7 +114,7 @@ export async function createQuestionForUser(
   }
 
   assertQuestionPayloadValid(input);
-  await assertMediaBlocksExist(input.content);
+  await assertQuestionMediaExist(input.content, input.options);
   await assertTopicsValid(input.topicIds, input.subjectId);
 
   if (input.bankId) {
@@ -193,7 +215,7 @@ export async function updateQuestionForUser(
   };
 
   assertQuestionPayloadValid(next);
-  await assertMediaBlocksExist(next.content);
+  await assertQuestionMediaExist(next.content, next.options);
   await assertTopicsValid(next.topicIds, next.subjectId);
 
   if (patch.options) {
@@ -243,7 +265,7 @@ export async function publishQuestion(actor: PublicUser, id: string): Promise<Qu
     throw new AppError(422, 'Only draft/review questions can be published', 'INVALID_STATUS');
   }
   assertQuestionPayloadValid(question);
-  await assertMediaBlocksExist(question.content);
+  await assertQuestionMediaExist(question.content, question.options);
   return updateQuestionRow(id, {
     status: 'published',
     version: question.version + (question.status === 'review' || question.status === 'draft' ? 1 : 0),

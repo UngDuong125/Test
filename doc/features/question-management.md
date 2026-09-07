@@ -78,6 +78,8 @@ Chi tiết: [media-upload.md](./media-upload.md).
 
 Điều này cho phép sử dụng chung cho Toán, Tiếng Anh và KHTN.
 
+Phương án trắc nghiệm (`options[].content`) dùng cùng mô hình block (text / LaTeX / ảnh), không chỉ plain text.
+
 ## 6. Answer
 
 Các dạng:

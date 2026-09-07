@@ -6,12 +6,20 @@ import 'katex/dist/katex.min.css';
 import { getMedia } from '@/lib/api-client';
 import type { ContentBlock, QuestionOption } from '@/types/content';
 
-function Latex({ value }: { value: string }) {
+function Latex({ value, displayMode = true }: { value: string; displayMode?: boolean }) {
   try {
-    const html = katex.renderToString(value, { throwOnError: false, displayMode: true });
+    const html = katex.renderToString(value, { throwOnError: false, displayMode });
+    if (displayMode) {
+      return (
+        <div
+          className="overflow-x-auto py-1 text-ink"
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
+      );
+    }
     return (
-      <div
-        className="overflow-x-auto py-1 text-ink"
+      <span
+        className="inline-block max-w-full overflow-x-auto align-middle text-ink"
         dangerouslySetInnerHTML={{ __html: html }}
       />
     );
@@ -20,7 +28,7 @@ function Latex({ value }: { value: string }) {
   }
 }
 
-function ImageBlock({ mediaId }: { mediaId: string }) {
+function ImageBlock({ mediaId, compact }: { mediaId: string; compact?: boolean }) {
   const [url, setUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -46,47 +54,90 @@ function ImageBlock({ mediaId }: { mediaId: string }) {
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={url} alt="" className="max-h-64 max-w-full rounded-md border border-mist object-contain" />
+    <img
+      src={url}
+      alt=""
+      className={`${compact ? 'max-h-24' : 'max-h-64'} max-w-full rounded-md border border-mist object-contain`}
+    />
   );
 }
 
-export function ContentBlocksView({ blocks }: { blocks: ContentBlock[] }) {
+export function ContentBlocksView({
+  blocks,
+  compact = false,
+}: {
+  blocks: ContentBlock[];
+  /** Inline LaTeX + tighter spacing (dùng cho phương án). */
+  compact?: boolean;
+}) {
   if (!blocks.length) {
     return <p className="text-sm text-slate-500">(Không có nội dung)</p>;
   }
   return (
-    <div className="space-y-2">
+    <div className={compact ? 'space-y-1' : 'space-y-2'}>
       {blocks.map((block, i) => {
         if (block.type === 'text') {
           return (
-            <p key={i} className="whitespace-pre-wrap text-ink">
+            <p
+              key={i}
+              className={`whitespace-pre-wrap text-ink ${compact ? 'text-sm' : ''}`}
+            >
               {block.value}
             </p>
           );
         }
         if (block.type === 'latex') {
-          return <Latex key={i} value={block.value} />;
+          return <Latex key={i} value={block.value} displayMode={!compact} />;
         }
-        return <ImageBlock key={i} mediaId={block.mediaId} />;
+        return <ImageBlock key={i} mediaId={block.mediaId} compact={compact} />;
       })}
     </div>
   );
 }
 
+/** Chuẩn hóa content phương án (single block / mảng / legacy) → ContentBlock[]. */
+export function normalizeOptionContent(
+  content: QuestionOption['content'] | ContentBlock[],
+): ContentBlock[] {
+  if (Array.isArray(content)) {
+    return content.length > 0 ? content : [{ type: 'text', value: '' }];
+  }
+  if (content && typeof content === 'object' && 'type' in content) {
+    return [content as ContentBlock];
+  }
+  const value = String((content as { value?: string })?.value ?? '');
+  return [{ type: 'text', value }];
+}
+
+export function optionHasContent(blocks: ContentBlock[]): boolean {
+  return blocks.some((b) => {
+    if (b.type === 'image') return Boolean(b.mediaId);
+    return b.value.trim().length > 0;
+  });
+}
+
+export function filterOptionBlocks(blocks: ContentBlock[]): ContentBlock[] {
+  return blocks.filter((b) => {
+    if (b.type === 'image') return Boolean(b.mediaId);
+    return b.value.trim().length > 0;
+  });
+}
+
 export function optionText(opt: QuestionOption): string {
-  const c = opt.content;
-  if (Array.isArray(c)) {
-    const first = c[0];
-    if (first && first.type === 'text') return first.value;
-    if (first && first.type === 'latex') return first.value;
-    return '(rich)';
-  }
-  if (c && typeof c === 'object' && 'type' in c) {
-    const block = c as ContentBlock;
+  const blocks = normalizeOptionContent(opt.content);
+  const parts = blocks.map((block) => {
     if (block.type === 'text' || block.type === 'latex') return block.value;
-    if (block.type === 'image') return '(hình ảnh)';
-  }
-  return String((c as { value?: string })?.value ?? '');
+    return '(hình ảnh)';
+  });
+  return parts.filter(Boolean).join(' ') || '';
+}
+
+export function OptionContentView({
+  content,
+}: {
+  content: QuestionOption['content'] | ContentBlock[];
+}) {
+  return <ContentBlocksView blocks={normalizeOptionContent(content)} compact />;
 }
 
 export function QuestionPreview({
@@ -117,7 +168,9 @@ export function QuestionPreview({
               className="flex gap-2 rounded-md border border-mist px-3 py-2 text-sm"
             >
               <span className="font-semibold text-accentDark">{opt.id}.</span>
-              <span className="min-w-0 flex-1">{optionText(opt)}</span>
+              <div className="min-w-0 flex-1">
+                <OptionContentView content={opt.content} />
+              </div>
             </li>
           ))}
         </ul>

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { AuthGate } from '@/components/auth/AuthGate';
-import { ContentBlocksView, optionText } from '@/components/questions/QuestionPreview';
+import { ContentBlocksView, OptionContentView } from '@/components/questions/QuestionPreview';
 import { ApiError, getAttemptResult } from '@/lib/api-client';
 import type { Attempt, AttemptAnswer, AttemptSnapshot } from '@/types/content';
 
@@ -133,10 +133,13 @@ function ResultBody() {
                   {q.answer.type === 'numeric' && <p>{q.answer.value}</p>}
                   {q.answer.type === 'manual' && <p>Chấm thủ công</p>}
                   {q.options.length > 0 && (
-                    <ul className="mt-2 space-y-1 text-slate-600">
+                    <ul className="mt-2 space-y-2 text-slate-600">
                       {q.options.map((opt) => (
-                        <li key={opt.id}>
-                          {opt.id}. {optionText(opt)}
+                        <li key={opt.id} className="flex gap-2">
+                          <span className="font-semibold text-accentDark">{opt.id}.</span>
+                          <div className="min-w-0 flex-1">
+                            <OptionContentView content={opt.content} />
+                          </div>
                         </li>
                       ))}
                     </ul>

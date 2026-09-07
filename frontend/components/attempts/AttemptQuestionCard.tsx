@@ -1,6 +1,6 @@
 'use client';
 
-import { ContentBlocksView, optionText } from '@/components/questions/QuestionPreview';
+import { ContentBlocksView, OptionContentView } from '@/components/questions/QuestionPreview';
 import type { SnapshotQuestion, StudentAnswerValue } from '@/types/content';
 
 export function AttemptQuestionCard({
@@ -71,7 +71,9 @@ export function AttemptQuestionCard({
                   />
                   <span className="min-w-0 flex-1">
                     <span className="mr-2 font-semibold text-accentDark">{opt.id}.</span>
-                    {optionText(opt)}
+                    <span className="inline-block align-top">
+                      <OptionContentView content={opt.content} />
+                    </span>
                   </span>
                 </label>
               </li>

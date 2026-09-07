@@ -8,9 +8,17 @@ type Props = {
   onChange: (blocks: ContentBlock[]) => void;
   mediaUrls?: Record<string, string>;
   onMediaUrl?: (mediaId: string, url: string) => void;
+  /** Giao diện gọn hơn (phương án trắc nghiệm). */
+  compact?: boolean;
 };
 
-export function ContentBlocksEditor({ blocks, onChange, mediaUrls = {}, onMediaUrl }: Props) {
+export function ContentBlocksEditor({
+  blocks,
+  onChange,
+  mediaUrls = {},
+  onMediaUrl,
+  compact = false,
+}: Props) {
   function updateBlock(index: number, next: ContentBlock) {
     const copy = [...blocks];
     copy[index] = next;
@@ -42,16 +50,24 @@ export function ContentBlocksEditor({ blocks, onChange, mediaUrls = {}, onMediaU
     }
   }
 
+  const pad = compact ? 'p-2' : 'p-3';
+  const btn = compact
+    ? 'rounded border border-mist px-1.5 py-0.5 text-[11px] hover:border-accent'
+    : 'rounded border border-mist px-2 py-0.5 hover:border-accent';
+  const addBtn = compact
+    ? 'rounded-md border border-mist px-2 py-1 text-xs hover:border-accent'
+    : 'rounded-md border border-mist px-3 py-1.5 text-sm hover:border-accent';
+
   return (
-    <div className="space-y-3">
+    <div className={compact ? 'space-y-2' : 'space-y-3'}>
       {blocks.map((block, index) => (
-        <div key={index} className="rounded-md border border-mist bg-white p-3">
+        <div key={index} className={`rounded-md border border-mist bg-white ${pad}`}>
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <span className="text-xs font-medium uppercase text-slate-500">{block.type}</span>
             <div className="flex gap-1 text-xs">
               <button
                 type="button"
-                className="rounded border border-mist px-2 py-0.5 hover:border-accent"
+                className={btn}
                 onClick={() => moveBlock(index, -1)}
                 disabled={index === 0}
               >
@@ -59,7 +75,7 @@ export function ContentBlocksEditor({ blocks, onChange, mediaUrls = {}, onMediaU
               </button>
               <button
                 type="button"
-                className="rounded border border-mist px-2 py-0.5 hover:border-accent"
+                className={btn}
                 onClick={() => moveBlock(index, 1)}
                 disabled={index === blocks.length - 1}
               >
@@ -67,7 +83,7 @@ export function ContentBlocksEditor({ blocks, onChange, mediaUrls = {}, onMediaU
               </button>
               <button
                 type="button"
-                className="rounded border border-mist px-2 py-0.5 text-red-600 hover:border-red-300"
+                className={`${btn} text-red-600 hover:border-red-300`}
                 onClick={() => removeBlock(index)}
               >
                 Xóa
@@ -77,7 +93,7 @@ export function ContentBlocksEditor({ blocks, onChange, mediaUrls = {}, onMediaU
 
           {block.type === 'text' && (
             <textarea
-              rows={3}
+              rows={compact ? 1 : 3}
               className="w-full rounded-md border border-mist px-3 py-2 text-sm"
               value={block.value}
               onChange={(e) => updateBlock(index, { type: 'text', value: e.target.value })}
@@ -86,7 +102,7 @@ export function ContentBlocksEditor({ blocks, onChange, mediaUrls = {}, onMediaU
           )}
           {block.type === 'latex' && (
             <textarea
-              rows={2}
+              rows={compact ? 1 : 2}
               className="w-full rounded-md border border-mist px-3 py-2 font-mono text-sm"
               value={block.value}
               onChange={(e) => updateBlock(index, { type: 'latex', value: e.target.value })}
@@ -101,7 +117,7 @@ export function ContentBlocksEditor({ blocks, onChange, mediaUrls = {}, onMediaU
                 <img
                   src={mediaUrls[block.mediaId]}
                   alt=""
-                  className="mt-2 max-h-40 rounded border border-mist object-contain"
+                  className={`mt-2 rounded border border-mist object-contain ${compact ? 'max-h-24' : 'max-h-40'}`}
                 />
               )}
             </div>
@@ -112,19 +128,19 @@ export function ContentBlocksEditor({ blocks, onChange, mediaUrls = {}, onMediaU
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          className="rounded-md border border-mist px-3 py-1.5 text-sm hover:border-accent"
+          className={addBtn}
           onClick={() => onChange([...blocks, { type: 'text', value: '' }])}
         >
           + Text
         </button>
         <button
           type="button"
-          className="rounded-md border border-mist px-3 py-1.5 text-sm hover:border-accent"
+          className={addBtn}
           onClick={() => onChange([...blocks, { type: 'latex', value: '' }])}
         >
           + LaTeX
         </button>
-        <label className="cursor-pointer rounded-md border border-mist px-3 py-1.5 text-sm hover:border-accent">
+        <label className={`cursor-pointer ${addBtn}`}>
           + Ảnh
           <input
             type="file"

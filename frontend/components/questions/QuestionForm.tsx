@@ -19,7 +19,14 @@ import type {
   QuestionType,
 } from '@/types/content';
 import { ContentBlocksEditor } from './ContentBlocksEditor';
-import { QuestionPreview, optionText } from './QuestionPreview';
+import {
+  QuestionPreview,
+  filterOptionBlocks,
+  normalizeOptionContent,
+  optionHasContent,
+} from './QuestionPreview';
+
+export type FormOption = { id: string; content: ContentBlock[] };
 
 export type QuestionFormValues = {
   type: QuestionType;
@@ -28,7 +35,7 @@ export type QuestionFormValues = {
   topicIds: string[];
   difficulty: Difficulty;
   content: ContentBlock[];
-  options: { id: string; text: string }[];
+  options: FormOption[];
   singleAnswer: string;
   multiAnswers: string[];
   textAnswers: string;
@@ -41,10 +48,30 @@ export type QuestionFormValues = {
   bankId?: string;
 };
 
+function textOption(id: string, text: string): FormOption {
+  return { id, content: [{ type: 'text', value: text }] };
+}
+
+function emptyOption(id: string): FormOption {
+  return { id, content: [{ type: 'text', value: '' }] };
+}
+
+function trueFalseOptions(existing?: FormOption[]): FormOption[] {
+  const a = existing?.[0];
+  const b = existing?.[1];
+  return [
+    a && optionHasContent(a.content) ? { id: 'A', content: a.content } : textOption('A', 'Đúng'),
+    b && optionHasContent(b.content) ? { id: 'B', content: b.content } : textOption('B', 'Sai'),
+  ];
+}
+
 export function questionToFormValues(q: Question): QuestionFormValues {
-  const options = q.options.map((o) => ({ id: o.id, text: optionText(o) }));
+  const options = q.options.map((o) => ({
+    id: o.id,
+    content: normalizeOptionContent(o.content),
+  }));
   while (options.length < 2) {
-    options.push({ id: OPTION_IDS[options.length]!, text: '' });
+    options.push(emptyOption(OPTION_IDS[options.length]!));
   }
 
   return {
@@ -54,13 +81,7 @@ export function questionToFormValues(q: Question): QuestionFormValues {
     topicIds: q.topicIds,
     difficulty: q.difficulty,
     content: q.content.length ? q.content : [{ type: 'text', value: '' }],
-    options:
-      q.type === 'true_false'
-        ? [
-            { id: 'A', text: options[0]?.text || 'Đúng' },
-            { id: 'B', text: options[1]?.text || 'Sai' },
-          ]
-        : options.slice(0, 6),
+    options: q.type === 'true_false' ? trueFalseOptions(options) : options.slice(0, 6),
     singleAnswer: q.answer.type === 'single' ? q.answer.value : 'A',
     multiAnswers: q.answer.type === 'multiple' ? q.answer.value : [],
     textAnswers: q.answer.type === 'text' ? q.answer.value.join('\n') : '',
@@ -84,12 +105,7 @@ export function emptyFormValues(): QuestionFormValues {
     topicIds: [],
     difficulty: 'medium',
     content: [{ type: 'text', value: '' }],
-    options: [
-      { id: 'A', text: '' },
-      { id: 'B', text: '' },
-      { id: 'C', text: '' },
-      { id: 'D', text: '' },
-    ],
+    options: [emptyOption('A'), emptyOption('B'), emptyOption('C'), emptyOption('D')],
     singleAnswer: 'A',
     multiAnswers: [],
     textAnswers: '',
@@ -125,14 +141,11 @@ function buildPayload(values: QuestionFormValues): {
   if (isOptionBasedType(values.type)) {
     const source =
       values.type === 'true_false'
-        ? [
-            { id: 'A', text: values.options[0]?.text || 'Đúng' },
-            { id: 'B', text: values.options[1]?.text || 'Sai' },
-          ]
-        : values.options.filter((o) => o.text.trim());
+        ? trueFalseOptions(values.options)
+        : values.options.filter((o) => optionHasContent(o.content));
     options = source.map((o, i) => ({
       id: o.id,
-      content: { type: 'text' as const, value: o.text.trim() },
+      content: filterOptionBlocks(o.content),
       order: i + 1,
     }));
   }
@@ -266,7 +279,10 @@ export function QuestionForm({
   }, [values.subjectId, values.grade]);
 
   useEffect(() => {
-    const imageIds = values.content
+    const imageIds = [
+      ...values.content,
+      ...values.options.flatMap((o) => o.content),
+    ]
       .filter((b): b is Extract<ContentBlock, { type: 'image' }> => b.type === 'image')
       .map((b) => b.mediaId)
       .filter((id) => !mediaUrls[id]);
@@ -294,27 +310,19 @@ export function QuestionForm({
     return () => {
       cancelled = true;
     };
-    // Only resolve missing media when content image ids change
+    // Only resolve missing media when content/option image ids change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values.content]);
+  }, [values.content, values.options]);
 
   function setType(type: QuestionType) {
     setValues((v) => {
       const next = { ...v, type };
       if (type === 'true_false') {
-        next.options = [
-          { id: 'A', text: v.options[0]?.text || 'Đúng' },
-          { id: 'B', text: v.options[1]?.text || 'Sai' },
-        ];
+        next.options = trueFalseOptions(v.options);
         next.singleAnswer = 'A';
       } else if (type === 'multiple_choice' || type === 'multiple_select') {
         if (v.options.length < 2) {
-          next.options = [
-            { id: 'A', text: '' },
-            { id: 'B', text: '' },
-            { id: 'C', text: '' },
-            { id: 'D', text: '' },
-          ];
+          next.options = [emptyOption('A'), emptyOption('B'), emptyOption('C'), emptyOption('D')];
         }
       }
       return next;
@@ -337,10 +345,7 @@ export function QuestionForm({
     next.type = values.type;
     next.difficulty = values.difficulty;
     if (next.type === 'true_false') {
-      next.options = [
-        { id: 'A', text: 'Đúng' },
-        { id: 'B', text: 'Sai' },
-      ];
+      next.options = trueFalseOptions();
     }
     setValues(next);
     setShowPreview(false);
@@ -359,6 +364,9 @@ export function QuestionForm({
       const payload = buildPayload(values);
       if (!payload.content.length) {
         throw new Error('Cần ít nhất một khối nội dung (text/LaTeX/ảnh)');
+      }
+      if (isOptionBasedType(values.type) && payload.options.length < 2) {
+        throw new Error('Cần ít nhất 2 phương án có nội dung');
       }
       await handler(payload);
       if (mode === 'secondary') {
@@ -524,22 +532,28 @@ export function QuestionForm({
 
       {isOptionBasedType(values.type) && (
         <div className="space-y-3 rounded-xl border border-mist bg-white/90 p-5 shadow-sm">
-          <h3 className="font-semibold text-ink">Phương án</h3>
-          {values.options.map((opt, index) => (
-            <label key={opt.id} className="block text-sm">
-              Option {opt.id}
-              <input
-                className="mt-1 w-full rounded-md border border-mist px-3 py-2"
-                value={opt.text}
-                required={index < 2}
-                onChange={(e) => {
+          <div>
+            <h3 className="font-semibold text-ink">Phương án</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Mỗi phương án hỗ trợ text / LaTeX / ảnh (giống nội dung câu hỏi).
+            </p>
+          </div>
+          {values.options.map((opt) => (
+            <div key={opt.id} className="space-y-2 rounded-lg border border-mist/80 bg-paper/40 p-3">
+              <p className="text-sm font-medium text-ink">Option {opt.id}</p>
+              <ContentBlocksEditor
+                compact
+                blocks={opt.content}
+                onChange={(content) => {
                   const options = values.options.map((o) =>
-                    o.id === opt.id ? { ...o, text: e.target.value } : o,
+                    o.id === opt.id ? { ...o, content } : o,
                   );
                   setValues({ ...values, options });
                 }}
+                mediaUrls={mediaUrls}
+                onMediaUrl={(id, url) => setMediaUrls((m) => ({ ...m, [id]: url }))}
               />
-            </label>
+            </div>
           ))}
           {values.type !== 'true_false' && values.options.length < 6 && (
             <button
@@ -550,7 +564,7 @@ export function QuestionForm({
                 if (!id) return;
                 setValues({
                   ...values,
-                  options: [...values.options, { id, text: '' }],
+                  options: [...values.options, emptyOption(id)],
                 });
               }}
             >
@@ -562,7 +576,7 @@ export function QuestionForm({
             <fieldset className="space-y-1 text-sm">
               <legend className="font-medium">Đáp án đúng (nhiều)</legend>
               {values.options
-                .filter((o) => o.text.trim())
+                .filter((o) => optionHasContent(o.content))
                 .map((o) => (
                   <label key={o.id} className="flex items-center gap-2">
                     <input
@@ -588,7 +602,9 @@ export function QuestionForm({
                 onChange={(e) => setValues({ ...values, singleAnswer: e.target.value })}
               >
                 {values.options
-                  .filter((o) => o.text.trim() || values.type === 'true_false')
+                  .filter(
+                    (o) => optionHasContent(o.content) || values.type === 'true_false',
+                  )
                   .map((o) => (
                     <option key={o.id} value={o.id}>
                       {o.id}
