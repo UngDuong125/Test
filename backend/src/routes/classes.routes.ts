@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
+import * as analyticsService from '../modules/analytics/analytics.service.js';
 import * as classesService from '../modules/classes/classes.service.js';
+import { analyticsWindowSchema } from '../validators/leaderboard.validators.js';
 import {
   addMembersSchema,
   createClassSchema,
@@ -97,3 +99,13 @@ classesRouter.delete(
     }
   },
 );
+
+classesRouter.get('/:id/analytics', requireRole('admin', 'teacher'), async (req, res, next) => {
+  try {
+    const query = analyticsWindowSchema.parse(req.query);
+    const stats = await analyticsService.getClassAnalytics(req.auth!.user, req.params.id, query);
+    res.json(stats);
+  } catch (err) {
+    next(err);
+  }
+});

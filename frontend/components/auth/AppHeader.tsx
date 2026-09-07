@@ -18,6 +18,9 @@ export function AppHeader() {
               <Link href="/dashboard" className="hover:text-accentDark">
                 Dashboard
               </Link>
+              <Link href="/leaderboard" className="hover:text-accentDark">
+                XH
+              </Link>
               {(user.role === 'admin' || user.role === 'teacher') && (
                 <>
                   <Link href="/questions" className="hover:text-accentDark">
@@ -34,6 +37,9 @@ export function AppHeader() {
                   </Link>
                   <Link href="/assignments" className="hover:text-accentDark">
                     Giao
+                  </Link>
+                  <Link href="/grading" className="hover:text-accentDark">
+                    Chấm
                   </Link>
                 </>
               )}

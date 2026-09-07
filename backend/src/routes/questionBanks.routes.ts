@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
+import * as analyticsService from '../modules/analytics/analytics.service.js';
 import * as banksService from '../modules/question-banks/questionBanks.service.js';
+import { analyticsWindowSchema } from '../validators/leaderboard.validators.js';
 import {
   bankAddQuestionsSchema,
   bankRandomSchema,
@@ -107,6 +109,20 @@ questionBanksRouter.post('/:id/random', async (req, res, next) => {
     const body = bankRandomSchema.parse(req.body);
     const result = await banksService.randomFromBank(req.auth!.user, req.params.id, body);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+questionBanksRouter.get('/:id/stats', async (req, res, next) => {
+  try {
+    const query = analyticsWindowSchema.parse(req.query);
+    const stats = await analyticsService.getQuestionBankStats(
+      req.auth!.user,
+      req.params.id,
+      query,
+    );
+    res.json(stats);
   } catch (err) {
     next(err);
   }

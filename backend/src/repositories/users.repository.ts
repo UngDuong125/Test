@@ -206,3 +206,38 @@ export async function listUsers(): Promise<User[]> {
   if (error) throw error;
   return ((data ?? []) as UserRow[]).map(mapUser);
 }
+
+const EXP_COLUMN_BY_SUBJECT: Record<string, string> = {
+  math: 'math_exp',
+  lang: 'lang_exp',
+  flang: 'flang_exp',
+  sci: 'sci_exp',
+  hist_geo: 'hist_geo_exp',
+  civic: 'civic_exp',
+};
+
+/** Adjust subject EXP projection by delta (can be negative for regrade). Clamps at 0. */
+export async function adjustSubjectExp(
+  userId: string,
+  subjectId: string,
+  delta: number,
+): Promise<void> {
+  if (delta === 0) return;
+  const column = EXP_COLUMN_BY_SUBJECT[subjectId];
+  if (!column) throw new Error(`Unknown subject for EXP: ${subjectId}`);
+
+  const { data, error } = await getDb()
+    .from('users')
+    .select(column)
+    .eq('id', userId)
+    .single();
+  if (error) throw error;
+
+  const current = Number((data as unknown as Record<string, number | string>)[column] ?? 0);
+  const next = Math.max(0, current + delta);
+  const { error: updateError } = await getDb()
+    .from('users')
+    .update({ [column]: next })
+    .eq('id', userId);
+  if (updateError) throw updateError;
+}

@@ -1,7 +1,9 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
+import * as analyticsService from '../modules/analytics/analytics.service.js';
 import * as questionsService from '../modules/questions/questions.service.js';
+import { analyticsWindowSchema } from '../validators/leaderboard.validators.js';
 import {
   createQuestionSchema,
   listQuestionsQuerySchema,
@@ -104,6 +106,20 @@ questionsRouter.post('/:id/duplicate', async (req, res, next) => {
   try {
     const question = await questionsService.duplicateQuestion(req.auth!.user, req.params.id);
     res.status(201).json({ question });
+  } catch (err) {
+    next(err);
+  }
+});
+
+questionsRouter.get('/:id/stats', async (req, res, next) => {
+  try {
+    const query = analyticsWindowSchema.parse(req.query);
+    const stats = await analyticsService.getQuestionStats(
+      req.auth!.user,
+      req.params.id,
+      query,
+    );
+    res.json(stats);
   } catch (err) {
     next(err);
   }

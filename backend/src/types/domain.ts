@@ -222,6 +222,97 @@ export interface MediaRecord {
   createdAt: string;
 }
 
+export type AttemptStatus =
+  | 'in_progress'
+  | 'submitted'
+  | 'needs_grading'
+  | 'graded'
+  | 'expired'
+  | 'cancelled';
+
+/** Student answer payload stored in attempt_answers.value */
+export type StudentAnswerValue = string | string[] | number | null;
+
+export interface Attempt {
+  id: string;
+  assignmentId: string;
+  userId: string;
+  examId: string;
+  examVersion: number;
+  status: AttemptStatus;
+  startedAt: string;
+  submittedAt: string | null;
+  expiresAt: string | null;
+  score: number | null;
+  maxScore: number;
+  percentage: number | null;
+}
+
+export interface AttemptAnswer {
+  id: string;
+  attemptId: string;
+  questionId: string;
+  value: StudentAnswerValue;
+  isCorrect: boolean | null;
+  pointsEarned: number | null;
+  feedback: string | null;
+  answeredAt: string;
+}
+
+export interface SnapshotQuestion {
+  id: string;
+  type: QuestionType;
+  content: ContentBlock[];
+  options: QuestionOption[];
+  /** Present in DB snapshot; stripped for students before reveal */
+  answer?: QuestionAnswer;
+  explanation?: QuestionExplanation;
+  points: number;
+  version: number;
+  sectionId: string | null;
+  order: number;
+  requiresManualGrade?: boolean;
+}
+
+export interface AttemptSnapshotPayload {
+  exam: {
+    id: string;
+    title: string;
+    description: string;
+    subjectId: TagKey;
+    grade: number;
+    type: ExamType;
+    duration: number;
+    totalPoints: number;
+    instructions: string;
+    settings: ExamSettings;
+    version: number;
+  };
+  sections: ExamSection[];
+  questions: SnapshotQuestion[];
+  effectiveSettings: ExamSettings;
+}
+
+export interface GradingRecord {
+  id: string;
+  attemptId: string;
+  gradedBy: string;
+  gradedAt: string;
+  notes: string | null;
+}
+
+export interface ExpLedgerEntry {
+  id: string;
+  attemptId: string;
+  userId: string;
+  subjectId: TagKey;
+  expEarned: number;
+  examType: ExamType | null;
+  idempotencyKey: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const USER_ROLES: UserRole[] = ['admin', 'teacher', 'student'];
 export const USER_STATUSES: UserStatus[] = ['invited', 'active', 'locked', 'disabled'];
 
@@ -261,9 +352,27 @@ export const ASSIGNMENT_STATUSES: AssignmentStatus[] = [
   'cancelled',
 ];
 
+export const ATTEMPT_STATUSES: AttemptStatus[] = [
+  'in_progress',
+  'submitted',
+  'needs_grading',
+  'graded',
+  'expired',
+  'cancelled',
+];
+
 export const DEFAULT_EXAM_SETTINGS: ExamSettings = {
   shuffleQuestions: false,
   shuffleOptions: true,
   showResult: true,
   showExplanation: true,
+};
+
+export const SUBJECT_EXP_COLUMNS: Record<TagKey, string> = {
+  math: 'math_exp',
+  lang: 'lang_exp',
+  flang: 'flang_exp',
+  sci: 'sci_exp',
+  hist_geo: 'hist_geo_exp',
+  civic: 'civic_exp',
 };

@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
+import * as analyticsService from '../modules/analytics/analytics.service.js';
+import * as attemptsService from '../modules/attempts/attempts.service.js';
 import * as examsService from '../modules/exams/exams.service.js';
 import {
   assignExamHandler,
   listExamAssignmentsHandler,
 } from './assignments.routes.js';
+import { analyticsWindowSchema } from '../validators/leaderboard.validators.js';
 import {
   addExamQuestionsSchema,
   createExamQuestionSchema,
@@ -215,3 +218,26 @@ examsRouter.post('/:id/duplicate', async (req, res, next) => {
 
 examsRouter.post('/:id/assign', assignExamHandler);
 examsRouter.get('/:id/assignments', listExamAssignmentsHandler);
+
+examsRouter.get('/:id/results', async (req, res, next) => {
+  try {
+    const result = await attemptsService.listExamResults(req.auth!.user, req.params.id);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+examsRouter.get('/:id/analytics', async (req, res, next) => {
+  try {
+    const query = analyticsWindowSchema.parse(req.query);
+    const stats = await analyticsService.getExamAnalytics(
+      req.auth!.user,
+      req.params.id,
+      query,
+    );
+    res.json(stats);
+  } catch (err) {
+    next(err);
+  }
+});

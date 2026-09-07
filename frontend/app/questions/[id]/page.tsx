@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { AuthGate } from '@/components/auth/AuthGate';
+import { StatsPanel } from '@/components/analytics/StatsPanel';
 import { QuestionForm } from '@/components/questions/QuestionForm';
 import { QuestionLifecycleActions } from '@/components/questions/QuestionLifecycleActions';
 import { QuestionPreview } from '@/components/questions/QuestionPreview';
 import { STATUS_LABELS } from '@/constants/questions';
-import { ApiError, getQuestion, updateQuestion } from '@/lib/api-client';
+import { ApiError, getQuestion, getQuestionStats, updateQuestion } from '@/lib/api-client';
 import type { Question } from '@/types/content';
 
 function QuestionDetailBody() {
@@ -19,6 +20,13 @@ function QuestionDetailBody() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const [stats, setStats] = useState<{
+    usageCount: number;
+    correctRate: number | null;
+    averagePointsEarned: number | null;
+    averageTimeSeconds: number | null;
+    difficultyObserved: string | null;
+  } | null>(null);
 
   async function load() {
     setLoading(true);
@@ -26,6 +34,12 @@ function QuestionDetailBody() {
     try {
       const res = await getQuestion(id);
       setQuestion(res.question);
+      try {
+        const s = await getQuestionStats(id);
+        setStats(s);
+      } catch {
+        setStats(null);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Không tải được câu hỏi');
       setQuestion(null);
@@ -88,6 +102,34 @@ function QuestionDetailBody() {
           setEditing(false);
         }}
       />
+
+      {stats && (
+        <StatsPanel
+          title="Thống kê sử dụng"
+          items={[
+            { label: 'Lượt dùng', value: stats.usageCount },
+            {
+              label: 'Tỉ lệ đúng',
+              value:
+                stats.correctRate != null
+                  ? `${Math.round(stats.correctRate * 100)}%`
+                  : null,
+            },
+            {
+              label: 'Điểm TB',
+              value:
+                stats.averagePointsEarned != null
+                  ? Math.round(stats.averagePointsEarned * 100) / 100
+                  : null,
+            },
+            {
+              label: 'Thời gian TB (s)',
+              value: stats.averageTimeSeconds,
+            },
+            { label: 'Độ khó quan sát', value: stats.difficultyObserved },
+          ]}
+        />
+      )}
 
       <div className="flex flex-wrap gap-2">
         {canEdit && !editing && (

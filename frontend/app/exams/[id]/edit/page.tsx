@@ -4,8 +4,9 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { AuthGate } from '@/components/auth/AuthGate';
+import { StatsPanel } from '@/components/analytics/StatsPanel';
 import { ExamComposer } from '@/components/exams/ExamComposer';
-import { ApiError, getExam } from '@/lib/api-client';
+import { ApiError, getExam, getExamAnalytics } from '@/lib/api-client';
 import type { Exam, ExamQuestion, ExamSection, Question } from '@/types/content';
 
 function EditExamBody() {
@@ -13,6 +14,14 @@ function EditExamBody() {
   const id = String(params.id ?? '');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [analytics, setAnalytics] = useState<{
+    attemptCount: number;
+    gradedCount: number;
+    needsGradingCount: number;
+    averageScore: number | null;
+    averagePercentage: number | null;
+    completionRate: number | null;
+  } | null>(null);
   const [data, setData] = useState<{
     exam: Exam;
     sections: ExamSection[];
@@ -42,6 +51,15 @@ function EditExamBody() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
+    void getExamAnalytics(id)
+      .then((a) => {
+        if (!cancelled) setAnalytics(a);
+      })
+      .catch(() => {
+        if (!cancelled) setAnalytics(null);
+      });
+
     return () => {
       cancelled = true;
     };
@@ -63,12 +81,39 @@ function EditExamBody() {
   }
 
   return (
-    <ExamComposer
-      initialExam={data.exam}
-      initialSections={data.sections}
-      initialQuestions={data.questions}
-      initialQuestionDetails={data.questionDetails}
-    />
+    <div className="space-y-4">
+      {analytics && (
+        <StatsPanel
+          title="Thống kê đề"
+          items={[
+            { label: 'Lượt làm', value: analytics.attemptCount },
+            { label: 'Đã chấm', value: analytics.gradedCount },
+            { label: 'Chờ chấm', value: analytics.needsGradingCount },
+            { label: 'Điểm TB', value: analytics.averageScore },
+            {
+              label: '% TB',
+              value:
+                analytics.averagePercentage != null
+                  ? `${analytics.averagePercentage}%`
+                  : null,
+            },
+            {
+              label: 'Hoàn thành',
+              value:
+                analytics.completionRate != null
+                  ? `${Math.round(analytics.completionRate * 100)}%`
+                  : null,
+            },
+          ]}
+        />
+      )}
+      <ExamComposer
+        initialExam={data.exam}
+        initialSections={data.sections}
+        initialQuestions={data.questions}
+        initialQuestionDetails={data.questionDetails}
+      />
+    </div>
   );
 }
 

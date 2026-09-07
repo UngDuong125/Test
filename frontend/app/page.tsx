@@ -34,12 +34,11 @@ export default function HomePage() {
         aria-hidden
       >
         <div className="space-y-3 text-sm text-slate-600">
-          <p className="font-semibold text-ink">Đã có — bước 1–4</p>
+          <p className="font-semibold text-ink">Đã có — bước 1–6</p>
           <ul className="list-disc space-y-1 pl-5">
-            <li>Auth session + RBAC</li>
-            <li>Câu hỏi, ngân hàng, đề</li>
-            <li>Lớp học & giao đề (ExamAssignment)</li>
-            <li>Upload ảnh (Cloudinary / local fallback)</li>
+            <li>Auth, câu hỏi, đề, giao đề</li>
+            <li>Làm bài · chấm · kết quả · EXP</li>
+            <li>Leaderboard theo kỳ + analytics</li>
           </ul>
         </div>
       </div>

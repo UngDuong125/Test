@@ -3,10 +3,12 @@
 import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AuthGate } from '@/components/auth/AuthGate';
+import { StatsPanel } from '@/components/analytics/StatsPanel';
 import {
   ApiError,
   addClassMembers,
   createClass,
+  getClassAnalytics,
   listClassMembers,
   listClasses,
   removeClassMember,
@@ -21,6 +23,14 @@ function ClassesBody() {
   const [members, setMembers] = useState<ClassMember[]>([]);
   const [form, setForm] = useState({ name: '', grade: 7 });
   const [emails, setEmails] = useState('');
+  const [analytics, setAnalytics] = useState<{
+    assignedCount: number;
+    completedCount: number;
+    attemptCount: number;
+    gradedCount: number;
+    averagePercentage: number | null;
+    expTotal: number;
+  } | null>(null);
 
   async function refresh() {
     setLoading(true);
@@ -43,8 +53,12 @@ function ClassesBody() {
     setSelectedId(id);
     setError(null);
     try {
-      const res = await listClassMembers(id);
-      setMembers(res.members);
+      const [mem, stats] = await Promise.all([
+        listClassMembers(id),
+        getClassAnalytics(id).catch(() => null),
+      ]);
+      setMembers(mem.members);
+      setAnalytics(stats);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Không tải thành viên');
     }
@@ -184,6 +198,26 @@ function ClassesBody() {
                   Giao đề →
                 </Link>
               </div>
+
+              {analytics && (
+                <StatsPanel
+                  title="Thống kê lớp"
+                  items={[
+                    { label: 'Đã giao (HS)', value: analytics.assignedCount },
+                    { label: 'Đã làm', value: analytics.completedCount },
+                    { label: 'Lượt attempt', value: analytics.attemptCount },
+                    { label: 'Đã chấm', value: analytics.gradedCount },
+                    {
+                      label: '% TB',
+                      value:
+                        analytics.averagePercentage != null
+                          ? `${analytics.averagePercentage}%`
+                          : null,
+                    },
+                    { label: 'EXP lớp', value: analytics.expTotal },
+                  ]}
+                />
+              )}
 
               <form onSubmit={onAddMembers} className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">

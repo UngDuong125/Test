@@ -1,5 +1,9 @@
 import type { PublicUser, TagKey } from '@/types/auth';
 import type {
+  Attempt,
+  AttemptAnswer,
+  AttemptDetail,
+  AttemptSnapshot,
   ClassMember,
   ClassRecord,
   Exam,
@@ -8,6 +12,7 @@ import type {
   ExamSection,
   Question,
   QuestionBank,
+  StudentAnswerValue,
   Subject,
   Topic,
 } from '@/types/content';
@@ -429,6 +434,189 @@ export function listMyAssignments(params?: Record<string, string | number | unde
   return api<{ items: ExamAssignment[]; total: number }>(
     `/api/students/me/assignments${suffix}`,
   );
+}
+
+// --- Attempts / Grading ---
+
+export function startAttempt(assignmentId: string) {
+  return api<AttemptDetail>(`/api/exam-assignments/${assignmentId}/attempts`, {
+    method: 'POST',
+  });
+}
+
+export function getAttempt(attemptId: string) {
+  return api<AttemptDetail>(`/api/attempts/${attemptId}`);
+}
+
+export function listAssignmentAttempts(assignmentId: string) {
+  return api<{ attempts: Attempt[]; remaining: number }>(
+    `/api/exam-assignments/${assignmentId}/attempts`,
+  );
+}
+
+export function saveAttemptAnswer(
+  attemptId: string,
+  body: { questionId: string; value: StudentAnswerValue },
+) {
+  return api<{ answer: AttemptAnswer }>(`/api/attempts/${attemptId}/answers`, {
+    method: 'PATCH',
+    body,
+  });
+}
+
+export function submitAttempt(attemptId: string) {
+  return api<{
+    attempt: Attempt;
+    score: number | null;
+    maxScore: number;
+    percentage: number | null;
+    status: string;
+    expEarned: number | null;
+    expSubject: string | null;
+  }>(`/api/attempts/${attemptId}/submit`, { method: 'POST' });
+}
+
+export function getAttemptResult(attemptId: string) {
+  return api<{
+    attempt: Attempt;
+    snapshot: AttemptSnapshot;
+    answers: AttemptAnswer[];
+    expEarned: number | null;
+    expSubject: string | null;
+    showResult: boolean;
+  }>(`/api/attempts/${attemptId}/result`);
+}
+
+export function listGradingQueue(params?: Record<string, string | number | undefined>) {
+  const qs = new URLSearchParams();
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== '') qs.set(k, String(v));
+    }
+  }
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return api<{
+    items: Array<Attempt & { examTitle?: string; subjectId?: string }>;
+    total: number;
+  }>(`/api/grading/queue${suffix}`);
+}
+
+export function getGradingDetail(attemptId: string) {
+  return api<AttemptDetail>(`/api/grading/${attemptId}`);
+}
+
+export function gradeAttempt(
+  attemptId: string,
+  body: {
+    answers: Array<{
+      questionId: string;
+      pointsEarned: number;
+      isCorrect?: boolean | null;
+      feedback?: string | null;
+    }>;
+    notes?: string;
+  },
+) {
+  return api<{
+    attemptId: string;
+    status: string;
+    score: number | null;
+    maxScore: number;
+    percentage: number | null;
+    expEarned: number | null;
+    expSubject: string | null;
+  }>(`/api/attempts/${attemptId}/grade`, { method: 'POST', body });
+}
+
+// --- Leaderboard / Analytics / EXP ---
+
+export function getLeaderboard(params?: Record<string, string | number | undefined>) {
+  const qs = new URLSearchParams();
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== '') qs.set(k, String(v));
+    }
+  }
+  const suffix = qs.toString() ? `?${qs}` : '';
+  return api<{
+    period: string;
+    periodId?: string;
+    from: string | null;
+    to: string | null;
+    subjectId: string | null;
+    entries: Array<{
+      rank: number;
+      userId: string;
+      displayName: string | null;
+      username: string;
+      email: string;
+      totalExp: number;
+      subjectExp: Record<string, number>;
+    }>;
+  }>(`/api/leaderboard${suffix}`);
+}
+
+export function listLeaderboardPeriods() {
+  return api<{
+    periods: Array<{ id: string; label: string; startsAt: string; endsAt: string }>;
+  }>('/api/leaderboard/periods');
+}
+
+export function getMyExp() {
+  return api<{
+    userId: string;
+    totalExp: number;
+    subjectExp: Record<string, number>;
+  }>('/api/students/me/exp');
+}
+
+export function getMyStats() {
+  return api<{
+    attemptCount: number;
+    gradedCount: number;
+    needsGradingCount: number;
+    averagePercentage: number | null;
+    expTotal: number;
+    subjectExp: Record<string, number>;
+  }>('/api/students/me/stats');
+}
+
+export function getQuestionStats(id: string) {
+  return api<{
+    questionId: string;
+    usageCount: number;
+    attemptCount: number;
+    correctRate: number | null;
+    averagePointsEarned: number | null;
+    averageTimeSeconds: number | null;
+    difficultyObserved: string | null;
+  }>(`/api/questions/${id}/stats`);
+}
+
+export function getExamAnalytics(id: string) {
+  return api<{
+    examId: string;
+    attemptCount: number;
+    gradedCount: number;
+    needsGradingCount: number;
+    averageScore: number | null;
+    averagePercentage: number | null;
+    completionRate: number | null;
+  }>(`/api/exams/${id}/analytics`);
+}
+
+export function getClassAnalytics(id: string, examId?: string) {
+  const qs = examId ? `?examId=${examId}` : '';
+  return api<{
+    classId: string;
+    examId: string | null;
+    assignedCount: number;
+    completedCount: number;
+    attemptCount: number;
+    gradedCount: number;
+    averagePercentage: number | null;
+    expTotal: number;
+  }>(`/api/classes/${id}/analytics${qs}`);
 }
 
 export async function uploadMedia(file: File) {

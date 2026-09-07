@@ -1,5 +1,9 @@
 import type {
   AssignmentStatus,
+  Attempt,
+  AttemptAnswer,
+  AttemptSnapshotPayload,
+  AttemptStatus,
   ClassRecord,
   ContentBlock,
   Difficulty,
@@ -10,6 +14,8 @@ import type {
   ExamSettings,
   ExamStatus,
   ExamType,
+  ExpLedgerEntry,
+  GradingRecord,
   MediaRecord,
   Question,
   QuestionAnswer,
@@ -18,6 +24,7 @@ import type {
   QuestionOption,
   QuestionStatus,
   QuestionType,
+  StudentAnswerValue,
   Subject,
   TagKey,
   Topic,
@@ -147,6 +154,57 @@ export interface MediaRow {
   byte_size: number;
   uploaded_by: string;
   created_at: string;
+}
+
+export interface AttemptRow {
+  id: string;
+  assignment_id: string;
+  user_id: string;
+  exam_id: string;
+  exam_version: number;
+  status: AttemptStatus;
+  started_at: string;
+  submitted_at: string | null;
+  expires_at: string | null;
+  score: number | string | null;
+  max_score: number | string;
+  percentage: number | string | null;
+}
+
+export interface AttemptAnswerRow {
+  id: string;
+  attempt_id: string;
+  question_id: string;
+  value: StudentAnswerValue;
+  is_correct: boolean | null;
+  points_earned: number | string | null;
+  feedback: string | null;
+  answered_at: string;
+}
+
+export interface AttemptSnapshotRow {
+  attempt_id: string;
+  payload: AttemptSnapshotPayload;
+}
+
+export interface GradingRecordRow {
+  id: string;
+  attempt_id: string;
+  graded_by: string;
+  graded_at: string;
+  notes: string | null;
+}
+
+export interface ExpLedgerRow {
+  id: string;
+  attempt_id: string;
+  user_id: string;
+  subject_id: TagKey;
+  exp_earned: number;
+  exam_type: ExamType | null;
+  idempotency_key: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 export function mapQuestion(
@@ -290,5 +348,59 @@ export function mapMedia(row: MediaRow): MediaRecord {
     byteSize: row.byte_size,
     uploadedBy: row.uploaded_by,
     createdAt: row.created_at,
+  };
+}
+
+export function mapAttempt(row: AttemptRow): Attempt {
+  return {
+    id: row.id,
+    assignmentId: row.assignment_id,
+    userId: row.user_id,
+    examId: row.exam_id,
+    examVersion: row.exam_version,
+    status: row.status,
+    startedAt: row.started_at,
+    submittedAt: row.submitted_at,
+    expiresAt: row.expires_at,
+    score: row.score == null ? null : Number(row.score),
+    maxScore: Number(row.max_score),
+    percentage: row.percentage == null ? null : Number(row.percentage),
+  };
+}
+
+export function mapAttemptAnswer(row: AttemptAnswerRow): AttemptAnswer {
+  return {
+    id: row.id,
+    attemptId: row.attempt_id,
+    questionId: row.question_id,
+    value: row.value ?? null,
+    isCorrect: row.is_correct,
+    pointsEarned: row.points_earned == null ? null : Number(row.points_earned),
+    feedback: row.feedback,
+    answeredAt: row.answered_at,
+  };
+}
+
+export function mapGradingRecord(row: GradingRecordRow): GradingRecord {
+  return {
+    id: row.id,
+    attemptId: row.attempt_id,
+    gradedBy: row.graded_by,
+    gradedAt: row.graded_at,
+    notes: row.notes,
+  };
+}
+
+export function mapExpLedger(row: ExpLedgerRow): ExpLedgerEntry {
+  return {
+    id: row.id,
+    attemptId: row.attempt_id,
+    userId: row.user_id,
+    subjectId: row.subject_id,
+    expEarned: row.exp_earned,
+    examType: row.exam_type,
+    idempotencyKey: row.idempotency_key,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
   };
 }

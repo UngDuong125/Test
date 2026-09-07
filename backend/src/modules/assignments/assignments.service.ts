@@ -27,7 +27,7 @@ function assertTeacherOrAdmin(actor: PublicUser) {
   }
 }
 
-/** Derive status from window + cancelled; attempt-based states filled in later steps. */
+/** Derive status from window + cancelled; in_progress/completed set by attempts module. */
 export function deriveAssignmentStatus(
   assignment: ExamAssignment,
   now = new Date(),

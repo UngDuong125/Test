@@ -6,9 +6,10 @@ import { listTopicsQuerySchema } from '../validators/question.validators.js';
 
 export const taxonomyRouter = Router();
 
-taxonomyRouter.use(requireAuth, requireRole('admin', 'teacher'));
-
-taxonomyRouter.get('/subjects', async (_req, res, next) => {
+// Auth only on matched routes — do NOT use router.use(requireRole) here.
+// This router is mounted at `/api`, so a blanket role gate would 403 student
+// requests like `/api/students/me/*` before they reach studentsRouter.
+taxonomyRouter.get('/subjects', requireAuth, requireRole('admin', 'teacher'), async (_req, res, next) => {
   try {
     const subjects = await listSubjects();
     res.json({ subjects });
@@ -17,7 +18,7 @@ taxonomyRouter.get('/subjects', async (_req, res, next) => {
   }
 });
 
-taxonomyRouter.get('/topics', async (req, res, next) => {
+taxonomyRouter.get('/topics', requireAuth, requireRole('admin', 'teacher'), async (req, res, next) => {
   try {
     const query = listTopicsQuerySchema.parse(req.query);
     const topics = await listTopics(query);

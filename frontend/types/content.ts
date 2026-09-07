@@ -165,3 +165,78 @@ export interface ExamAssignment {
   targetEmail?: string;
   targetUsername?: string;
 }
+
+export type AttemptStatus =
+  | 'in_progress'
+  | 'submitted'
+  | 'needs_grading'
+  | 'graded'
+  | 'expired'
+  | 'cancelled';
+
+export type StudentAnswerValue = string | string[] | number | null;
+
+export interface Attempt {
+  id: string;
+  assignmentId: string;
+  userId: string;
+  examId: string;
+  examVersion: number;
+  status: AttemptStatus;
+  startedAt: string;
+  submittedAt: string | null;
+  expiresAt: string | null;
+  score: number | null;
+  maxScore: number;
+  percentage: number | null;
+}
+
+export interface AttemptAnswer {
+  id: string;
+  attemptId: string;
+  questionId: string;
+  value: StudentAnswerValue;
+  isCorrect: boolean | null;
+  pointsEarned: number | null;
+  feedback: string | null;
+  answeredAt: string;
+}
+
+export interface SnapshotQuestion {
+  id: string;
+  type: QuestionType;
+  content: ContentBlock[];
+  options: QuestionOption[];
+  answer?: QuestionAnswer;
+  explanation?: { text?: string; steps?: string[] };
+  points: number;
+  version: number;
+  sectionId: string | null;
+  order: number;
+  requiresManualGrade?: boolean;
+}
+
+export interface AttemptSnapshot {
+  exam: {
+    id: string;
+    title: string;
+    description: string;
+    subjectId: TagKey;
+    grade: number;
+    type: ExamType;
+    duration: number;
+    totalPoints: number;
+    instructions: string;
+    settings: ExamSettings;
+    version: number;
+  };
+  sections: ExamSection[];
+  questions: SnapshotQuestion[];
+  effectiveSettings: ExamSettings;
+}
+
+export interface AttemptDetail {
+  attempt: Attempt;
+  snapshot: AttemptSnapshot;
+  answers: AttemptAnswer[];
+}

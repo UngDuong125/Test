@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
 import * as assignmentsService from '../modules/assignments/assignments.service.js';
+import * as attemptsService from '../modules/attempts/attempts.service.js';
 import {
   assignExamSchema,
   createAssignmentSchema,
@@ -86,6 +87,30 @@ assignmentsRouter.post(
     }
   },
 );
+
+assignmentsRouter.post('/:id/attempts', requireRole('student'), async (req, res, next) => {
+  try {
+    const result = await attemptsService.startAttemptForAssignment(
+      req.auth!.user,
+      req.params.id,
+    );
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+assignmentsRouter.get('/:id/attempts', async (req, res, next) => {
+  try {
+    const result = await attemptsService.listAssignmentAttemptsSummary(
+      req.auth!.user,
+      req.params.id,
+    );
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
 
 /** Nested on exams router as well — shared handler export */
 export async function assignExamHandler(req: import('express').Request, res: import('express').Response, next: import('express').NextFunction) {
