@@ -41,6 +41,9 @@ export function AppHeader() {
                   <Link href="/grading" className="hover:text-accentDark">
                     Chấm
                   </Link>
+                  <Link href="/results" className="hover:text-accentDark">
+                    Kết quả
+                  </Link>
                 </>
               )}
               {user.role === 'admin' && (

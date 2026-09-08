@@ -391,6 +391,10 @@ export function listExamAssignments(params?: Record<string, string | number | un
   return api<{ items: ExamAssignment[]; total: number }>(`/api/exam-assignments${suffix}`);
 }
 
+export function getAssignment(id: string) {
+  return api<{ assignment: ExamAssignment }>(`/api/exam-assignments/${id}`);
+}
+
 export function assignExam(
   examId: string,
   body: {
@@ -488,6 +492,14 @@ export function getAttemptResult(attemptId: string) {
     answerKeysLocked: boolean;
     remainingAttempts: number;
   }>(`/api/attempts/${attemptId}/result`);
+}
+
+export function listExamResults(examId: string) {
+  return api<{ items: Attempt[]; total: number }>(`/api/exams/${examId}/results`);
+}
+
+export function listStudentResults(studentId: string) {
+  return api<{ items: Attempt[]; total: number }>(`/api/students/${studentId}/results`);
 }
 
 export function listGradingQueue(params?: Record<string, string | number | undefined>) {

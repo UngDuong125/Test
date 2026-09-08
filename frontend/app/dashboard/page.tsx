@@ -191,6 +191,9 @@ function DashboardBody() {
             <Link href="/grading" className="text-accentDark hover:underline">
               Chấm bài →
             </Link>
+            <Link href="/results" className="text-accentDark hover:underline">
+              Kết quả HS →
+            </Link>
           </div>
           {user.role === 'admin' && (
             <p className="mt-4">

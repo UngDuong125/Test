@@ -82,6 +82,17 @@ function EditExamBody() {
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-4 sm:px-0">
+        <Link href="/exams" className="text-sm text-accentDark hover:underline">
+          ← Danh sách đề
+        </Link>
+        <Link
+          href={`/exams/${id}/results`}
+          className="rounded-md border border-mist px-3 py-1.5 text-sm hover:border-accent"
+        >
+          Kết quả & tiến độ
+        </Link>
+      </div>
       {analytics && (
         <StatsPanel
           title="Thống kê đề"

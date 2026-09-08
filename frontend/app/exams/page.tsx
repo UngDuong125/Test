@@ -150,17 +150,23 @@ function ExamsBody() {
         ) : (
           <ul className="space-y-2">
             {items.map((exam) => (
-              <li key={exam.id}>
-                <Link
-                  href={`/exams/${exam.id}/edit`}
-                  className="block rounded-xl border border-mist bg-white/90 px-4 py-3 hover:border-accent"
-                >
+              <li
+                key={exam.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-mist bg-white/90 px-4 py-3"
+              >
+                <Link href={`/exams/${exam.id}/edit`} className="min-w-0 flex-1 hover:opacity-90">
                   <p className="font-medium text-ink">{exam.title}</p>
                   <p className="text-xs text-slate-500">
                     {exam.subjectId} · {exam.type} ·{' '}
                     {exam.duration === 0 ? 'không giới hạn' : `${exam.duration}p`} ·{' '}
                     {exam.totalPoints}đ · {exam.status}
                   </p>
+                </Link>
+                <Link
+                  href={`/exams/${exam.id}/results`}
+                  className="shrink-0 text-sm text-accentDark hover:underline"
+                >
+                  Kết quả
                 </Link>
               </li>
             ))}

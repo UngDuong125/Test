@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { AuthGate } from '@/components/auth/AuthGate';
 import {
@@ -274,15 +275,23 @@ function AssignmentsBody() {
                     {new Date(a.deadline).toLocaleString()}
                   </p>
                 </div>
-                {a.status !== 'cancelled' && (
-                  <button
-                    type="button"
-                    onClick={() => void onCancel(a.id)}
-                    className="text-red-600 hover:underline"
+                <div className="flex flex-wrap items-center gap-3">
+                  <Link
+                    href={`/assignments/${a.id}/attempts`}
+                    className="text-accentDark hover:underline"
                   >
-                    Hủy
-                  </button>
-                )}
+                    Lượt làm
+                  </Link>
+                  {a.status !== 'cancelled' && (
+                    <button
+                      type="button"
+                      onClick={() => void onCancel(a.id)}
+                      className="text-red-600 hover:underline"
+                    >
+                      Hủy
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

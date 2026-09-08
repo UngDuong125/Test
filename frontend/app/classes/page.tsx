@@ -191,12 +191,14 @@ function ClassesBody() {
                   <p className="font-semibold text-ink">{selected.name}</p>
                   <p className="text-sm text-slate-500">Khối {selected.grade}</p>
                 </div>
-                <Link
-                  href={`/assignments?classId=${selected.id}`}
-                  className="text-sm text-accentDark hover:underline"
-                >
-                  Giao đề →
-                </Link>
+                <div className="flex shrink-0 flex-col items-end gap-2">
+                  <Link
+                    href={`/assignments?classId=${selected.id}`}
+                    className="text-sm text-accentDark hover:underline"
+                  >
+                    Giao đề →
+                  </Link>
+                </div>
               </div>
 
               {analytics && (
@@ -246,13 +248,21 @@ function ClassesBody() {
                       {m.displayName || m.username || m.email}{' '}
                       <span className="text-slate-400">{m.email}</span>
                     </span>
-                    <button
-                      type="button"
-                      onClick={() => void onRemove(m.userId)}
-                      className="text-red-600 hover:underline"
-                    >
-                      Xóa
-                    </button>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <Link
+                        href={`/students/${m.userId}/results`}
+                        className="text-accentDark hover:underline"
+                      >
+                        Lịch sử
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => void onRemove(m.userId)}
+                        className="text-red-600 hover:underline"
+                      >
+                        Xóa
+                      </button>
+                    </div>
                   </li>
                 ))}
                 {members.length === 0 && (
