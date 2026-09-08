@@ -627,7 +627,7 @@ export function ExamComposer({
           </label>
         </aside>
 
-        {/* Question list + optional preview / create editor */}
+        {/* Question list + optional preview */}
         <div className="space-y-4">
           <section className="rounded-xl border border-mist bg-white/90 p-4 shadow-sm">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -769,60 +769,6 @@ export function ExamComposer({
               )}
             </section>
           )}
-
-          {editable && rightTab === 'create' && (
-            <section
-              id="exam-question-editor"
-              ref={editorRef}
-              className="scroll-mt-24 rounded-xl border border-accent/30 bg-white p-4 shadow-sm ring-1 ring-accent/10"
-            >
-              <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-                <div>
-                  <h2 className="font-semibold text-ink">Soạn câu hỏi mới</h2>
-                  <p className="text-xs text-slate-500">
-                    Lưu thành Question draft và gắn vào đề ngay — không copy nội dung vào đề.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setRightTab('bank')}
-                  className="text-xs text-slate-500 hover:text-ink"
-                >
-                  Đóng
-                </button>
-              </div>
-
-              <QuestionForm
-                key={formNonce}
-                hideHeader
-                lockTaxonomy
-                defaultSubjectId={meta.subjectId}
-                defaultGrade={meta.grade}
-                submitLabel="Gắn vào đề"
-                secondarySubmitLabel="Gắn vào đề & tạo câu tiếp"
-                onCancel={() => setRightTab('bank')}
-                onAfterContinue={scrollToEditor}
-                footerExtra={bankFooter}
-                onSubmit={onCreateAndClose}
-                onSecondarySubmit={onCreateAndContinue}
-              />
-            </section>
-          )}
-
-          {editable && rightTab === 'bulk' && (
-            <section
-              id="exam-question-editor"
-              ref={editorRef}
-              className="scroll-mt-24 rounded-xl border border-accent/30 bg-white p-4 shadow-sm ring-1 ring-accent/10"
-            >
-              <BulkQuestionTextImport
-                onCreateOne={onBulkCreateOne}
-                footerExtra={bankFooter}
-                onClose={() => setRightTab('bank')}
-                onComplete={(count) => showFlash(`Đã tạo ${count} câu từ text và gắn vào đề`)}
-              />
-            </section>
-          )}
         </div>
 
         {/* Right: bank picker */}
@@ -833,7 +779,9 @@ export function ExamComposer({
               disabled={!editable}
               onClick={() => setRightTab('bank')}
               className={`flex-1 rounded-md px-2 py-1.5 ${
-                rightTab === 'bank' ? 'bg-white text-ink shadow-sm' : 'text-slate-500'
+                rightTab === 'bank' || rightTab === null
+                  ? 'bg-white text-ink shadow-sm'
+                  : 'text-slate-500'
               }`}
             >
               Ngân hàng
@@ -864,7 +812,7 @@ export function ExamComposer({
             <p className="text-sm text-slate-500">Đề đã khóa — không thêm/sửa cấu trúc.</p>
           )}
 
-          {editable && rightTab === 'bank' && (
+          {editable && (rightTab === 'bank' || rightTab === null) && (
             <div className="space-y-2">
               <select
                 className="w-full rounded-md border border-mist px-2 py-1.5 text-sm"
@@ -916,7 +864,7 @@ export function ExamComposer({
           {editable && rightTab === 'create' && (
             <div className="space-y-2 text-sm text-slate-600">
               <p>
-                Form soạn câu nằm ở cột giữa. Sau khi gắn, dùng{' '}
+                Form soạn câu nằm riêng phía dưới. Sau khi gắn, dùng{' '}
                 <strong className="font-medium text-ink">Gắn vào đề & tạo câu tiếp</strong> để giữ
                 nhịp soạn liên tục.
               </p>
@@ -933,10 +881,10 @@ export function ExamComposer({
           {editable && rightTab === 'bulk' && (
             <div className="space-y-2 text-sm text-slate-600">
               <p>
-                Dán nhiều câu theo field (<code className="text-xs">TYPE</code>,{' '}
-                <code className="text-xs">Q</code>, <code className="text-xs">A)</code>,{' '}
-                <code className="text-xs">ANSWER</code>…) rồi tạo hàng loạt — hỗ trợ TN, Đ/S, điền,
-                trả lời ngắn.
+                Khung dán text nằm riêng phía dưới. Dán nhiều câu theo field (
+                <code className="text-xs">TYPE</code>, <code className="text-xs">Q</code>,{' '}
+                <code className="text-xs">A)</code>, <code className="text-xs">ANSWER</code>…) rồi
+                tạo hàng loạt — hỗ trợ TN, Đ/S, điền, trả lời ngắn.
               </p>
               <button
                 type="button"
@@ -949,6 +897,61 @@ export function ExamComposer({
           )}
         </aside>
       </div>
+
+      {/* Create / bulk — full-width panel below the composer grid */}
+      {editable && rightTab === 'create' && (
+        <section
+          id="exam-question-editor"
+          ref={editorRef}
+          className="scroll-mt-24 rounded-xl border border-accent/30 bg-white p-4 shadow-sm ring-1 ring-accent/10 sm:p-5"
+        >
+          <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <h2 className="font-semibold text-ink">Soạn câu hỏi mới</h2>
+              <p className="text-xs text-slate-500">
+                Lưu thành Question draft và gắn vào đề ngay — không copy nội dung vào đề.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setRightTab('bank')}
+              className="text-xs text-slate-500 hover:text-ink"
+            >
+              Đóng
+            </button>
+          </div>
+
+          <QuestionForm
+            key={formNonce}
+            hideHeader
+            lockTaxonomy
+            defaultSubjectId={meta.subjectId}
+            defaultGrade={meta.grade}
+            submitLabel="Gắn vào đề"
+            secondarySubmitLabel="Gắn vào đề & tạo câu tiếp"
+            onCancel={() => setRightTab('bank')}
+            onAfterContinue={scrollToEditor}
+            footerExtra={bankFooter}
+            onSubmit={onCreateAndClose}
+            onSecondarySubmit={onCreateAndContinue}
+          />
+        </section>
+      )}
+
+      {editable && rightTab === 'bulk' && (
+        <section
+          id="exam-question-editor"
+          ref={editorRef}
+          className="scroll-mt-24 rounded-xl border border-accent/30 bg-white p-4 shadow-sm ring-1 ring-accent/10 sm:p-5"
+        >
+          <BulkQuestionTextImport
+            onCreateOne={onBulkCreateOne}
+            footerExtra={bankFooter}
+            onClose={() => setRightTab('bank')}
+            onComplete={(count) => showFlash(`Đã tạo ${count} câu từ text và gắn vào đề`)}
+          />
+        </section>
+      )}
     </div>
   );
 }
