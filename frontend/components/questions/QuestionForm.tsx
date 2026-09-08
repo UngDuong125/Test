@@ -375,6 +375,15 @@ export function QuestionForm({
       if (isOptionBasedType(values.type) && payload.options.length < 2) {
         throw new Error('Cần ít nhất 2 phương án có nội dung');
       }
+      if (values.type === 'multiple_select' && values.multiAnswers.length === 0) {
+        throw new Error('Hãy đánh dấu ít nhất một đáp án đúng');
+      }
+      if (
+        (values.type === 'multiple_choice' || values.type === 'true_false') &&
+        !payload.options.some((o) => o.id === values.singleAnswer)
+      ) {
+        throw new Error('Hãy đánh dấu đáp án đúng bên cạnh phương án');
+      }
       await handler(payload);
       if (mode === 'secondary') {
         resetForNextQuestion();
@@ -542,26 +551,70 @@ export function QuestionForm({
           <div>
             <h3 className="font-semibold text-ink">Phương án</h3>
             <p className="mt-1 text-xs text-slate-500">
-              Mỗi phương án hỗ trợ text / LaTeX / ảnh (giống nội dung câu hỏi).
+              Mỗi phương án hỗ trợ text / LaTeX / ảnh. Đánh dấu đáp án đúng ngay bên cạnh.
+              {values.type === 'multiple_select'
+                ? ' Có thể chọn nhiều đáp án.'
+                : ' Chỉ chọn một đáp án.'}
             </p>
           </div>
-          {values.options.map((opt) => (
-            <div key={opt.id} className="space-y-2 rounded-lg border border-mist/80 bg-paper/40 p-3">
-              <p className="text-sm font-medium text-ink">Option {opt.id}</p>
-              <ContentBlocksEditor
-                compact
-                blocks={opt.content}
-                onChange={(content) => {
-                  const options = values.options.map((o) =>
-                    o.id === opt.id ? { ...o, content } : o,
-                  );
-                  setValues({ ...values, options });
-                }}
-                mediaUrls={mediaUrls}
-                onMediaUrl={(id, url) => setMediaUrls((m) => ({ ...m, [id]: url }))}
-              />
-            </div>
-          ))}
+          {values.options.map((opt) => {
+            const multi = values.type === 'multiple_select';
+            const isCorrect = multi
+              ? values.multiAnswers.includes(opt.id)
+              : values.singleAnswer === opt.id;
+
+            return (
+              <div
+                key={opt.id}
+                className={`space-y-2 rounded-lg border p-3 ${
+                  isCorrect
+                    ? 'border-accent bg-accent/5'
+                    : 'border-mist/80 bg-paper/40'
+                }`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-ink">Option {opt.id}</p>
+                  <label
+                    className={`inline-flex cursor-pointer items-center gap-2 rounded-md border px-2.5 py-1 text-xs font-medium ${
+                      isCorrect
+                        ? 'border-accent bg-white text-accentDark'
+                        : 'border-mist bg-white text-slate-600 hover:border-accent'
+                    }`}
+                  >
+                    <input
+                      type={multi ? 'checkbox' : 'radio'}
+                      name={multi ? undefined : 'correct-answer'}
+                      className="accent-accent"
+                      checked={isCorrect}
+                      onChange={() => {
+                        if (multi) {
+                          const multiAnswers = isCorrect
+                            ? values.multiAnswers.filter((id) => id !== opt.id)
+                            : [...values.multiAnswers, opt.id];
+                          setValues({ ...values, multiAnswers });
+                        } else {
+                          setValues({ ...values, singleAnswer: opt.id });
+                        }
+                      }}
+                    />
+                    {isCorrect ? 'Đáp án đúng' : 'Đánh dấu đúng'}
+                  </label>
+                </div>
+                <ContentBlocksEditor
+                  compact
+                  blocks={opt.content}
+                  onChange={(content) => {
+                    const options = values.options.map((o) =>
+                      o.id === opt.id ? { ...o, content } : o,
+                    );
+                    setValues({ ...values, options });
+                  }}
+                  mediaUrls={mediaUrls}
+                  onMediaUrl={(id, url) => setMediaUrls((m) => ({ ...m, [id]: url }))}
+                />
+              </div>
+            );
+          })}
           {values.type !== 'true_false' && values.options.length < 6 && (
             <button
               type="button"
@@ -577,48 +630,6 @@ export function QuestionForm({
             >
               + Thêm option
             </button>
-          )}
-
-          {values.type === 'multiple_select' ? (
-            <fieldset className="space-y-1 text-sm">
-              <legend className="font-medium">Đáp án đúng (nhiều)</legend>
-              {values.options
-                .filter((o) => optionHasContent(o.content))
-                .map((o) => (
-                  <label key={o.id} className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={values.multiAnswers.includes(o.id)}
-                      onChange={(e) => {
-                        const multiAnswers = e.target.checked
-                          ? [...values.multiAnswers, o.id]
-                          : values.multiAnswers.filter((id) => id !== o.id);
-                        setValues({ ...values, multiAnswers });
-                      }}
-                    />
-                    {o.id}
-                  </label>
-                ))}
-            </fieldset>
-          ) : (
-            <label className="block text-sm">
-              Đáp án đúng
-              <select
-                className="mt-1 w-full rounded-md border border-mist px-3 py-2"
-                value={values.singleAnswer}
-                onChange={(e) => setValues({ ...values, singleAnswer: e.target.value })}
-              >
-                {values.options
-                  .filter(
-                    (o) => optionHasContent(o.content) || values.type === 'true_false',
-                  )
-                  .map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.id}
-                    </option>
-                  ))}
-              </select>
-            </label>
           )}
         </div>
       )}

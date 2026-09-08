@@ -155,6 +155,17 @@ export function QuestionPreview({
   explanation?: { text?: string; steps?: string[] };
   showAnswer?: boolean;
 }) {
+  const correctIds = new Set<string>();
+  if (showAnswer) {
+    if (answer.type === 'single' && typeof answer.value === 'string') {
+      correctIds.add(answer.value);
+    } else if (answer.type === 'multiple' && Array.isArray(answer.value)) {
+      for (const id of answer.value) {
+        if (typeof id === 'string') correctIds.add(id);
+      }
+    }
+  }
+
   return (
     <div className="space-y-4 rounded-xl border border-mist bg-white/90 p-5">
       <div>
@@ -164,27 +175,33 @@ export function QuestionPreview({
 
       {options.length > 0 && (
         <ul className="space-y-2">
-          {options.map((opt) => (
-            <li
-              key={opt.id}
-              className="flex gap-2 rounded-md border border-mist px-3 py-2 text-sm"
-            >
-              <span className="font-semibold text-accentDark">{opt.id}.</span>
-              <div className="min-w-0 flex-1">
-                <OptionContentView content={opt.content} />
-              </div>
-            </li>
-          ))}
+          {options.map((opt) => {
+            const isCorrect = correctIds.has(opt.id);
+            return (
+              <li
+                key={opt.id}
+                className={`flex gap-2 rounded-md border px-3 py-2 text-sm ${
+                  isCorrect ? 'border-accent bg-accent/5' : 'border-mist'
+                }`}
+              >
+                <span className="font-semibold text-accentDark">{opt.id}.</span>
+                <div className="min-w-0 flex-1">
+                  <OptionContentView content={opt.content} />
+                </div>
+                {isCorrect && (
+                  <span className="shrink-0 self-start rounded border border-accent bg-white px-2 py-0.5 text-[11px] font-medium text-accentDark">
+                    Đáp án đúng
+                  </span>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 
-      {showAnswer && (
+      {showAnswer && answer.type !== 'single' && answer.type !== 'multiple' && (
         <div className="rounded-md bg-paper px-3 py-2 text-sm text-slate-700">
           <p className="font-medium text-ink">Đáp án</p>
-          {answer.type === 'single' && <p>{String(answer.value)}</p>}
-          {answer.type === 'multiple' && (
-            <p>{Array.isArray(answer.value) ? answer.value.join(', ') : ''}</p>
-          )}
           {answer.type === 'text' && (
             <p>{Array.isArray(answer.value) ? answer.value.join(' | ') : ''}</p>
           )}
