@@ -16,6 +16,8 @@ Schema đích theo [doc/database-target.md](../doc/database-target.md). Legacy `
 psql "$DATABASE_URL" -f supabase/migrations/20260906000000_init_target_schema.sql
 # Chỉ cần nếu DB đã apply bản init cũ (chưa có cột username):
 psql "$DATABASE_URL" -f supabase/migrations/20260906180000_add_users_username.sql
+# Chỉ cần nếu DB đã apply bản init cũ (duration bắt buộc > 0):
+psql "$DATABASE_URL" -f supabase/migrations/20260908230000_allow_unlimited_exam_duration.sql
 psql "$DATABASE_URL" -f supabase/seed.sql
 ```
 

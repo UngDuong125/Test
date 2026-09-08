@@ -47,8 +47,8 @@ subjects (TagKey: math, lang, …)
 
 | Khái niệm | Nguồn | Ý nghĩa |
 | :--- | :--- | :--- |
-| **Thời lượng làm bài** | `Exam.duration` (phút) | Timer đếm ngược từ `Attempt.startedAt`; hết giờ → auto-submit hoặc `expired` |
-| **Hạn nộp** | `ExamAssignment.deadline` | Không cho **bắt đầu** attempt mới sau deadline; attempt đang `in_progress` vẫn được nộp trong grace period ngắn nếu đã start trước deadline |
+| **Thời lượng làm bài** | `Exam.duration` (phút) | `duration > 0`: timer đếm ngược từ `Attempt.startedAt`; hết giờ → auto-submit hoặc `expired`. `duration = 0`: không giới hạn thời lượng đề |
+| **Hạn nộp** | `ExamAssignment.deadline` | Không cho **bắt đầu** attempt mới sau deadline; attempt đang `in_progress` vẫn được nộp trong grace period ngắn nếu đã start trước deadline. Với đề `duration = 0`, `expires_at` thường bằng deadline |
 | **Thời gian mở** | `ExamAssignment.availableFrom` | Không hiển thị / không cho start trước thời điểm này |
 
 ## Điểm câu hỏi

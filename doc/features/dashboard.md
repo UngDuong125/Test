@@ -19,7 +19,7 @@ Dashboard không tự tạo đề, không tự chọn lại câu hỏi và khôn
 5. Chọn **Bắt đầu làm bài** → backend tạo `Attempt` và trả về snapshot exam/question cần hiển thị.
 6. Student trả lời câu hỏi và lưu từng `Answer` trong khi làm.
 7. Chọn **Nộp bài** → backend khóa attempt, kiểm tra câu trả lời và tính điểm.
-8. Hiển thị kết quả theo `showResult`. Chỉ hiển thị đáp án/lời giải khi `showExplanation` được bật.
+8. Hiển thị kết quả theo `showResult` (điểm, đúng/sai). Đáp án/lời giải chỉ hiện khi `showExplanation` **và** học sinh đã hết lượt (`remainingAttempts = 0`); còn lượt thì khóa đáp án để tránh xem key rồi làm lại.
 
 ## 3. Điều kiện hiển thị assignment
 
@@ -85,7 +85,8 @@ percentage = score / maxScore * 100
 - Essay và câu cần đánh giá nội dung chuyển sang `needs_grading` để teacher chấm.
 - Frontend không gửi `score` đã tự tính để backend tin tưởng.
 - Kết quả gồm tối thiểu `score`, `maxScore`, `percentage`, trạng thái grading và feedback nếu có.
-- Chỉ hiển thị đáp án đúng, explanation hoặc feedback theo setting của assignment và trạng thái attempt.
+- Chỉ hiển thị đáp án đúng / explanation khi `showExplanation` và đã hết `attemptLimit`; còn lượt thì chỉ đúng/sai (nếu `showResult`).
+- Feedback teacher theo setting của assignment và trạng thái attempt.
 
 ## 7. API
 
@@ -111,7 +112,7 @@ Request lưu answer chỉ chứa giá trị student chọn/nhập, ví dụ:
 ## 8. UI
 
 - Danh sách assignment có trạng thái rõ ràng: `available`, `in_progress`, `completed`, `expired`.
-- Khu vực làm bài hiển thị progress, timer thời lượng đề (`Exam.duration`) và/hoặc deadline assignment, sections và trạng thái đã trả lời.
+- Khu vực làm bài hiển thị progress, timer thời lượng đề (`Exam.duration > 0`) hoặc “Không giới hạn” (`duration = 0`), hạn assignment, sections và trạng thái đã trả lời.
 - Có thể điều hướng giữa các câu nhưng không làm thay đổi thứ tự hoặc snapshot của attempt.
 - Nút **Lưu** có thể tự động lưu answer; nút **Nộp bài** cần xác nhận trước khi submit.
 - Sau submit, hiển thị kết quả hoặc trạng thái `needs_grading` theo setting.

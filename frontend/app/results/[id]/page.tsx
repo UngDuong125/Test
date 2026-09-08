@@ -18,6 +18,8 @@ function ResultBody() {
   const [expEarned, setExpEarned] = useState<number | null>(null);
   const [expSubject, setExpSubject] = useState<string | null>(null);
   const [showResult, setShowResult] = useState(true);
+  const [answerKeysLocked, setAnswerKeysLocked] = useState(false);
+  const [remainingAttempts, setRemainingAttempts] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -30,6 +32,8 @@ function ResultBody() {
         setExpEarned(data.expEarned);
         setExpSubject(data.expSubject);
         setShowResult(data.showResult);
+        setAnswerKeysLocked(data.answerKeysLocked);
+        setRemainingAttempts(data.remainingAttempts);
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'Không tải kết quả');
       }
@@ -88,6 +92,12 @@ function ResultBody() {
         ) : (
           <p className="text-sm text-slate-600">
             Assignment không cho xem điểm chi tiết.
+          </p>
+        )}
+        {answerKeysLocked && (
+          <p className="mt-3 text-sm text-slate-600">
+            Đáp án và lời giải bị khóa vì bạn còn {remainingAttempts} lượt làm bài. Hiện chỉ
+            hiển thị đúng/sai (nếu được phép xem kết quả).
           </p>
         )}
       </div>

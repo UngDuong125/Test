@@ -104,8 +104,9 @@ UI path gợi ý: `/grading` (queue), `/grading/[attemptId]` (chi tiết).
 | Điều kiện | Student thấy |
 | :--- | :--- |
 | `needs_grading` | Trạng thái chờ chấm; không EXP; có thể thấy điểm tạm auto nếu `showResult` |
-| `graded` + `showResult` | `score`, `percentage`, feedback từng câu (nếu có) |
-| `showExplanation` | Lời giải từ snapshot (không lộ trước submit) |
+| `graded` + `showResult` | `score`, `percentage`, feedback từng câu (nếu có), đúng/sai |
+| `showExplanation` + hết lượt (`remainingAttempts = 0`) | Đáp án + lời giải từ snapshot |
+| `showExplanation` nhưng còn lượt | Chỉ đúng/sai / điểm — **không** lộ đáp án/lời giải |
 
 ## 8. API
 

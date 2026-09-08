@@ -137,7 +137,7 @@ Invite / reset password — giống [database.md](./database.md#bảng-auth_toke
 | `grade` | int | |
 | `type` | text | `practice`, `quiz`, … |
 | `difficulty` | text | |
-| `duration` | int | Phút; timer attempt |
+| `duration` | int | Phút; `0` = không giới hạn thời lượng đề; timer attempt khi `> 0` |
 | `total_points` | numeric | |
 | `instructions` | text | |
 | `settings` | jsonb | Default shuffle/showResult/… |

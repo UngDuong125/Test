@@ -26,6 +26,8 @@ Apply schema đích rồi seed demo:
 psql "$DATABASE_URL" -f supabase/migrations/20260906000000_init_target_schema.sql
 # Nếu DB đã apply init cũ (chưa có username):
 psql "$DATABASE_URL" -f supabase/migrations/20260906180000_add_users_username.sql
+# Nếu DB đã apply init cũ (duration bắt buộc > 0):
+psql "$DATABASE_URL" -f supabase/migrations/20260908230000_allow_unlimited_exam_duration.sql
 psql "$DATABASE_URL" -f supabase/seed.sql
 ```
 

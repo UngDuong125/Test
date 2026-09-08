@@ -143,14 +143,23 @@ export function computeExpEarned(
   return Math.max(0, Math.min(earned, ceiling));
 }
 
+/**
+ * Answer keys / explanations are revealed to students only when:
+ * - showExplanation is on, AND
+ * - the attempt is submitted (not in progress / cancelled), AND
+ * - no attempts remain on the assignment (prevents learning the key then retrying).
+ * Teachers/admins always see keys.
+ */
 export function isAnswerKeyRevealAllowed(opts: {
   status: string;
   showExplanation: boolean;
   forTeacher: boolean;
+  remainingAttempts: number;
 }): boolean {
   if (opts.forTeacher) return true;
   if (opts.status === 'in_progress' || opts.status === 'cancelled') return false;
-  return opts.showExplanation;
+  if (!opts.showExplanation) return false;
+  return opts.remainingAttempts <= 0;
 }
 
 export function stripSnapshotForStudent(

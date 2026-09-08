@@ -320,10 +320,15 @@ export async function getAttemptForUser(actor: PublicUser, attemptId: string) {
 
   const forTeacher = actor.role === 'admin' || actor.role === 'teacher';
   const settings = snapshot.effectiveSettings;
+  const used = assignment ? await countAttemptsForLimit(attempt.assignmentId) : 0;
+  const remainingAttempts = assignment
+    ? Math.max(0, assignment.attemptLimit - used)
+    : 0;
   const revealKeys = isAnswerKeyRevealAllowed({
     status: attempt.status,
     showExplanation: settings.showExplanation,
     forTeacher,
+    remainingAttempts,
   });
 
   return {
@@ -334,6 +339,9 @@ export async function getAttemptForUser(actor: PublicUser, attemptId: string) {
       status: attempt.status,
       forTeacher,
     }),
+    remainingAttempts,
+    showExplanation: forTeacher || revealKeys,
+    answerKeysLocked: !forTeacher && settings.showExplanation && !revealKeys && attempt.status !== 'in_progress' && attempt.status !== 'cancelled',
   };
 }
 
@@ -474,7 +482,8 @@ export async function submitAttemptForUser(actor: PublicUser, attemptId: string)
 
 export async function getAttemptResultForUser(actor: PublicUser, attemptId: string) {
   const detail = await getAttemptForUser(actor, attemptId);
-  const { attempt, snapshot, answers } = detail;
+  const { attempt, snapshot, answers, remainingAttempts, showExplanation, answerKeysLocked } =
+    detail;
 
   if (attempt.status === 'in_progress') {
     throw new AppError(422, 'Attempt not submitted yet', 'NOT_SUBMITTED');
@@ -505,6 +514,9 @@ export async function getAttemptResultForUser(actor: PublicUser, attemptId: stri
     expEarned: showResult && attempt.status === 'graded' ? (exp?.expEarned ?? null) : null,
     expSubject: showResult && attempt.status === 'graded' ? (exp?.subjectId ?? null) : null,
     showResult,
+    showExplanation,
+    answerKeysLocked,
+    remainingAttempts,
   };
 }
 

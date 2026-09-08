@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { SUBJECT_TAGS } from '@/constants/tags';
+import { BulkQuestionTextImport } from '@/components/exams/BulkQuestionTextImport';
 import { QuestionForm } from '@/components/questions/QuestionForm';
 import { QuestionPreview } from '@/components/questions/QuestionPreview';
 import {
@@ -19,6 +20,7 @@ import {
   updateExamQuestion,
   validateExam,
 } from '@/lib/api-client';
+import type { BulkQuestionPayload } from '@/lib/bulk-question-text';
 import type { TagKey } from '@/types/auth';
 import type {
   Exam,
@@ -30,7 +32,7 @@ import type {
 } from '@/types/content';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
-type RightTab = 'bank' | 'create';
+type RightTab = 'bank' | 'create' | 'bulk';
 
 type Props = {
   initialExam: Exam;
@@ -152,6 +154,39 @@ export function ExamComposer({
     setError(null);
     scrollToEditor();
   }
+
+  function openBulkTab() {
+    setRightTab('bulk');
+    setError(null);
+    scrollToEditor();
+  }
+
+  const bankFooter = (
+    <label className="flex flex-wrap items-center gap-2 rounded-md border border-mist bg-slate-50/80 px-3 py-2 text-sm text-slate-700">
+      <input
+        type="checkbox"
+        checked={saveToBank && Boolean(selectedBankId)}
+        disabled={!selectedBankId}
+        onChange={(e) => setSaveToBank(e.target.checked)}
+      />
+      Lưu vào ngân hàng
+      {selectedBankId ? (
+        <select
+          className="rounded-md border border-mist bg-white px-2 py-1 text-sm"
+          value={selectedBankId}
+          onChange={(e) => setSelectedBankId(e.target.value)}
+        >
+          {banks.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.name}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <span className="text-xs text-amber-700">Chưa có bank môn/lớp này</span>
+      )}
+    </label>
+  );
 
   const persistMeta = useCallback(async () => {
     if (!editable) return;
@@ -297,6 +332,10 @@ export function ExamComposer({
     setFormNonce((n) => n + 1);
   }
 
+  async function onBulkCreateOne(payload: BulkQuestionPayload) {
+    await attachCreatedQuestion(payload as unknown as Record<string, unknown>);
+  }
+
   async function onChangePoints(questionId: string, points: number) {
     if (!editable || !(points > 0)) return;
     setError(null);
@@ -427,6 +466,13 @@ export function ExamComposer({
                 </button>
                 <button
                   type="button"
+                  onClick={openBulkTab}
+                  className="rounded-md border border-mist px-3 py-1.5 font-medium text-slate-700 hover:border-accent"
+                >
+                  Dán text
+                </button>
+                <button
+                  type="button"
                   disabled={publishing}
                   onClick={() => void onValidateAndPublish()}
                   className="rounded-md bg-accent px-3 py-1.5 font-medium text-white hover:bg-accentDark disabled:opacity-60"
@@ -530,10 +576,11 @@ export function ExamComposer({
               </select>
             </label>
             <label className="block text-xs font-medium text-slate-600">
-              Phút
+              Phút (0 = không giới hạn)
               <input
                 type="number"
-                min={1}
+                min={0}
+                max={600}
                 disabled={!editable}
                 className={fieldClass}
                 value={meta.duration}
@@ -606,6 +653,13 @@ export function ExamComposer({
                     className="rounded-md bg-accent px-2.5 py-1 text-xs text-white hover:bg-accentDark sm:text-sm sm:px-3 sm:py-1.5"
                   >
                     Tạo câu mới
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openBulkTab}
+                    className="rounded-md border border-mist px-2.5 py-1 text-xs hover:border-accent sm:text-sm sm:px-3 sm:py-1.5"
+                  >
+                    Dán text
                   </button>
                 </div>
               )}
@@ -748,34 +802,24 @@ export function ExamComposer({
                 secondarySubmitLabel="Gắn vào đề & tạo câu tiếp"
                 onCancel={() => setRightTab('bank')}
                 onAfterContinue={scrollToEditor}
-                footerExtra={
-                  <label className="flex flex-wrap items-center gap-2 rounded-md border border-mist bg-slate-50/80 px-3 py-2 text-sm text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={saveToBank && Boolean(selectedBankId)}
-                      disabled={!selectedBankId}
-                      onChange={(e) => setSaveToBank(e.target.checked)}
-                    />
-                    Lưu vào ngân hàng
-                    {selectedBankId ? (
-                      <select
-                        className="rounded-md border border-mist bg-white px-2 py-1 text-sm"
-                        value={selectedBankId}
-                        onChange={(e) => setSelectedBankId(e.target.value)}
-                      >
-                        {banks.map((b) => (
-                          <option key={b.id} value={b.id}>
-                            {b.name}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-xs text-amber-700">Chưa có bank môn/lớp này</span>
-                    )}
-                  </label>
-                }
+                footerExtra={bankFooter}
                 onSubmit={onCreateAndClose}
                 onSecondarySubmit={onCreateAndContinue}
+              />
+            </section>
+          )}
+
+          {editable && rightTab === 'bulk' && (
+            <section
+              id="exam-question-editor"
+              ref={editorRef}
+              className="scroll-mt-24 rounded-xl border border-accent/30 bg-white p-4 shadow-sm ring-1 ring-accent/10"
+            >
+              <BulkQuestionTextImport
+                onCreateOne={onBulkCreateOne}
+                footerExtra={bankFooter}
+                onClose={() => setRightTab('bank')}
+                onComplete={(count) => showFlash(`Đã tạo ${count} câu từ text và gắn vào đề`)}
               />
             </section>
           )}
@@ -803,6 +847,16 @@ export function ExamComposer({
               }`}
             >
               Tạo mới
+            </button>
+            <button
+              type="button"
+              disabled={!editable}
+              onClick={openBulkTab}
+              className={`flex-1 rounded-md px-2 py-1.5 ${
+                rightTab === 'bulk' ? 'bg-white text-ink shadow-sm' : 'text-slate-500'
+              }`}
+            >
+              Dán text
             </button>
           </div>
 
@@ -872,6 +926,24 @@ export function ExamComposer({
                 className="w-full rounded-md border border-accent px-3 py-2 text-sm font-medium text-accentDark hover:bg-teal-50"
               >
                 Kéo tới form soạn câu
+              </button>
+            </div>
+          )}
+
+          {editable && rightTab === 'bulk' && (
+            <div className="space-y-2 text-sm text-slate-600">
+              <p>
+                Dán nhiều câu theo field (<code className="text-xs">TYPE</code>,{' '}
+                <code className="text-xs">Q</code>, <code className="text-xs">A)</code>,{' '}
+                <code className="text-xs">ANSWER</code>…) rồi tạo hàng loạt — hỗ trợ TN, Đ/S, điền,
+                trả lời ngắn.
+              </p>
+              <button
+                type="button"
+                onClick={scrollToEditor}
+                className="w-full rounded-md border border-accent px-3 py-2 text-sm font-medium text-accentDark hover:bg-teal-50"
+              >
+                Kéo tới khung dán text
               </button>
             </div>
           )}

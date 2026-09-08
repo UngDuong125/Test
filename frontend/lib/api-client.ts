@@ -484,6 +484,9 @@ export function getAttemptResult(attemptId: string) {
     expEarned: number | null;
     expSubject: string | null;
     showResult: boolean;
+    showExplanation: boolean;
+    answerKeysLocked: boolean;
+    remainingAttempts: number;
   }>(`/api/attempts/${attemptId}/result`);
 }
 

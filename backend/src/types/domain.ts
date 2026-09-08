@@ -124,6 +124,7 @@ export interface Exam {
   grade: number;
   type: ExamType;
   difficulty: Difficulty;
+  /** Minutes; 0 = unlimited (assignment deadline still applies). */
   duration: number;
   totalPoints: number;
   instructions: string;

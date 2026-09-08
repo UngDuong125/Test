@@ -122,10 +122,11 @@ function NewExamBody() {
             </select>
           </label>
           <label className="text-sm">
-            Thời lượng (phút)
+            Thời lượng (phút, 0 = không giới hạn)
             <input
               type="number"
-              min={1}
+              min={0}
+              max={600}
               className="mt-1 w-full rounded-md border border-mist px-3 py-2"
               value={form.duration}
               onChange={(e) => setForm({ ...form, duration: Number(e.target.value) })}

@@ -142,14 +142,29 @@ function AttemptBody() {
           </p>
         </div>
         <div className="rounded-lg border border-mist bg-white px-4 py-2 text-center shadow-sm">
-          <p className="text-xs uppercase tracking-wide text-slate-500">Thời gian còn lại</p>
+          <p className="text-xs uppercase tracking-wide text-slate-500">
+            {detail.snapshot.exam.duration === 0 ? 'Thời lượng đề' : 'Thời gian còn lại'}
+          </p>
           <p
             className={`font-mono text-xl font-semibold ${
-              remainingMs != null && remainingMs < 60_000 ? 'text-red-600' : 'text-ink'
+              detail.snapshot.exam.duration > 0 &&
+              remainingMs != null &&
+              remainingMs < 60_000
+                ? 'text-red-600'
+                : 'text-ink'
             }`}
           >
-            {remainingMs == null ? '—' : formatRemaining(remainingMs)}
+            {detail.snapshot.exam.duration === 0
+              ? 'Không giới hạn'
+              : remainingMs == null
+                ? '—'
+                : formatRemaining(remainingMs)}
           </p>
+          {detail.snapshot.exam.duration === 0 && remainingMs != null && (
+            <p className="mt-1 text-xs text-slate-500">
+              Hạn assignment: {formatRemaining(remainingMs)}
+            </p>
+          )}
         </div>
       </div>
 

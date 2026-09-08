@@ -61,6 +61,8 @@ Vì việc giao đề có metadata riêng.
 
 `settings` trên assignment **override** giá trị mặc định của `Exam` (xem [Exam Management](./exam-management.md)). `attemptLimit`, `availableFrom` và `deadline` chỉ tồn tại trên assignment, không nằm trong `Exam.settings`.
 
+`showExplanation = true` vẫn **không** lộ đáp án/lời giải cho student khi còn lượt làm (`remainingAttempts > 0`); chỉ hiện đúng/sai nếu `showResult`. Chi tiết: [attempt-and-result.md](./attempt-and-result.md#9-security).
+
 ## 4. Target
 
 MVP hỗ trợ giao cho **từng học sinh** và **cả lớp** (expand Strategy B — xem mục 6).

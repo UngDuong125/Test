@@ -112,12 +112,20 @@ Mục tiêu là kết quả cũ không thay đổi khi question/exam được s�
 
 Frontend không được nhận answer key trước khi submit nếu exam yêu cầu kiểm tra nghiêm túc.
 
+Sau khi nộp, student có thể xem đúng/sai theo `showResult`. **Đáp án và lời giải** (`showExplanation`) chỉ được trả về khi:
+
+1. `showExplanation = true` trên exam/assignment, **và**
+2. học sinh **đã dùng hết** `attemptLimit` của assignment (`remainingAttempts <= 0`).
+
+Nếu còn lượt làm, backend strip `answer` / `explanation` khỏi snapshot — chỉ còn đúng/sai (và điểm nếu `showResult`). Teacher/admin luôn xem được đáp án.
+
 Backend phải là nơi:
 
 ```text
 validate answer
 calculate score
 store result
+strip answer keys until attempts exhausted
 ```
 
 ## 10. API gợi ý
@@ -146,3 +154,5 @@ Quy ước naming: [\_cross-cutting.md](./_cross-cutting.md).
 - Backend tự tính điểm.
 - Câu tự luận có thể chờ teacher chấm.
 - Kết quả lịch sử không thay đổi khi đề gốc được sửa.
+- Khi còn lượt làm: student chỉ thấy đúng/sai (nếu `showResult`), không thấy đáp án/lời giải.
+- Khi hết lượt và `showExplanation`: student thấy đáp án/lời giải.

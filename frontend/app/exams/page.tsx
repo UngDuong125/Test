@@ -157,8 +157,9 @@ function ExamsBody() {
                 >
                   <p className="font-medium text-ink">{exam.title}</p>
                   <p className="text-xs text-slate-500">
-                    {exam.subjectId} · {exam.type} · {exam.duration}p · {exam.totalPoints}đ ·{' '}
-                    {exam.status}
+                    {exam.subjectId} · {exam.type} ·{' '}
+                    {exam.duration === 0 ? 'không giới hạn' : `${exam.duration}p`} ·{' '}
+                    {exam.totalPoints}đ · {exam.status}
                   </p>
                 </Link>
               </li>

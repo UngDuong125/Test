@@ -76,14 +76,19 @@ Không copy question vào exam. Dùng reference:
 
 | Field | Ý nghĩa |
 | :--- | :--- |
-| `Exam.duration` | Thời lượng làm bài (phút). Timer đếm từ `Attempt.startedAt`. |
-| `ExamAssignment.deadline` | Hạn **bắt đầu** attempt mới (xem [Exam Distribution](./exam-distribution.md)). |
+| `Exam.duration` | Thời lượng làm bài (phút). `0` = **không giới hạn** thời lượng đề; timer đếm từ `Attempt.startedAt` khi `duration > 0`. |
+| `ExamAssignment.deadline` | Hạn **bắt đầu** attempt mới (xem [Exam Distribution](./exam-distribution.md)). Với đề không giới hạn, `Attempt.expires_at` thường gắn với deadline assignment. |
 
-Hành vi khi hết `duration`:
+Hành vi khi `duration > 0` và hết giờ:
 
-- Backend set `Attempt.expires_at = startedAt + duration`.
+- Backend set `Attempt.expires_at = min(startedAt + duration, assignment.deadline)`.
 - Hết giờ: auto-submit nếu có answer, hoặc chuyển `expired`.
 - Attempt đã bắt đầu trước `deadline` vẫn được nộp trong thời lượng còn lại (không bị deadline cắt giữa chừng trừ khi policy bổ sung).
+
+Hành vi khi `duration = 0`:
+
+- Không có timer thời lượng đề; học sinh làm đến khi nộp hoặc đến hạn assignment.
+- `Attempt.expires_at` lấy theo `assignment.deadline`.
 
 Chi tiết: [\_cross-cutting.md](./_cross-cutting.md#timer-duration-vs-deadline).
 
@@ -152,8 +157,46 @@ Tạo đề nháp
 | Vùng | Nội dung |
 | :--- | :--- |
 | Cột trái | Thông tin đề: tên, môn, lớp, thời lượng, loại, tổng điểm, hướng dẫn |
-| Giữa | Section + danh sách câu trên đề: chỉnh điểm, bỏ khỏi đề, (phase 2: kéo-thả) |
-| Phải / modal | “Thêm từ ngân hàng” và “Tạo câu hỏi mới” — form tái sử dụng question editor |
+| Giữa | Section + danh sách câu trên đề: chỉnh điểm, bỏ khỏi đề, (phase 2: kéo-thả); panel **Tạo câu mới** (form) hoặc **Dán text** (tạo hàng loạt) |
+| Phải / modal | “Thêm từ ngân hàng”, “Tạo câu hỏi mới”, “Dán text” |
+
+### Tạo nhanh từ text (bulk)
+
+Trong composer, tab **Dán text** cho phép paste nhiều câu theo định dạng field, xem trước, rồi tạo hàng loạt (gọi `POST .../questions/create` từng câu). MVP hỗ trợ:
+
+- `multiple_choice` (trắc nghiệm)
+- `true_false` (đúng/sai)
+- `fill_blank` (điền khuyết)
+- `short_answer` (trả lời ngắn)
+
+Mỗi câu cách nhau bằng dòng `===`. Trường chính: `TYPE`, `Q`, phương án `A)`…`D)` (đánh dấu `*` đáp án đúng), `ANSWER`, `POINTS`, `DIFFICULTY`, `EXPLAIN`.
+
+Ví dụ:
+
+```text
+===
+TYPE: multiple_choice
+Q: 2 + 2 = ?
+A) 3
+B) 4*
+C) 5
+POINTS: 1
+===
+TYPE: true_false
+Q: Trái Đất quay quanh Mặt Trời.
+ANSWER: đúng
+===
+TYPE: fill_blank
+Q: Thủ đô Việt Nam là ____.
+ANSWER: Hà Nội | Ha Noi
+===
+TYPE: short_answer
+Q: Công thức diện tích hình vuông cạnh a?
+ANSWER: a^2 | a²
+===
+```
+
+Parse chạy trên frontend; câu không hợp lệ phải sửa trước khi tạo. Ảnh/media và loại câu khác vẫn dùng form UI.
 
 ### Quy tắc lưu
 
@@ -168,8 +211,8 @@ Tạo đề nháp
 
 | Đợt | Phạm vi |
 | :--- | :--- |
-| **MVP** | Đề nháp, tạo câu mới trong editor, thêm từ bank, autosave, preview, validate trước publish |
-| **Hoàn thiện** | Kéo-thả, section template, phím tắt, duplicate question, cảnh báo chưa vào bank, version/draft recovery |
+| **MVP** | Đề nháp, tạo câu mới trong editor, **dán text hàng loạt** (TN/Đ-S/điền/ngắn), thêm từ bank, autosave, preview, validate trước publish |
+| **Hoàn thiện** | Kéo-thả, section template, phím tắt, duplicate question, cảnh báo chưa vào bank, version/draft recovery, bulk API 1 request, hỗ trợ thêm loại câu |
 
 ## 11. API gợi ý
 
@@ -234,7 +277,7 @@ Sinh đề nháp (`status=draft`) từ Question Bank / filter — dùng cùng pi
 | Field | Bắt buộc | Mô tả |
 | :--- | :--- | :--- |
 | `title`, `subjectId`, `grade`, `type` | Có | Metadata exam |
-| `duration` | Có | Phút |
+| `duration` | Có | Phút; `0` = không giới hạn thời lượng đề |
 | `bankId` | Không | Giới hạn trong một bank; thiếu → filter theo subject/grade |
 | `selection` | Có | Rule lấy mẫu (chỉ câu `published`) |
 | `defaultPoints` | Không | Gán `ExamQuestion.points` nếu không lấy từ `Question.points` |

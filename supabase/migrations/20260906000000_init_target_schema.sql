@@ -216,7 +216,7 @@ CREATE TABLE public.exams (
     CHECK (type IN ('practice', 'quiz', 'homework', 'worksheet', 'midterm', 'final')),
   difficulty text NOT NULL DEFAULT 'medium'
     CHECK (difficulty IN ('easy', 'medium', 'hard')),
-  duration integer NOT NULL CHECK (duration > 0),
+  duration integer NOT NULL CHECK (duration >= 0),
   total_points numeric(10, 2) NOT NULL DEFAULT 0 CHECK (total_points >= 0),
   instructions text NOT NULL DEFAULT '',
   settings jsonb NOT NULL DEFAULT '{
