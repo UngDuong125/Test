@@ -198,6 +198,30 @@ ANSWER: a^2 | a²
 
 Parse chạy trên frontend; câu không hợp lệ phải sửa trước khi tạo. Ảnh/media và loại câu khác vẫn dùng form UI.
 
+**Text / LaTeX:** Trong `Q` và phương án `A)`… có thể xen text với LaTeX:
+
+- Inline: `$...$` hoặc `\(...\)`
+- Display: `$$...$$` hoặc `\[...\]`
+- Cả field: `latex: \frac{1}{2}`
+- `ANSWER` điền/ngắn: text thường hoặc bọc `$...$` / `latex: ...` (lưu chuỗi LaTeX đã chuẩn hóa để chấm)
+
+Ví dụ:
+
+```text
+===
+TYPE: multiple_choice
+Q: Giá trị của $\frac{1}{2} + \frac{1}{3}$ là?
+A) $\frac{1}{5}$
+B) $\frac{5}{6}$*
+C) 1
+POINTS: 1
+===
+TYPE: short_answer
+Q: Công thức nghiệm PT bậc hai?
+ANSWER: latex: \frac{-b\pm\sqrt{b^2-4ac}}{2a}
+===
+```
+
 ### Quy tắc lưu
 
 - **Tạo đề** → `Exam.status = draft`.

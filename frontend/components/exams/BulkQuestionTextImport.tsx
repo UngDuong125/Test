@@ -11,6 +11,7 @@ import {
   type BulkSupportedType,
 } from '@/lib/bulk-question-text';
 import { ApiError } from '@/lib/api-client';
+import { ContentBlocksView, OptionContentView } from '@/components/questions/QuestionPreview';
 
 const TYPE_LABEL: Record<BulkSupportedType, string> = {
   multiple_choice: 'Trắc nghiệm',
@@ -164,15 +165,42 @@ export function BulkQuestionTextImport({
           {!parsed.length ? ' · chưa có khối nào' : ''}
         </p>
         {parsed.length > 0 && (
-          <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto text-xs">
+          <ul className="mt-2 max-h-72 space-y-2 overflow-y-auto text-xs">
             {parsed.map((item) =>
               item.ok ? (
-                <li key={item.index} className="text-emerald-800">
-                  #{item.index + 1} · {TYPE_LABEL[item.payload.type]} · {item.payload.points}đ ·{' '}
-                  {item.preview}
+                <li
+                  key={item.index}
+                  className="rounded-md border border-emerald-100 bg-white/80 px-2.5 py-2 text-emerald-900"
+                >
+                  <p className="mb-1.5 font-medium text-emerald-800">
+                    #{item.index + 1} · {TYPE_LABEL[item.payload.type]} · {item.payload.points}đ
+                  </p>
+                  <ContentBlocksView blocks={item.payload.content} compact />
+                  {item.payload.options.length > 0 && (
+                    <ul className="mt-1.5 space-y-0.5 border-t border-mist/60 pt-1.5">
+                      {item.payload.options.map((o) => (
+                        <li key={o.id} className="flex items-start gap-1.5 text-slate-700">
+                          <span className="shrink-0 font-semibold">{o.id})</span>
+                          <OptionContentView content={o.content} />
+                          {item.payload.answer.type === 'single' &&
+                            item.payload.answer.value === o.id && (
+                              <span className="shrink-0 text-emerald-600">✓</span>
+                            )}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {item.payload.answer.type === 'text' && (
+                    <p className="mt-1.5 border-t border-mist/60 pt-1.5 text-slate-600">
+                      Đáp án chấp nhận:{' '}
+                      <code className="rounded bg-slate-100 px-1">
+                        {item.payload.answer.value.join(' | ')}
+                      </code>
+                    </p>
+                  )}
                 </li>
               ) : (
-                <li key={item.index} className="text-red-700">
+                <li key={item.index} className="rounded-md border border-red-100 bg-red-50/50 px-2.5 py-2 text-red-700">
                   #{item.index + 1} · {item.message}
                 </li>
               ),

@@ -1,9 +1,19 @@
 /**
  * Parse teacher-authored text blocks into create-question payloads
  * for multiple_choice, true_false, fill_blank, short_answer.
+ *
+ * Q / phương án hỗ trợ text lẫn LaTeX (`$...$`, `$$...$$`, `\(...\)`, `\[...\]`,
+ * hoặc cả field `latex: ...`). ANSWER điền/ngắn: có thể bọc `$...$` — lưu chuỗi
+ * LaTeX đã chuẩn hóa để chấm tự động.
  */
 
-import type { Difficulty, QuestionAnswer, QuestionOption, QuestionType } from '@/types/content';
+import { normalizeLatexInput } from '@/lib/latex';
+import type {
+  ContentBlock,
+  Difficulty,
+  QuestionAnswer,
+  QuestionOption,
+} from '@/types/content';
 
 export const BULK_SUPPORTED_TYPES = [
   'multiple_choice',
@@ -17,7 +27,7 @@ export type BulkSupportedType = (typeof BULK_SUPPORTED_TYPES)[number];
 export type BulkQuestionPayload = {
   type: BulkSupportedType;
   difficulty: Difficulty;
-  content: { type: 'text'; value: string }[];
+  content: ContentBlock[];
   options: QuestionOption[];
   answer: QuestionAnswer;
   explanation: { text?: string };
@@ -125,10 +135,181 @@ function stripCorrectMarker(text: string): { text: string; correct: boolean } {
   return { text: t, correct };
 }
 
+function assertBalancedBraces(value: string, context: string) {
+  const open = (value.match(/\{/g) ?? []).length;
+  const close = (value.match(/\}/g) ?? []).length;
+  if (open !== close) {
+    throw new Error(`${context}: số lượng { } trong LaTeX không cân bằng`);
+  }
+}
+
+function pushText(blocks: ContentBlock[], text: string) {
+  if (!text) return;
+  const last = blocks[blocks.length - 1];
+  if (last?.type === 'text') {
+    last.value += text;
+  } else {
+    blocks.push({ type: 'text', value: text });
+  }
+}
+
+function pushLatex(blocks: ContentBlock[], raw: string, context: string) {
+  const value = normalizeLatexInput(raw.trim());
+  if (!value) throw new Error(`${context}: khối LaTeX trống`);
+  assertBalancedBraces(value, context);
+  blocks.push({ type: 'latex', value });
+}
+
+/**
+ * Tách chuỗi thành các ContentBlock text / latex.
+ * Delimiter: $$...$$, $...$, \[...\], \(...\), hoặc cả field `latex: ...`.
+ */
+export function parseContentBlocks(input: string, context = 'Nội dung'): ContentBlock[] {
+  const source = input.replace(/\r\n/g, '\n');
+  const trimmed = source.trim();
+  if (!trimmed) return [];
+
+  const latexField = trimmed.match(/^latex\s*:\s*([\s\S]+)$/i);
+  if (latexField) {
+    const blocks: ContentBlock[] = [];
+    pushLatex(blocks, latexField[1]!, context);
+    return blocks;
+  }
+
+  const blocks: ContentBlock[] = [];
+  let i = 0;
+  let textBuf = '';
+
+  const flushText = () => {
+    if (!textBuf) return;
+    pushText(blocks, textBuf);
+    textBuf = '';
+  };
+
+  while (i < source.length) {
+    // $$ display math
+    if (source.startsWith('$$', i)) {
+      const end = source.indexOf('$$', i + 2);
+      if (end === -1) {
+        throw new Error(`${context}: thiếu cặp đóng $$`);
+      }
+      flushText();
+      pushLatex(blocks, source.slice(i + 2, end), context);
+      i = end + 2;
+      continue;
+    }
+
+    // \[ ... \]
+    if (source.startsWith('\\[', i)) {
+      const end = source.indexOf('\\]', i + 2);
+      if (end === -1) throw new Error(`${context}: thiếu cặp đóng \\]`);
+      flushText();
+      pushLatex(blocks, source.slice(i + 2, end), context);
+      i = end + 2;
+      continue;
+    }
+
+    // \( ... \)
+    if (source.startsWith('\\(', i)) {
+      const end = source.indexOf('\\)', i + 2);
+      if (end === -1) throw new Error(`${context}: thiếu cặp đóng \\)`);
+      flushText();
+      pushLatex(blocks, source.slice(i + 2, end), context);
+      i = end + 2;
+      continue;
+    }
+
+    // escaped \$
+    if (source.startsWith('\\$', i)) {
+      textBuf += '$';
+      i += 2;
+      continue;
+    }
+
+    // $ inline math (single dollar)
+    if (source[i] === '$') {
+      const end = source.indexOf('$', i + 1);
+      if (end === -1) {
+        throw new Error(`${context}: thiếu cặp đóng $`);
+      }
+      flushText();
+      pushLatex(blocks, source.slice(i + 1, end), context);
+      i = end + 1;
+      continue;
+    }
+
+    textBuf += source[i]!;
+    i += 1;
+  }
+
+  flushText();
+
+  // Trim leading/trailing whitespace-only text edges
+  if (blocks[0]?.type === 'text') {
+    blocks[0].value = blocks[0].value.replace(/^\s+/, '');
+    if (!blocks[0].value) blocks.shift();
+  }
+  const last = blocks[blocks.length - 1];
+  if (last?.type === 'text') {
+    last.value = last.value.replace(/\s+$/, '');
+    if (!last.value) blocks.pop();
+  }
+
+  if (!blocks.length) {
+    throw new Error(`${context}: trống sau khi parse`);
+  }
+  return blocks;
+}
+
+function contentPreview(blocks: ContentBlock[]): string {
+  const flat = blocks
+    .map((b) => (b.type === 'latex' ? `$${b.value}$` : b.type === 'text' ? b.value : '[Ảnh]'))
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return flat.length > 80 ? `${flat.slice(0, 80)}…` : flat;
+}
+
+/** Chuỗi đáp án điền/ngắn: bỏ delimiter LaTeX nếu bọc ngoài, chuẩn hóa escape. */
+export function normalizeAnswerToken(raw: string): string {
+  const t = raw.trim();
+  if (!t) return '';
+
+  const latexField = t.match(/^latex\s*:\s*([\s\S]+)$/i);
+  if (latexField) {
+    const value = normalizeLatexInput(latexField[1]!.trim());
+    assertBalancedBraces(value, 'ANSWER');
+    return value;
+  }
+
+  if (t.startsWith('$$') && t.endsWith('$$') && t.length > 4) {
+    const value = normalizeLatexInput(t.slice(2, -2).trim());
+    assertBalancedBraces(value, 'ANSWER');
+    return value;
+  }
+  if (t.startsWith('$') && t.endsWith('$') && t.length > 2 && !t.slice(1, -1).includes('$')) {
+    const value = normalizeLatexInput(t.slice(1, -1).trim());
+    assertBalancedBraces(value, 'ANSWER');
+    return value;
+  }
+  if (t.startsWith('\\[') && t.endsWith('\\]') && t.length > 4) {
+    const value = normalizeLatexInput(t.slice(2, -2).trim());
+    assertBalancedBraces(value, 'ANSWER');
+    return value;
+  }
+  if (t.startsWith('\\(') && t.endsWith('\\)') && t.length > 4) {
+    const value = normalizeLatexInput(t.slice(2, -2).trim());
+    assertBalancedBraces(value, 'ANSWER');
+    return value;
+  }
+
+  return t;
+}
+
 function parseAnswerList(raw: string): string[] {
   return raw
     .split(/[|\n]/)
-    .map((s) => s.trim())
+    .map((s) => normalizeAnswerToken(s))
     .filter(Boolean);
 }
 
@@ -267,6 +448,8 @@ function buildPayload(fields: ParsedFields, type: BulkSupportedType): BulkQuesti
     .trim();
   if (!qText) throw new Error('Thiếu nội dung câu hỏi (Q:)');
 
+  const content = parseContentBlocks(qText, 'Q');
+
   let points = 1;
   if (fields.pointsRaw) {
     const n = Number(fields.pointsRaw.replace(',', '.'));
@@ -308,13 +491,13 @@ function buildPayload(fields: ParsedFields, type: BulkSupportedType): BulkQuesti
     }
     const options: QuestionOption[] = fields.options.map((o, i) => ({
       id: o.id,
-      content: [{ type: 'text' as const, value: o.text }],
+      content: parseContentBlocks(o.text, `Phương án ${o.id}`),
       order: i + 1,
     }));
     return {
       type,
       difficulty,
-      content: [{ type: 'text', value: qText }],
+      content,
       options,
       answer: { type: 'single', value: answerId },
       explanation,
@@ -329,7 +512,7 @@ function buildPayload(fields: ParsedFields, type: BulkSupportedType): BulkQuesti
     if (fields.options.length === 2) {
       options = fields.options.map((o, i) => ({
         id: o.id,
-        content: [{ type: 'text' as const, value: o.text }],
+        content: parseContentBlocks(o.text, `Phương án ${o.id}`),
         order: i + 1,
       }));
     } else if (fields.options.length === 0) {
@@ -348,25 +531,19 @@ function buildPayload(fields: ParsedFields, type: BulkSupportedType): BulkQuesti
     } else if (fields.answerRaw) {
       const mapped = resolveTrueFalseAnswer(fields.answerRaw);
       if (!mapped) throw new Error('ANSWER đúng/sai phải là đúng|sai (hoặc A|B)');
-      // Map semantic A/B onto actual option ids when custom labels used with A/B ids
-      if (options.length === 2 && options[0]!.id === 'A' && options[1]!.id === 'B') {
-        answerId = mapped;
-      } else {
-        answerId = mapped;
-      }
+      answerId = mapped;
     } else {
       throw new Error('Thiếu ANSWER: đúng|sai (hoặc đánh dấu *)');
     }
 
     if (!options.some((o) => o.id === answerId)) {
-      // If options are A/B with Đúng/Sai, answerId is already A or B
       throw new Error(`Đáp án ${answerId} không khớp phương án`);
     }
 
     return {
       type,
       difficulty,
-      content: [{ type: 'text', value: qText }],
+      content,
       options,
       answer: { type: 'single', value: answerId },
       explanation,
@@ -386,7 +563,7 @@ function buildPayload(fields: ParsedFields, type: BulkSupportedType): BulkQuesti
   return {
     type,
     difficulty,
-    content: [{ type: 'text', value: qText }],
+    content,
     options: [],
     answer: { type: 'text', value: answers },
     explanation,
@@ -425,9 +602,7 @@ export function parseBulkQuestionText(
         };
       }
       const payload = buildPayload(fields, type);
-      const preview =
-        payload.content[0]?.value.slice(0, 80) +
-        (payload.content[0]!.value.length > 80 ? '…' : '');
+      const preview = contentPreview(payload.content);
       return { ok: true as const, index, payload, preview };
     } catch (err) {
       return {
@@ -442,57 +617,65 @@ export function parseBulkQuestionText(
 
 export const BULK_EXAMPLE_TEXT = `===
 TYPE: multiple_choice
-Q: 2 + 2 = ?
-A) 3
-B) 4*
-C) 5
-D) 6
+Q: Giá trị của $\\frac{1}{2} + \\frac{1}{3}$ là?
+A) $\\frac{1}{5}$
+B) $\\frac{5}{6}$*
+C) $\\frac{2}{5}$
+D) 1
 POINTS: 1
 ===
 TYPE: true_false
-Q: Trái Đất quay quanh Mặt Trời.
+Q: Biểu thức $$a^2 - b^2 = (a-b)(a+b)$$ đúng với mọi số thực $a,b$.
 ANSWER: đúng
 ===
 TYPE: fill_blank
-Q: Thủ đô Việt Nam là ____.
-ANSWER: Hà Nội | Ha Noi
+Q: Đạo hàm của $x^2$ là ____.
+ANSWER: $2x$ | 2x
 ===
 TYPE: short_answer
-Q: Công thức diện tích hình vuông cạnh a?
-ANSWER: a^2 | a²
+Q: Viết công thức nghiệm phương trình bậc hai.
+ANSWER: latex: \\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}
 DIFFICULTY: medium
 ===`;
 
-export const BULK_FORMAT_HELP = `Mỗi câu cách nhau bằng ===. Trường hỗ trợ: TYPE, Q, A) B)…, ANSWER, POINTS, DIFFICULTY, EXPLAIN.
+export const BULK_FORMAT_HELP = `Mỗi câu cách nhau bằng ===. Trường: TYPE, Q, A) B)…, ANSWER, POINTS, DIFFICULTY, EXPLAIN.
 
-- Trắc nghiệm: đánh dấu đáp án bằng * (vd. B) 4*) hoặc ANSWER: B
-- Đúng/Sai: ANSWER: đúng|sai (hoặc A|B); có thể bỏ phương án (mặc định Đúng/Sai)
-- Điền / trả lời ngắn: ANSWER: đáp1 | đáp2 (nhiều đáp án chấp nhận được)`;
+LaTeX trong Q / phương án:
+- Inline: $...$ hoặc \\(...\\)
+- Display: $$...$$ hoặc \\[...\\]
+- Cả field: latex: \\frac{1}{2}
+- Dấu $ thường: ghi \\$
+
+ANSWER điền/ngắn: text thường, hoặc bọc $...$ / latex: ... (lưu chuỗi LaTeX để chấm).
+
+- Trắc nghiệm: * sau phương án đúng hoặc ANSWER: B
+- Đúng/Sai: ANSWER: đúng|sai
+- Điền / ngắn: ANSWER: đáp1 | đáp2`;
 
 export function templateForType(type: BulkSupportedType): string {
   switch (type) {
     case 'multiple_choice':
       return `TYPE: multiple_choice
-Q: 
-A) 
-B) *
-C) 
-D) 
+Q: Tính $\\frac{1}{2}+\\frac{1}{3}$
+A) $\\frac{1}{5}$
+B) $\\frac{5}{6}$*
+C) 1
+D) $\\frac{2}{3}$
 POINTS: 1`;
     case 'true_false':
       return `TYPE: true_false
-Q: 
-ANSWER: đúng
+Q: $a^2+b^2=(a+b)^2$ với mọi $a,b$.
+ANSWER: sai
 POINTS: 1`;
     case 'fill_blank':
       return `TYPE: fill_blank
-Q: ____
-ANSWER: 
+Q: $\\sin^2 x + \\cos^2 x =$ ____
+ANSWER: $1$ | 1
 POINTS: 1`;
     case 'short_answer':
       return `TYPE: short_answer
-Q: 
-ANSWER: 
+Q: Công thức diện tích hình tròn bán kính $r$?
+ANSWER: $\\pi r^2$ | pi r^2
 POINTS: 1`;
   }
 }
