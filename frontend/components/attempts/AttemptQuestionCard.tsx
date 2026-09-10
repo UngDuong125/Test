@@ -1,7 +1,15 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
 import { ContentBlocksView, OptionContentView } from '@/components/questions/QuestionPreview';
 import type { SnapshotQuestion, StudentAnswerValue } from '@/types/content';
+
+function textFromValue(value: StudentAnswerValue): string {
+  if (value == null) return '';
+  if (typeof value === 'number') return String(value);
+  if (Array.isArray(value)) return value.join(', ');
+  return value;
+}
 
 export function AttemptQuestionCard({
   question,
@@ -20,6 +28,22 @@ export function AttemptQuestionCard({
     question.type === 'multiple_choice' ||
     question.type === 'true_false' ||
     question.type === 'multiple_select';
+
+  const isTextInput =
+    question.type === 'fill_blank' ||
+    question.type === 'short_answer' ||
+    question.type === 'numeric';
+
+  // Local draft + composition handling so Vietnamese IME (Telex/VNI) is not
+  // interrupted by parent re-renders while composing diacritics.
+  const [draft, setDraft] = useState(() => textFromValue(value));
+  const composingRef = useRef(false);
+
+  useEffect(() => {
+    if (!composingRef.current) {
+      setDraft(textFromValue(value));
+    }
+  }, [value]);
 
   return (
     <div className="space-y-4 rounded-xl border border-mist bg-white p-5 shadow-sm">
@@ -82,30 +106,36 @@ export function AttemptQuestionCard({
         </ul>
       )}
 
-      {(question.type === 'fill_blank' ||
-        question.type === 'short_answer' ||
-        question.type === 'numeric') && (
+      {isTextInput && (
         <input
           type={question.type === 'numeric' ? 'number' : 'text'}
           className="w-full rounded-md border border-mist px-3 py-2 text-sm"
           placeholder="Nhập câu trả lời…"
           disabled={disabled}
-          value={
-            value == null
-              ? ''
-              : typeof value === 'number'
-                ? String(value)
-                : Array.isArray(value)
-                  ? value.join(', ')
-                  : value
-          }
-          onChange={(e) => {
+          value={draft}
+          onCompositionStart={() => {
+            composingRef.current = true;
+          }}
+          onCompositionEnd={(e) => {
+            composingRef.current = false;
+            const next = e.currentTarget.value;
+            setDraft(next);
             if (disabled) return;
             if (question.type === 'numeric') {
-              const n = e.target.value === '' ? null : Number(e.target.value);
-              onChange(n);
+              onChange(next === '' ? null : Number(next));
             } else {
-              onChange(e.target.value);
+              onChange(next);
+            }
+          }}
+          onChange={(e) => {
+            if (disabled) return;
+            const next = e.target.value;
+            setDraft(next);
+            if (composingRef.current) return;
+            if (question.type === 'numeric') {
+              onChange(next === '' ? null : Number(next));
+            } else {
+              onChange(next);
             }
           }}
         />
@@ -116,9 +146,21 @@ export function AttemptQuestionCard({
           className="min-h-32 w-full rounded-md border border-mist px-3 py-2 text-sm"
           placeholder="Viết bài làm…"
           disabled={disabled}
-          value={typeof value === 'string' ? value : ''}
+          value={draft}
+          onCompositionStart={() => {
+            composingRef.current = true;
+          }}
+          onCompositionEnd={(e) => {
+            composingRef.current = false;
+            const next = e.currentTarget.value;
+            setDraft(next);
+            if (!disabled) onChange(next);
+          }}
           onChange={(e) => {
-            if (!disabled) onChange(e.target.value);
+            if (disabled) return;
+            const next = e.target.value;
+            setDraft(next);
+            if (!composingRef.current) onChange(next);
           }}
         />
       )}
