@@ -36,8 +36,13 @@ export function createApp() {
   app.use(enforcePasswordChangeGate);
 
   app.get('/api/health', (_req, res) => {
-    res.json({ ok: true, service: 'test-archive-api' });
+    res.json({
+      ok: true,
+      service: 'test-archive-api',
+      cloudinaryConfigured: env.cloudinaryConfigured,
+    });
   });
+
 
   app.use('/api/auth', authRouter);
   app.use('/api/admin/users', usersRouter);

@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { AppError } from '../domain/errors.js';
 import { env } from '../config/env.js';
 import { createMedia, findMediaById, deleteMedia } from '../repositories/media.repository.js';
@@ -28,13 +28,13 @@ async function uploadToCloudinary(
   const folder = 'testarchive';
   const publicId = `ta_${randomUUID()}`;
 
-  const { createHash } = await import('node:crypto');
+  // Signed params must be sorted alphabetically; exclude file/api_key/resource_type/cloud_name.
   const toSign = `folder=${folder}&public_id=${publicId}&timestamp=${timestamp}${apiSecret}`;
   const signature = createHash('sha1').update(toSign).digest('hex');
 
+  // data URI avoids Node FormData/Blob edge cases on some runtimes (e.g. Render).
   const form = new FormData();
-  const blob = new Blob([new Uint8Array(buffer)], { type: mimeType });
-  form.append('file', blob, 'upload');
+  form.append('file', `data:${mimeType};base64,${buffer.toString('base64')}`);
   form.append('api_key', apiKey);
   form.append('timestamp', String(timestamp));
   form.append('signature', signature);
@@ -48,11 +48,15 @@ async function uploadToCloudinary(
 
   if (!res.ok) {
     const text = await res.text();
-    console.error('[cloudinary]', text);
+    console.error('[cloudinary]', res.status, text);
     throw new AppError(502, 'Cloudinary upload failed', 'UPLOAD_FAILED');
   }
 
   const json = (await res.json()) as { secure_url: string; public_id: string };
+  if (!json.secure_url || !json.public_id) {
+    console.error('[cloudinary] unexpected response', json);
+    throw new AppError(502, 'Cloudinary upload failed', 'UPLOAD_FAILED');
+  }
   return { url: json.secure_url, publicId: json.public_id };
 }
 
@@ -81,14 +85,19 @@ export async function uploadMediaForUser(
     throw new AppError(422, 'File must be between 1 byte and 2 MB', 'FILE_TOO_LARGE');
   }
 
-  const configured =
-    Boolean(env.CLOUDINARY_CLOUD_NAME) &&
-    Boolean(env.CLOUDINARY_API_KEY) &&
-    Boolean(env.CLOUDINARY_API_SECRET);
-
-  const uploaded = configured
-    ? await uploadToCloudinary(file.buffer, file.mimetype)
-    : await uploadDevFallback(file.buffer, file.mimetype);
+  let uploaded: { url: string; publicId: string };
+  if (env.cloudinaryConfigured) {
+    uploaded = await uploadToCloudinary(file.buffer, file.mimetype);
+  } else if (env.isProd) {
+    // Never silently fall back in production — that looked like a successful "local" upload.
+    throw new AppError(
+      503,
+      'Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET (or CLOUDINARY_URL) on the API service and redeploy.',
+      'UPLOAD_NOT_CONFIGURED',
+    );
+  } else {
+    uploaded = await uploadDevFallback(file.buffer, file.mimetype);
+  }
 
   return createMedia({
     url: uploaded.url,
