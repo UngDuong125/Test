@@ -18,6 +18,12 @@ import { studentsRouter } from './routes/students.routes.js';
 import { taxonomyRouter } from './routes/taxonomy.routes.js';
 import { uploadRouter } from './routes/upload.routes.js';
 import { usersRouter } from './routes/users.routes.js';
+import {
+  vocabularyAssignmentsRouter,
+  vocabularyBanksRouter,
+  vocabularyCardsRouter,
+  vocabularyEntriesRouter,
+} from './routes/vocabulary.routes.js';
 
 export function createApp() {
   const app = express();
@@ -50,6 +56,10 @@ export function createApp() {
   app.use('/api', taxonomyRouter);
   app.use('/api/questions', questionsRouter);
   app.use('/api/question-banks', questionBanksRouter);
+  app.use('/api/vocabulary-banks', vocabularyBanksRouter);
+  app.use('/api/vocabulary-entries', vocabularyEntriesRouter);
+  app.use('/api/vocabulary-assignments', vocabularyAssignmentsRouter);
+  app.use('/api/vocabulary-cards', vocabularyCardsRouter);
   app.use('/api/exams', examsRouter);
   app.use('/api/classes', classesRouter);
   app.use('/api/exam-assignments', assignmentsRouter);

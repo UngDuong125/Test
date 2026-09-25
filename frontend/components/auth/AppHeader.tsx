@@ -21,6 +21,11 @@ export function AppHeader() {
               <Link href="/leaderboard" className="hover:text-accentDark">
                 XH
               </Link>
+              {user.role === 'student' && (
+                <Link href="/vocabulary/review" className="hover:text-accentDark">
+                  Ôn từ
+                </Link>
+              )}
               {(user.role === 'admin' || user.role === 'teacher') && (
                 <>
                   <Link href="/questions" className="hover:text-accentDark">
@@ -28,6 +33,9 @@ export function AppHeader() {
                   </Link>
                   <Link href="/question-banks" className="hidden sm:inline hover:text-accentDark">
                     Bank
+                  </Link>
+                  <Link href="/vocabulary" className="hover:text-accentDark">
+                    Từ vựng
                   </Link>
                   <Link href="/exams" className="hover:text-accentDark">
                     Đề

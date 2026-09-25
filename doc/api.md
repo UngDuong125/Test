@@ -19,6 +19,8 @@ Quy ước API đích (naming, lỗi, idempotency): [features/_cross-cutting.md]
 | `/grading` | `frontend/app/grading/page.tsx` | Queue chấm thủ công |
 | `/admin` | `frontend/app/admin/page.tsx` | Công cụ admin |
 | `/leaderboard` | `frontend/app/leaderboard/page.tsx` | Xếp hạng EXP |
+| `/vocabulary` | `frontend/app/vocabulary/page.tsx` | Teacher: bộ từ + giao SRS |
+| `/vocabulary/review` | `frontend/app/vocabulary/review/page.tsx` | Student: ôn flashcard |
 
 Base URL API phía client: `NEXT_PUBLIC_API_BASE_URL` (mặc định `http://localhost:4000`), helper tại `frontend/lib/api-client.ts`.
 
@@ -60,6 +62,7 @@ Chi tiết: [authentication-and-authorization.md](./features/authentication-and-
 | Attempts | `POST /api/exam-assignments/:id/attempts`, `POST /api/attempts/:id/submit` | [attempt-and-result.md](./features/attempt-and-result.md) |
 | Grading | `GET /api/grading/queue`, `POST /api/attempts/:id/grade` | [manual-grading.md](./features/manual-grading.md) |
 | Student | `GET /api/students/:id/assignments` | [dashboard.md](./features/dashboard.md) |
+| Vocabulary SRS | `POST/GET /api/vocabulary-banks`, `/api/vocabulary-entries`, `/api/vocabulary-assignments`, `GET /api/students/me/vocabulary/due`, `POST /api/vocabulary-cards/:id/review` | [vocabulary-srs.md](./features/vocabulary-srs.md) |
 | Leaderboard | `GET /api/leaderboard`, `?period=`, `/periods` | [leaderboard.md](./features/leaderboard.md) |
 | Analytics | `GET /api/questions/:id/stats`, `…/exams/:id/analytics` | [analytics.md](./features/analytics.md) |
 | Upload | `POST /api/upload` | [media-upload.md](./features/media-upload.md) |

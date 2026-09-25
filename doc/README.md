@@ -26,6 +26,7 @@ Bộ tài liệu feature cho hệ thống tạo bài học, ngân hàng câu h�
 11. [exp.md](./features/exp.md) — EXP + `exp_ledger`
 12. [leaderboard.md](./features/leaderboard.md) — Bảng xếp hạng (all-time + seasonal)
 13. [analytics.md](./features/analytics.md) — Thống kê câu hỏi / đề / lớp
+14. [vocabulary-srs.md](./features/vocabulary-srs.md) — Ôn từ vựng (spaced repetition / flashcard)
 
 ## Nguyên tắc kiến trúc
 
@@ -42,6 +43,15 @@ Subject → Topic
                                  │
                                  ▼
                               Attempt → Answer → EXP (ledger) → Leaderboard
+
+Subject
+       └── Vocabulary Bank → Vocabulary Entry (+ Media)
+                  │
+                  ▼
+          Vocabulary Assignment (per student)
+                  │
+                  ▼
+          StudentVocabularyCard (SRS: 1/3/7/14/30 ngày)
 ```
 
 ### Các entity chính
@@ -49,6 +59,7 @@ Subject → Topic
 - `Question` / `QuestionOption` / `QuestionBank` / `Media`
 - `Exam` / `ExamAssignment` / `Class`
 - `Attempt` / `Answer` / `exp_ledger`
+- `VocabularyEntry` / `VocabularyBank` / `VocabularyAssignment` / `StudentVocabularyCard` (planned — xem [vocabulary-srs](./features/vocabulary-srs.md))
 
 ## Quy tắc quan trọng
 
@@ -66,3 +77,6 @@ Subject → Topic
 | ExamAssignment | `assigned`, `available`, `in_progress`, `completed`, `expired`, `cancelled` |
 | Attempt | `in_progress`, `submitted`, `needs_grading`, `graded`, `expired`, `cancelled` |
 | User | `invited`, `active`, `locked`, `disabled` |
+| VocabularyEntry | `draft` → `published` → `archived` |
+| VocabularyAssignment | `active`, `completed`, `cancelled` |
+| StudentVocabularyCard | `learning`, `mastered`, `suspended` |

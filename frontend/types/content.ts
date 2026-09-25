@@ -244,3 +244,74 @@ export interface AttemptDetail {
   showExplanation?: boolean;
   answerKeysLocked?: boolean;
 }
+
+export type VocabularyEntryStatus = 'draft' | 'published' | 'archived';
+export type VocabularyAssignmentStatus = 'active' | 'completed' | 'cancelled';
+export type VocabularyCardStatus = 'learning' | 'mastered' | 'suspended';
+
+export interface VocabularyEntry {
+  id: string;
+  subjectId: TagKey;
+  grade: number;
+  term: string;
+  reading: string | null;
+  definition: string;
+  example: string | null;
+  mediaId: string | null;
+  tags: string[];
+  status: VocabularyEntryStatus;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VocabularyBank {
+  id: string;
+  name: string;
+  description: string;
+  subjectId: TagKey;
+  grade: number;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VocabularyAssignment {
+  id: string;
+  bankId: string;
+  targetType: 'user';
+  targetId: string;
+  sourceClassId: string | null;
+  assignedBy: string;
+  assignedAt: string;
+  availableFrom: string;
+  deadline: string | null;
+  status: VocabularyAssignmentStatus;
+  createdAt: string;
+  bankName?: string;
+  targetEmail?: string;
+  targetUsername?: string;
+}
+
+export interface StudentVocabularyCard {
+  id: string;
+  assignmentId: string;
+  userId: string;
+  entryId: string;
+  intervalStep: number;
+  nextReviewAt: string;
+  lastReviewedAt: string | null;
+  reviewCount: number;
+  passCount: number;
+  failCount: number;
+  status: VocabularyCardStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DueVocabularyCard {
+  card: StudentVocabularyCard;
+  entry: VocabularyEntry;
+  assignmentId: string;
+  bankName?: string;
+}

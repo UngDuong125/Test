@@ -6,6 +6,7 @@ import type {
   AttemptSnapshot,
   ClassMember,
   ClassRecord,
+  DueVocabularyCard,
   Exam,
   ExamAssignment,
   ExamQuestion,
@@ -13,8 +14,12 @@ import type {
   Question,
   QuestionBank,
   StudentAnswerValue,
+  StudentVocabularyCard,
   Subject,
   Topic,
+  VocabularyAssignment,
+  VocabularyBank,
+  VocabularyEntry,
 } from '@/types/content';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
@@ -654,4 +659,131 @@ export async function uploadMedia(file: File) {
     throw new ApiError(res.status, data.error?.message ?? res.statusText, data.error?.code);
   }
   return data as { mediaId: string; url: string; mimeType: string; byteSize: number };
+}
+
+// ---------------------------------------------------------------------------
+// Vocabulary SRS
+// ---------------------------------------------------------------------------
+
+export function listVocabularyBanks(params?: Record<string, string | number | undefined>) {
+  const q = new URLSearchParams();
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== '') q.set(k, String(v));
+    }
+  }
+  const qs = q.toString() ? `?${q}` : '';
+  return api<{ items: VocabularyBank[]; total: number }>(`/api/vocabulary-banks${qs}`);
+}
+
+export function createVocabularyBank(body: {
+  name: string;
+  description: string;
+  subjectId: TagKey;
+  grade: number;
+}) {
+  return api<{ bank: VocabularyBank }>('/api/vocabulary-banks', {
+    method: 'POST',
+    body,
+  });
+}
+
+export function getVocabularyBank(id: string) {
+  return api<{ bank: VocabularyBank }>(`/api/vocabulary-banks/${id}`);
+}
+
+export function listVocabularyBankEntries(bankId: string) {
+  return api<{ items: VocabularyEntry[]; total: number }>(
+    `/api/vocabulary-banks/${bankId}/entries`,
+  );
+}
+
+export function addEntriesToVocabularyBank(bankId: string, entryIds: string[]) {
+  return api<{ added: number }>(`/api/vocabulary-banks/${bankId}/items`, {
+    method: 'POST',
+    body: { entryIds },
+  });
+}
+
+export function removeEntryFromVocabularyBank(bankId: string, entryId: string) {
+  return api<void>(`/api/vocabulary-banks/${bankId}/items/${entryId}`, { method: 'DELETE' });
+}
+
+export function assignVocabularyBank(
+  bankId: string,
+  body: {
+    targetType: 'user' | 'class';
+    targetId: string;
+    availableFrom: string;
+    deadline?: string | null;
+  },
+) {
+  return api<{
+    assignments: VocabularyAssignment[];
+    warnings: string[];
+  }>(`/api/vocabulary-banks/${bankId}/assign`, { method: 'POST', body });
+}
+
+export function listVocabularyEntries(params?: Record<string, string | number | undefined>) {
+  const q = new URLSearchParams();
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== '') q.set(k, String(v));
+    }
+  }
+  const qs = q.toString() ? `?${q}` : '';
+  return api<{ items: VocabularyEntry[]; total: number }>(`/api/vocabulary-entries${qs}`);
+}
+
+export function createVocabularyEntry(body: unknown) {
+  return api<{ entry: VocabularyEntry }>('/api/vocabulary-entries', {
+    method: 'POST',
+    body,
+  });
+}
+
+export function updateVocabularyEntry(id: string, body: unknown) {
+  return api<{ entry: VocabularyEntry }>(`/api/vocabulary-entries/${id}`, {
+    method: 'PATCH',
+    body,
+  });
+}
+
+export function listVocabularyAssignments(params?: Record<string, string | number | undefined>) {
+  const q = new URLSearchParams();
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      if (v !== undefined && v !== '') q.set(k, String(v));
+    }
+  }
+  const qs = q.toString() ? `?${q}` : '';
+  return api<{ items: VocabularyAssignment[]; total: number }>(
+    `/api/vocabulary-assignments${qs}`,
+  );
+}
+
+export function cancelVocabularyAssignment(id: string) {
+  return api<{ assignment: VocabularyAssignment }>(
+    `/api/vocabulary-assignments/${id}/cancel`,
+    { method: 'POST' },
+  );
+}
+
+export function listMyDueVocabulary() {
+  return api<{ items: DueVocabularyCard[]; dueCount: number }>(
+    '/api/students/me/vocabulary/due',
+  );
+}
+
+export function getMyVocabularyStats() {
+  return api<{ total: number; learning: number; due: number }>(
+    '/api/students/me/vocabulary/stats',
+  );
+}
+
+export function reviewVocabularyCard(cardId: string, result: 'pass' | 'fail') {
+  return api<{ card: StudentVocabularyCard }>(`/api/vocabulary-cards/${cardId}/review`, {
+    method: 'POST',
+    body: { result },
+  });
 }

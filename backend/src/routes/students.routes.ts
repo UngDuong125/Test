@@ -7,6 +7,8 @@ import * as attemptsService from '../modules/attempts/attempts.service.js';
 import * as classesService from '../modules/classes/classes.service.js';
 import * as leaderboardService from '../modules/leaderboard/leaderboard.service.js';
 import { listAssignmentsQuerySchema } from '../validators/assignment.validators.js';
+import * as vocabularyService from '../modules/vocabulary/vocabulary.service.js';
+import { listVocabularyAssignmentsQuerySchema } from '../validators/vocabulary.validators.js';
 
 export const studentsRouter = Router();
 
@@ -17,6 +19,36 @@ studentsRouter.get('/me/assignments', requireRole('student'), async (req, res, n
     const query = listAssignmentsQuerySchema.parse(req.query);
     const result = await assignmentsService.listMyAssignments(req.auth!.user, query);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+studentsRouter.get('/me/vocabulary-assignments', requireRole('student'), async (req, res, next) => {
+  try {
+    const query = listVocabularyAssignmentsQuerySchema
+      .pick({ status: true, limit: true, offset: true })
+      .parse(req.query);
+    const result = await vocabularyService.listMyVocabularyAssignments(req.auth!.user, query);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+studentsRouter.get('/me/vocabulary/due', requireRole('student'), async (req, res, next) => {
+  try {
+    const result = await vocabularyService.listDueForStudent(req.auth!.user);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+studentsRouter.get('/me/vocabulary/stats', requireRole('student'), async (req, res, next) => {
+  try {
+    const stats = await vocabularyService.getMyVocabularyStats(req.auth!.user);
+    res.json(stats);
   } catch (err) {
     next(err);
   }
@@ -65,6 +97,26 @@ studentsRouter.get(
     try {
       const query = listAssignmentsQuerySchema.parse(req.query);
       const result = await assignmentsService.listStudentAssignments(
+        req.auth!.user,
+        req.params.id,
+        query,
+      );
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
+
+studentsRouter.get(
+  '/:id/vocabulary-assignments',
+  requireRole('admin', 'teacher', 'student'),
+  async (req, res, next) => {
+    try {
+      const query = listVocabularyAssignmentsQuerySchema
+        .pick({ status: true, limit: true, offset: true })
+        .parse(req.query);
+      const result = await vocabularyService.listStudentVocabularyAssignments(
         req.auth!.user,
         req.params.id,
         query,

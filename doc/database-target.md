@@ -310,6 +310,70 @@ Optional columns: `exam_type` (text), `updated_at` (timestamptz khi regrade).
 
 Rebuild từ `attempt_answers` — xem [analytics.md](./features/analytics.md).
 
+## Vocabulary SRS
+
+Spec: [vocabulary-srs.md](./features/vocabulary-srs.md). Migration: `20260924120000_vocabulary_srs.sql`.
+
+### `vocabulary_entries`
+
+| Cột | Kiểu | Mô tả |
+| :--- | :--- | :--- |
+| `id` | uuid PK | |
+| `subject_id` | text FK → subjects | |
+| `grade` | int | 6–9 |
+| `term` | text | Mặt trước flashcard |
+| `reading` | text nullable | Phiên âm |
+| `definition` | text | Mặt sau |
+| `example` | text nullable | |
+| `media_id` | uuid FK → media nullable | |
+| `tags` | text[] | |
+| `status` | text | `draft` \| `published` \| `archived` |
+| `created_by` | uuid FK → users | |
+| `created_at` / `updated_at` | timestamptz | |
+
+### `vocabulary_banks` / `vocabulary_bank_items`
+
+Song song `question_banks` / `question_bank_items`. Unique `(owner_id, name)`.
+
+### `vocabulary_assignments`
+
+| Cột | Kiểu | Mô tả |
+| :--- | :--- | :--- |
+| `id` | uuid PK | |
+| `bank_id` | uuid FK | |
+| `target_type` | text | Luôn `user` (sau expand lớp) |
+| `target_id` | uuid FK → users | |
+| `source_class_id` | uuid FK nullable | |
+| `assigned_by` | uuid FK | |
+| `assigned_at` | timestamptz | |
+| `available_from` | timestamptz | |
+| `deadline` | timestamptz nullable | |
+| `status` | text | `active` \| `completed` \| `cancelled` |
+| `created_at` | timestamptz | |
+
+Partial unique: một assignment `active` / `(bank_id, target_id)`.
+
+### `student_vocabulary_cards`
+
+| Cột | Kiểu | Mô tả |
+| :--- | :--- | :--- |
+| `id` | uuid PK | |
+| `assignment_id` | uuid FK | |
+| `user_id` | uuid FK | |
+| `entry_id` | uuid FK | |
+| `interval_step` | int 0–4 | Mốc 1/3/7/14/30 ngày |
+| `next_review_at` | timestamptz | |
+| `last_reviewed_at` | timestamptz nullable | |
+| `review_count` / `pass_count` / `fail_count` | int | |
+| `status` | text | `learning` \| `mastered` \| `suspended` |
+| `created_at` / `updated_at` | timestamptz | |
+
+Unique `(user_id, entry_id, assignment_id)`.
+
+### `vocabulary_review_events`
+
+Audit: `card_id`, `result` (`pass`\|`fail`), `interval_step_before/after`, `reviewed_at`.
+
 ## Quan hệ tóm tắt
 
 ```text
@@ -321,6 +385,10 @@ users → classes → class_members
 exams → exam_assignments → attempts → attempt_answers
 attempts → exp_ledger → (projection) users.*_exp
 leaderboard_periods → (filter) exp_ledger for seasonal ranks
+
+subjects → vocabulary_banks → vocabulary_bank_items → vocabulary_entries
+vocabulary_banks → vocabulary_assignments → student_vocabulary_cards
+student_vocabulary_cards → vocabulary_review_events
 ```
 
 Chi tiết nghiệp vụ: [features/_cross-cutting.md](./features/_cross-cutting.md). Migrate: [migration-legacy.md](./migration-legacy.md).

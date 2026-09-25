@@ -179,6 +179,9 @@ function DashboardBody() {
             <Link href="/question-banks" className="text-accentDark hover:underline">
               Ngân hàng →
             </Link>
+            <Link href="/vocabulary" className="text-accentDark hover:underline">
+              Từ vựng SRS →
+            </Link>
             <Link href="/exams" className="text-accentDark hover:underline">
               Đề thi →
             </Link>
@@ -228,6 +231,18 @@ function DashboardBody() {
               ]}
             />
           )}
+
+          <section className="rounded-xl border border-mist bg-white p-6 shadow-sm">
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-semibold text-ink">Ôn từ vựng</p>
+              <Link href="/vocabulary/review" className="text-sm text-accentDark hover:underline">
+                Vào ôn →
+              </Link>
+            </div>
+            <p className="mt-2 text-sm text-slate-600">
+              Flashcard theo lịch lặp lại ngắt quãng (1 → 3 → 7 → 14 → 30 ngày).
+            </p>
+          </section>
 
           <section className="rounded-xl border border-mist bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between gap-3">

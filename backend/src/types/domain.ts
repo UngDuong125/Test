@@ -377,3 +377,89 @@ export const SUBJECT_EXP_COLUMNS: Record<TagKey, string> = {
   hist_geo: 'hist_geo_exp',
   civic: 'civic_exp',
 };
+
+/** Spaced-repetition intervals (days) keyed by intervalStep 0..4 */
+export const VOCABULARY_INTERVAL_DAYS = [1, 3, 7, 14, 30] as const;
+
+export type VocabularyEntryStatus = 'draft' | 'published' | 'archived';
+export type VocabularyAssignmentStatus = 'active' | 'completed' | 'cancelled';
+export type VocabularyCardStatus = 'learning' | 'mastered' | 'suspended';
+export type VocabularyReviewResult = 'pass' | 'fail';
+
+export interface VocabularyEntry {
+  id: string;
+  subjectId: TagKey;
+  grade: number;
+  term: string;
+  reading: string | null;
+  definition: string;
+  example: string | null;
+  mediaId: string | null;
+  tags: string[];
+  status: VocabularyEntryStatus;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VocabularyBank {
+  id: string;
+  name: string;
+  description: string;
+  subjectId: TagKey;
+  grade: number;
+  ownerId: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VocabularyAssignment {
+  id: string;
+  bankId: string;
+  targetType: 'user';
+  targetId: string;
+  sourceClassId: string | null;
+  assignedBy: string;
+  assignedAt: string;
+  availableFrom: string;
+  deadline: string | null;
+  status: VocabularyAssignmentStatus;
+  createdAt: string;
+  /** Enriched on read */
+  bankName?: string;
+  targetEmail?: string;
+  targetUsername?: string;
+}
+
+export interface StudentVocabularyCard {
+  id: string;
+  assignmentId: string;
+  userId: string;
+  entryId: string;
+  intervalStep: number;
+  nextReviewAt: string;
+  lastReviewedAt: string | null;
+  reviewCount: number;
+  passCount: number;
+  failCount: number;
+  status: VocabularyCardStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface VocabularyReviewEvent {
+  id: string;
+  cardId: string;
+  result: VocabularyReviewResult;
+  intervalStepBefore: number;
+  intervalStepAfter: number;
+  reviewedAt: string;
+}
+
+/** Due queue item for student flashcard UI */
+export interface DueVocabularyCard {
+  card: StudentVocabularyCard;
+  entry: VocabularyEntry;
+  assignmentId: string;
+  bankName?: string;
+}

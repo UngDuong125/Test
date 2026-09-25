@@ -13,6 +13,7 @@ Các feature chính:
 - Cho phép học sinh tạo **Attempt**, lưu **Answer**, nộp bài và xem kết quả theo quyền của assignment.
 - Tự động chấm các dạng câu hỏi phù hợp; chuyển câu tự luận hoặc câu cần đánh giá nội dung sang teacher chấm thủ công ([manual grading](features/manual-grading.md)).
 - Ghi nhận EXP theo `Exam.type` sau khi attempt `graded` và tổng hợp bảng xếp hạng theo môn.
+- **(Planned)** Ôn từ vựng theo spaced repetition: teacher giao bộ từ, học sinh flashcard với mốc 1/3/7/14/30 ngày — xem [vocabulary-srs](features/vocabulary-srs.md).
 
 Luồng nghiệp vụ chính:
 
@@ -26,6 +27,14 @@ Question Bank → Question
 Exam Assignment (student / class)
 	↓
     Attempt → Answer → Result / EXP
+
+Subject
+	↓
+Vocabulary Bank → Vocabulary Entry
+	↓
+Vocabulary Assignment (student / class)
+	↓
+StudentVocabularyCard (SRS review)
 ```
 
 Tên workspace npm: `test-archive-workspace`.
