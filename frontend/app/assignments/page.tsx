@@ -3,6 +3,7 @@
 import { FormEvent, Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { WeeklyAssignmentSummary } from '@/components/assignments/WeeklyAssignmentSummary';
 import { AuthGate } from '@/components/auth/AuthGate';
 import {
   ApiError,
@@ -33,6 +34,7 @@ function AssignmentsBody() {
   const [error, setError] = useState<string | null>(null);
   const [warnings, setWarnings] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [summaryKey, setSummaryKey] = useState(0);
 
   const now = useMemo(() => new Date(), []);
   const [form, setForm] = useState({
@@ -102,6 +104,7 @@ function AssignmentsBody() {
       });
       setWarnings(res.warnings);
       await refreshList(form.examId);
+      setSummaryKey((k) => k + 1);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Giao đề thất bại');
     }
@@ -112,6 +115,7 @@ function AssignmentsBody() {
     try {
       await cancelAssignment(id);
       await refreshList();
+      setSummaryKey((k) => k + 1);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Hủy thất bại');
     }
@@ -253,6 +257,12 @@ function AssignmentsBody() {
           </p>
         )}
       </form>
+
+      <WeeklyAssignmentSummary
+        classes={classes}
+        refreshKey={summaryKey}
+        onChanged={() => void refreshList()}
+      />
 
       <section className="rounded-xl border border-mist bg-white p-4">
         <p className="font-semibold text-ink">Assignment</p>
