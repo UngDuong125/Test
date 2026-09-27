@@ -426,16 +426,6 @@ export function listAssignmentsForExam(examId: string) {
   return api<{ items: ExamAssignment[]; total: number }>(`/api/exams/${examId}/assignments`);
 }
 
-export function updateAssignment(
-  id: string,
-  body: Partial<{ availableFrom: string; deadline: string; attemptLimit: number }>,
-) {
-  return api<{ assignment: ExamAssignment }>(`/api/exam-assignments/${id}`, {
-    method: 'PATCH',
-    body,
-  });
-}
-
 export function cancelAssignment(id: string) {
   return api<{ assignment: ExamAssignment }>(`/api/exam-assignments/${id}/cancel`, {
     method: 'POST',

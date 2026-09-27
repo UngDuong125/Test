@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   ApiError,
+  assignExam,
+  cancelAssignment,
   listAssignmentAttempts,
   listExamAssignments,
   listExamResults,
-  updateAssignment,
 } from '@/lib/api-client';
 import type { AssignmentStatus, ClassRecord, ExamAssignment } from '@/types/content';
 
@@ -213,14 +214,21 @@ export function WeeklyAssignmentSummary({
     let ok = 0;
     const failures: string[] = [];
     await runLimited(targets, REASSIGN_CONCURRENCY, async (a) => {
+      const who = a.targetUsername || a.targetEmail || a.targetId.slice(0, 8);
       try {
-        await updateAssignment(a.id, {
+        // Backend skips creating when an assignment that is not cancelled/expired exists.
+        await cancelAssignment(a.id);
+        const res = await assignExam(a.examId, {
+          targetType: 'user',
+          targetId: a.targetId,
           availableFrom: availableFrom.toISOString(),
           deadline: deadline.toISOString(),
+          attemptLimit: a.attemptLimit,
+          settings: a.settings,
         });
-        ok += 1;
+        if (res.assignments.length > 0) ok += 1;
+        else failures.push(`${who}: ${res.warnings.join(', ') || 'không tạo được assignment'}`);
       } catch (err) {
-        const who = a.targetUsername || a.targetEmail || a.targetId.slice(0, 8);
         failures.push(`${who}: ${err instanceof ApiError ? err.message : 'lỗi'}`);
       }
     });

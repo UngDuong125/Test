@@ -191,7 +191,7 @@ Assign
 
 - Gom các assignment có `assignedAt` trong tuần (thứ Hai 00:00 → Chủ nhật, giờ local; xem được các tuần trước) theo `examId` + `sourceClassId` (giao lẻ gom chung).
 - Số lượt làm đếm từ `GET /api/exams/:id/results` (bỏ attempt `cancelled`); fallback `GET /api/exam-assignments/:id/attempts` nếu không đọc được kết quả đề.
-- "Giao lại" = `PATCH /api/exam-assignments/:id` với `availableFrom = now`, `deadline` do teacher chọn (mặc định +7 ngày), giữ nguyên `attemptLimit`. Chỉ áp dụng cho assignment **chưa có lượt làm** và đang `available`/`expired` (`assigned` chưa mở thì bỏ qua).
+- "Giao lại" = `POST /api/exam-assignments/:id/cancel` assignment cũ rồi `POST /api/exams/:id/assign` (`targetType = user`) tạo assignment mới với `availableFrom = now`, `deadline` do teacher chọn (mặc định +7 ngày), giữ nguyên `attemptLimit`/`settings`. Phải hủy trước vì backend bỏ qua khi còn assignment chưa `cancelled`/`expired`. Assignment mới không có `sourceClassId` nên hiển thị ở nhóm "Giao lẻ". Chỉ áp dụng cho assignment **chưa có lượt làm** và đang `available`/`expired` (`assigned` chưa mở thì bỏ qua).
 - "Giao lại tất cả đề chưa có lượt làm" áp dụng cho các nhóm có tổng 0 lượt; nút từng nhóm giao lại cho các HS chưa làm trong nhóm.
 
 ## 11. Student Workflow
