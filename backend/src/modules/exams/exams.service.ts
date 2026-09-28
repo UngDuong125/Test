@@ -41,7 +41,8 @@ import {
   findQuestionsByIds,
   updateQuestionRow,
 } from '../../repositories/questions.repository.js';
-import { findTopicsByIds, mediaExists, subjectExists } from '../../repositories/taxonomy.repository.js';
+import { mediaExists, subjectExists } from '../../repositories/taxonomy.repository.js';
+import { assertTopicsValidForQuestion } from '../taxonomy/topics.service.js';
 import {
   assertQuestionPayloadValid,
   collectQuestionPayloadIssues,
@@ -354,21 +355,7 @@ export async function createQuestionOnExamForUser(
     }
   }
 
-  if (input.topicIds.length) {
-    const topics = await findTopicsByIds(input.topicIds);
-    if (topics.length !== input.topicIds.length) {
-      throw new AppError(422, 'One or more topics not found', 'TOPIC_NOT_FOUND');
-    }
-    for (const t of topics) {
-      if (t.subjectId !== subjectId) {
-        throw new AppError(
-          422,
-          `Topic ${t.id} does not belong to subject ${subjectId}`,
-          'TOPIC_SUBJECT_MISMATCH',
-        );
-      }
-    }
-  }
+  await assertTopicsValidForQuestion(input.topicIds, subjectId, grade);
 
   if (input.bankId) {
     const bank = await findQuestionBankById(input.bankId);

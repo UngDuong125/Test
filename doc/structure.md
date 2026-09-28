@@ -75,6 +75,7 @@ TestArchive/
 │   │   ├── exams/page.tsx            # Danh sách/preview exam
 │   │   ├── question-banks/page.tsx   # Quản lý ngân hàng câu hỏi
 │   │   ├── questions/page.tsx        # Tạo, sửa, review question
+│   │   ├── topics/page.tsx           # Quản lý chủ đề (taxonomy)
 │   │   ├── assignments/page.tsx      # Teacher giao đề
 │   │   ├── classes/page.tsx          # Quản lý lớp
 │   │   ├── grading/page.tsx          # Queue chấm thủ công
@@ -111,6 +112,7 @@ TestArchive/
 │       ├── routes/
 │       │   ├── auth.routes.ts
 │       │   ├── users.routes.ts
+│       │   ├── taxonomy.routes.ts    # /api/subjects, /api/topics
 │       │   ├── questions.routes.ts
 │       │   ├── questionBanks.routes.ts
 │       │   ├── exams.routes.ts
@@ -123,6 +125,7 @@ TestArchive/
 │       ├── modules/
 │       │   ├── auth/                 # Login, invite, reset password
 │       │   ├── users/                # User admin và quyền
+│       │   ├── taxonomy/             # Topic CRUD + rule gắn topic vào câu hỏi
 │       │   ├── questions/            # CRUD, validation, lifecycle
 │       │   ├── question-banks/       # Filter và random selection
 │       │   ├── exams/                # Section, ordering, publish
@@ -172,6 +175,7 @@ Chi tiết field schema đích: [database-target.md](database-target.md). Schema
 | Feature | Frontend | Backend | Dữ liệu |
 | :--- | :--- | :--- | :--- |
 | Authentication & Authorization | `app/login`, `components/auth` | `modules/auth`, `middleware` | `users`, `sessions`, `auth_tokens` |
+| Taxonomy (Subject/Topic) | `app/topics`, `components/questions/TopicPicker` | `modules/taxonomy`, `routes/taxonomy` | `subjects`, `topics`, `question_topic_links` |
 | Question Management | `app/questions` | `modules/questions` | `questions`, `question_options` |
 | Question Bank | `app/question-banks` | `modules/question-banks` | `question_banks`, `question_bank_items` |
 | Exam Management | `app/exams` | `modules/exams` | `exams`, `exam_sections`, `exam_questions` |

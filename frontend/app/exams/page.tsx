@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { AuthGate } from '@/components/auth/AuthGate';
 import { SUBJECT_TAGS } from '@/constants/tags';
 import { ApiError, generateExam, listExams } from '@/lib/api-client';
+import { useTopics } from '@/lib/topics';
+import { TopicPicker } from '@/components/questions/TopicPicker';
 import type { Exam } from '@/types/content';
 import type { TagKey } from '@/types/auth';
 
@@ -21,6 +23,8 @@ function ExamsBody() {
     duration: 30,
     count: 5,
   });
+  const [genTopicIds, setGenTopicIds] = useState<string[]>([]);
+  const genTopics = useTopics(gen.subjectId, gen.grade);
 
   async function refresh() {
     setLoading(true);
@@ -49,7 +53,10 @@ function ExamsBody() {
         grade: gen.grade,
         type: gen.type,
         duration: gen.duration,
-        selection: { count: gen.count },
+        selection: {
+          count: gen.count,
+          ...(genTopicIds.length ? { topicIds: genTopicIds } : {}),
+        },
         sectionTitle: 'Phần 1',
         description: '',
         difficulty: 'medium',
@@ -135,6 +142,18 @@ function ExamsBody() {
           onChange={(e) => setGen({ ...gen, count: Number(e.target.value) })}
           title="Số câu"
         />
+        <div className="sm:col-span-2">
+          <TopicPicker
+            subjectId={gen.subjectId}
+            grade={gen.grade}
+            topics={genTopics.topics}
+            loaded={genTopics.loaded}
+            value={genTopicIds}
+            onChange={setGenTopicIds}
+            label="Chủ đề (không chọn = mọi chủ đề)"
+            hint="Lấy câu published thuộc ít nhất một chủ đề đã chọn."
+          />
+        </div>
         <button
           type="submit"
           className="rounded-md border border-accent px-4 py-2 text-sm font-medium text-accentDark hover:bg-teal-50"

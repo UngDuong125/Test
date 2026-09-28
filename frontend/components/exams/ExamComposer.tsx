@@ -20,7 +20,8 @@ import {
   updateExamQuestion,
   validateExam,
 } from '@/lib/api-client';
-import type { BulkQuestionPayload } from '@/lib/bulk-question-text';
+import type { BulkQuestionCreatePayload } from '@/lib/bulk-question-text';
+import { topicLabel, useTopics } from '@/lib/topics';
 import type { TagKey } from '@/types/auth';
 import type {
   Exam,
@@ -112,6 +113,8 @@ export function ExamComposer({
   const [saveToBank, setSaveToBank] = useState(true);
   const [bankPool, setBankPool] = useState<Question[]>([]);
   const [bankLoading, setBankLoading] = useState(false);
+  const [bankTopicId, setBankTopicId] = useState('');
+  const bankTopics = useTopics(meta.subjectId, meta.grade);
   const [validation, setValidation] = useState<Awaited<ReturnType<typeof validateExam>> | null>(
     null,
   );
@@ -248,6 +251,7 @@ export function ExamComposer({
         limit: 50,
       };
       if (selectedBankId) params.bankId = selectedBankId;
+      if (bankTopicId) params.topicId = bankTopicId;
       const res = await listQuestions(params);
       const onExam = new Set(examQuestions.map((eq) => eq.questionId));
       setBankPool(res.items.filter((q) => !onExam.has(q.id)));
@@ -261,7 +265,13 @@ export function ExamComposer({
   useEffect(() => {
     if (rightTab === 'bank' && editable) void loadBankPool();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rightTab, selectedBankId]);
+  }, [rightTab, selectedBankId, bankTopicId]);
+
+  useEffect(() => {
+    if (bankTopicId && bankTopics.loaded && !bankTopics.topics.some((t) => t.id === bankTopicId)) {
+      setBankTopicId('');
+    }
+  }, [bankTopicId, bankTopics.loaded, bankTopics.topics]);
 
   async function ensureDefaultSection(): Promise<string | null> {
     if (sections[0]) return sections[0].id;
@@ -323,6 +333,7 @@ export function ExamComposer({
     await attachCreatedQuestion(payload);
     showFlash('Đã gắn câu vào đề');
     setRightTab('bank');
+    void bankTopics.reload();
   }
 
   async function onCreateAndContinue(payload: Record<string, unknown>) {
@@ -332,7 +343,7 @@ export function ExamComposer({
     setFormNonce((n) => n + 1);
   }
 
-  async function onBulkCreateOne(payload: BulkQuestionPayload) {
+  async function onBulkCreateOne(payload: BulkQuestionCreatePayload) {
     await attachCreatedQuestion(payload as unknown as Record<string, unknown>);
   }
 
@@ -826,6 +837,18 @@ export function ExamComposer({
                   </option>
                 ))}
               </select>
+              <select
+                className="w-full rounded-md border border-mist px-2 py-1.5 text-sm"
+                value={bankTopicId}
+                onChange={(e) => setBankTopicId(e.target.value)}
+              >
+                <option value="">Mọi chủ đề</option>
+                {bankTopics.topics.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {topicLabel(t)}
+                  </option>
+                ))}
+              </select>
               <button
                 type="button"
                 onClick={() => void loadBankPool()}
@@ -843,6 +866,11 @@ export function ExamComposer({
                       <span className="line-clamp-2 text-ink">{snippet(q)}</span>
                       <span className="mt-0.5 block text-[11px] text-slate-500">
                         {TYPE_LABEL[q.type] ?? q.type} · {q.points}đ
+                        {q.topicIds
+                          .map((id) => bankTopics.topics.find((t) => t.id === id)?.name)
+                          .filter(Boolean)
+                          .map((name) => ` · ${name}`)
+                          .join('')}
                       </span>
                     </span>
                     <button
@@ -945,10 +973,15 @@ export function ExamComposer({
           className="scroll-mt-24 rounded-xl border border-accent/30 bg-white p-4 shadow-sm ring-1 ring-accent/10 sm:p-5"
         >
           <BulkQuestionTextImport
+            subjectId={meta.subjectId}
+            grade={meta.grade}
             onCreateOne={onBulkCreateOne}
             footerExtra={bankFooter}
             onClose={() => setRightTab('bank')}
-            onComplete={(count) => showFlash(`Đã tạo ${count} câu từ text và gắn vào đề`)}
+            onComplete={(count) => {
+              showFlash(`Đã tạo ${count} câu từ text và gắn vào đề`);
+              void bankTopics.reload();
+            }}
           />
         </section>
       )}

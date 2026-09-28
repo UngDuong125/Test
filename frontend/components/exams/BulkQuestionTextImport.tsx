@@ -7,11 +7,15 @@ import {
   BULK_SUPPORTED_TYPES,
   parseBulkQuestionText,
   templateForType,
-  type BulkQuestionPayload,
+  type BulkQuestionCreatePayload,
   type BulkSupportedType,
 } from '@/lib/bulk-question-text';
-import { ApiError } from '@/lib/api-client';
+import { ApiError, createTopic } from '@/lib/api-client';
+import { topicNameKey, useTopics } from '@/lib/topics';
 import { ContentBlocksView, OptionContentView } from '@/components/questions/QuestionPreview';
+import { TopicPicker } from '@/components/questions/TopicPicker';
+import type { TagKey } from '@/types/auth';
+import type { Topic } from '@/types/content';
 
 const TYPE_LABEL: Record<BulkSupportedType, string> = {
   multiple_choice: 'Trắc nghiệm',
@@ -21,13 +25,18 @@ const TYPE_LABEL: Record<BulkSupportedType, string> = {
 };
 
 type Props = {
-  onCreateOne: (payload: BulkQuestionPayload) => Promise<void>;
+  /** Môn/lớp của đề — dùng để đổi tên chủ đề thành id và tạo chủ đề thiếu. */
+  subjectId: TagKey;
+  grade: number;
+  onCreateOne: (payload: BulkQuestionCreatePayload) => Promise<void>;
   footerExtra?: ReactNode;
   onClose?: () => void;
   onComplete?: (count: number) => void;
 };
 
 export function BulkQuestionTextImport({
+  subjectId,
+  grade,
   onCreateOne,
   footerExtra,
   onClose,
@@ -35,6 +44,8 @@ export function BulkQuestionTextImport({
 }: Props) {
   const [text, setText] = useState(BULK_EXAMPLE_TEXT);
   const [defaultType, setDefaultType] = useState<BulkSupportedType | ''>('');
+  const topicSource = useTopics(subjectId, grade);
+  const [defaultTopicIds, setDefaultTopicIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +62,49 @@ export function BulkQuestionTextImport({
   const okItems = parsed.filter((p) => p.ok);
   const errItems = parsed.filter((p) => !p.ok);
 
+  const topicByKey = useMemo(() => {
+    const map = new Map<string, Topic>();
+    for (const t of topicSource.topics) map.set(topicNameKey(t.name), t);
+    return map;
+  }, [topicSource.topics]);
+
+  const defaultTopicNames = useMemo(
+    () =>
+      defaultTopicIds
+        .map((id) => topicSource.topics.find((t) => t.id === id)?.name)
+        .filter((n): n is string => Boolean(n)),
+    [defaultTopicIds, topicSource.topics],
+  );
+
+  /** Default topics + names from `TOPIC:`, deduped case-insensitively. */
+  function itemTopics(names: string[]): { name: string; isNew: boolean }[] {
+    const seen = new Set<string>();
+    const out: { name: string; isNew: boolean }[] = [];
+    for (const name of [...defaultTopicNames, ...names]) {
+      const key = topicNameKey(name);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ name, isNew: !topicByKey.has(key) });
+    }
+    return out;
+  }
+
+  async function resolveTopicIds(): Promise<Map<string, string>> {
+    const ids = new Map<string, string>();
+    for (const [key, t] of topicByKey) ids.set(key, t.id);
+    for (const item of okItems) {
+      if (!item.ok) continue;
+      for (const name of item.payload.topicNames) {
+        const key = topicNameKey(name);
+        if (ids.has(key)) continue;
+        const { topic } = await createTopic({ subjectId, name, grade });
+        topicSource.addTopic(topic);
+        ids.set(key, topic.id);
+      }
+    }
+    return ids;
+  }
+
   function insertTemplate(type: BulkSupportedType) {
     const block = templateForType(type);
     setText((prev) => {
@@ -66,11 +120,34 @@ export function BulkQuestionTextImport({
     setError(null);
     setCreatedCount(0);
     let done = 0;
+    let topicIdByKey: Map<string, string>;
+    try {
+      setProgress('Đang chuẩn bị chủ đề…');
+      topicIdByKey = await resolveTopicIds();
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? `Không tạo được chủ đề: ${err.message}`
+          : 'Không tạo được chủ đề',
+      );
+      setProgress(null);
+      setBusy(false);
+      return;
+    }
     try {
       for (const item of okItems) {
         if (!item.ok) continue;
         setProgress(`Đang tạo câu ${done + 1}/${okItems.length}…`);
-        await onCreateOne(item.payload);
+        const { topicNames, ...rest } = item.payload;
+        const topicIds = [
+          ...new Set([
+            ...defaultTopicIds,
+            ...topicNames
+              .map((n) => topicIdByKey.get(topicNameKey(n)))
+              .filter((id): id is string => Boolean(id)),
+          ]),
+        ];
+        await onCreateOne({ ...rest, topicIds });
         done += 1;
         setCreatedCount(done);
       }
@@ -144,6 +221,18 @@ export function BulkQuestionTextImport({
         </label>
       </div>
 
+      <TopicPicker
+        subjectId={subjectId}
+        grade={grade}
+        topics={topicSource.topics}
+        loaded={topicSource.loaded}
+        value={defaultTopicIds}
+        onChange={setDefaultTopicIds}
+        onCreated={topicSource.addTopic}
+        label="Chủ đề mặc định (áp dụng cho mọi câu)"
+        hint="Chủ đề ghi trong TOPIC: của từng câu được cộng thêm."
+      />
+
       <textarea
         rows={16}
         spellCheck={false}
@@ -176,6 +265,23 @@ export function BulkQuestionTextImport({
                     #{item.index + 1} · {TYPE_LABEL[item.payload.type]} · {item.payload.points}đ
                   </p>
                   <ContentBlocksView blocks={item.payload.content} compact />
+                  {itemTopics(item.payload.topicNames).length > 0 && (
+                    <p className="mt-1 flex flex-wrap gap-1">
+                      {itemTopics(item.payload.topicNames).map((t) => (
+                        <span
+                          key={t.name}
+                          className={`rounded-full border px-2 py-0.5 text-[11px] ${
+                            t.isNew
+                              ? 'border-amber-300 bg-amber-50 text-amber-800'
+                              : 'border-mist bg-slate-50 text-slate-600'
+                          }`}
+                        >
+                          {t.name}
+                          {t.isNew ? ' · mới' : ''}
+                        </span>
+                      ))}
+                    </p>
+                  )}
                   {item.payload.options.length > 0 && (
                     <ul className="mt-1.5 space-y-0.5 border-t border-mist/60 pt-1.5">
                       {item.payload.options.map((o) => (

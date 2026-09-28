@@ -6,6 +6,7 @@ import { AuthGate } from '@/components/auth/AuthGate';
 import { STATUS_LABELS } from '@/constants/questions';
 import { SUBJECT_TAGS } from '@/constants/tags';
 import { ApiError, listQuestions, publishQuestion } from '@/lib/api-client';
+import { topicLabel, useTopicMap, useTopics } from '@/lib/topics';
 import type { Question } from '@/types/content';
 import type { TagKey } from '@/types/auth';
 
@@ -25,8 +26,11 @@ function QuestionsBody() {
   const [grade, setGrade] = useState('');
   const [status, setStatus] = useState('');
   const [type, setType] = useState('');
+  const [topicId, setTopicId] = useState('');
   const [q, setQ] = useState('');
   const [busyId, setBusyId] = useState<string | null>(null);
+  const filterTopics = useTopics(subjectId, grade ? Number(grade) : undefined);
+  const topicMap = useTopicMap();
 
   async function refresh() {
     setLoading(true);
@@ -37,6 +41,7 @@ function QuestionsBody() {
         grade: grade ? Number(grade) : undefined,
         status: status || undefined,
         type: type || undefined,
+        topicId: topicId || undefined,
         q: q.trim() || undefined,
       });
       setItems(res.items);
@@ -51,7 +56,14 @@ function QuestionsBody() {
   useEffect(() => {
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subjectId, grade, status, type]);
+  }, [subjectId, grade, status, type, topicId]);
+
+  useEffect(() => {
+    if (!topicId) return;
+    if (!subjectId || (filterTopics.loaded && !filterTopics.topics.some((t) => t.id === topicId))) {
+      setTopicId('');
+    }
+  }, [topicId, subjectId, filterTopics.loaded, filterTopics.topics]);
 
   async function onPublish(id: string) {
     setBusyId(id);
@@ -145,6 +157,20 @@ function QuestionsBody() {
           <option value="multiple_select">Nhiều đáp án</option>
           <option value="numeric">Số học</option>
         </select>
+        <select
+          className="rounded-md border border-mist bg-white px-3 py-2 disabled:bg-slate-50"
+          value={topicId}
+          disabled={!subjectId}
+          title={subjectId ? undefined : 'Chọn môn trước để lọc theo chủ đề'}
+          onChange={(e) => setTopicId(e.target.value)}
+        >
+          <option value="">{subjectId ? 'Mọi chủ đề' : 'Chủ đề (chọn môn trước)'}</option>
+          {filterTopics.topics.map((t) => (
+            <option key={t.id} value={t.id}>
+              {grade ? topicLabel(t) : t.grade != null ? `${t.name} (lớp ${t.grade})` : topicLabel(t)}
+            </option>
+          ))}
+        </select>
         <form
           className="flex gap-2"
           onSubmit={(e) => {
@@ -183,8 +209,19 @@ function QuestionsBody() {
                 <p className="mt-1 text-xs text-slate-500">
                   {item.subjectId} · lớp {item.grade} · {item.type} · {item.difficulty} ·{' '}
                   {STATUS_LABELS[item.status] ?? item.status} · {item.points}đ
-                  {item.topicIds.length ? ` · ${item.topicIds.length} topic` : ''}
                 </p>
+                {item.topicIds.length > 0 && (
+                  <p className="mt-1 flex flex-wrap gap-1">
+                    {item.topicIds.map((id) => (
+                      <span
+                        key={id}
+                        className="rounded-full border border-mist bg-slate-50 px-2 py-0.5 text-[11px] text-slate-600"
+                      >
+                        {topicMap[id]?.name ?? '…'}
+                      </span>
+                    ))}
+                  </p>
+                )}
               </div>
               <div className="flex flex-wrap gap-2">
                 <Link

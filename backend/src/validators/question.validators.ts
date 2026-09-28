@@ -92,3 +92,18 @@ export const listTopicsQuerySchema = z.object({
   subjectId: tagKeySchema.optional(),
   grade: z.coerce.number().int().min(6).max(9).optional(),
 });
+
+const topicNameSchema = z.string().trim().min(1).max(100);
+
+export const createTopicSchema = z.object({
+  subjectId: tagKeySchema,
+  name: topicNameSchema,
+  grade: gradeSchema.nullable().optional(),
+});
+
+export const updateTopicSchema = z
+  .object({
+    name: topicNameSchema.optional(),
+    grade: gradeSchema.nullable().optional(),
+  })
+  .refine((data) => Object.keys(data).length > 0, { message: 'No fields to update' });

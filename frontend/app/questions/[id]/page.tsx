@@ -10,6 +10,7 @@ import { QuestionLifecycleActions } from '@/components/questions/QuestionLifecyc
 import { QuestionPreview } from '@/components/questions/QuestionPreview';
 import { STATUS_LABELS } from '@/constants/questions';
 import { ApiError, getQuestion, getQuestionStats, updateQuestion } from '@/lib/api-client';
+import { useTopicMap } from '@/lib/topics';
 import type { Question } from '@/types/content';
 
 function QuestionDetailBody() {
@@ -20,6 +21,7 @@ function QuestionDetailBody() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
+  const topicMap = useTopicMap(question?.updatedAt);
   const [stats, setStats] = useState<{
     usageCount: number;
     correctRate: number | null;
@@ -174,7 +176,10 @@ function QuestionDetailBody() {
             <p className="text-sm text-slate-500">Tags: {question.tags.join(', ')}</p>
           )}
           {question.topicIds.length > 0 && (
-            <p className="text-sm text-slate-500">Topics: {question.topicIds.length} gắn kèm</p>
+            <p className="text-sm text-slate-500">
+              Chủ đề:{' '}
+              {question.topicIds.map((tid) => topicMap[tid]?.name ?? '…').join(', ')}
+            </p>
           )}
         </div>
       )}

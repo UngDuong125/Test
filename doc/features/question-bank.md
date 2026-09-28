@@ -51,11 +51,13 @@ Ví dụ:
 ```text
 Math
 Grade 7
-Topic = Fractions
+Topic = Phân số
 Difficulty = Medium
 Type = Multiple Choice
 Status = Published
 ```
+
+Lọc topic dùng `GET /api/questions?topicId=<uuid>` — có trên trang `/questions` và tab **Ngân hàng** của Exam Composer. Quy tắc topic: [\_cross-cutting.md](./_cross-cutting.md#chủ-đề-topic).
 
 ## 4. Question Metadata
 
@@ -98,7 +100,7 @@ Hỗ trợ yêu cầu:
 {
   "subjectId": "math",
   "grade": 7,
-  "topicIds": ["fractions"],
+  "topicIds": ["10000000-0000-4000-8000-000000000001"],
   "count": 10,
   "difficulty": {
     "easy": 0.4,
@@ -108,6 +110,8 @@ Hỗ trợ yêu cầu:
   "types": ["multiple_choice", "short_answer"]
 }
 ```
+
+`topicIds` (UUID, tùy chọn): chỉ lấy câu gắn **ít nhất một** topic trong danh sách. Bỏ trống → không lọc theo topic.
 
 Backend:
 

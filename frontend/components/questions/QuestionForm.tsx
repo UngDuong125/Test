@@ -1,6 +1,14 @@
 'use client';
 
-import { FormEvent, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import {
+  FormEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import {
   DIFFICULTY_OPTIONS,
   OPTION_IDS,
@@ -8,7 +16,8 @@ import {
   isOptionBasedType,
 } from '@/constants/questions';
 import { SUBJECT_TAGS } from '@/constants/tags';
-import { ApiError, getMedia, listTopics } from '@/lib/api-client';
+import { ApiError, getMedia } from '@/lib/api-client';
+import { useTopics } from '@/lib/topics';
 import type { TagKey } from '@/types/auth';
 import type {
   ContentBlock,
@@ -19,6 +28,7 @@ import type {
   QuestionType,
 } from '@/types/content';
 import { ContentBlocksEditor } from './ContentBlocksEditor';
+import { TopicPicker } from './TopicPicker';
 import {
   QuestionPreview,
   filterOptionBlocks,
@@ -263,27 +273,17 @@ export function QuestionForm({
     if (defaultGrade != null) base.grade = defaultGrade;
     return base;
   });
-  const [topics, setTopics] = useState<{ id: string; name: string }[]>([]);
+  const topicSource = useTopics(values.subjectId, values.grade);
+  const onTopicIdsChange = useCallback(
+    (topicIds: string[]) => setValues((v) => ({ ...v, topicIds })),
+    [],
+  );
   const [mediaUrls, setMediaUrls] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyMode, setBusyMode] = useState<'primary' | 'secondary' | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const formTopRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    void listTopics({ subjectId: values.subjectId, grade: values.grade })
-      .then((res) => {
-        if (!cancelled) setTopics(res.topics.map((t) => ({ id: t.id, name: t.name })));
-      })
-      .catch(() => {
-        if (!cancelled) setTopics([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [values.subjectId, values.grade]);
 
   useEffect(() => {
     const imageIds = [
@@ -351,6 +351,9 @@ export function QuestionForm({
     next.bankId = bankId ?? values.bankId;
     next.type = values.type;
     next.difficulty = values.difficulty;
+    if (next.subjectId === values.subjectId && next.grade === values.grade) {
+      next.topicIds = values.topicIds;
+    }
     if (next.type === 'true_false') {
       next.options = trueFalseOptions();
     }
@@ -484,33 +487,21 @@ export function QuestionForm({
             disabled={lockTaxonomy}
             className="mt-1 w-full rounded-md border border-mist px-3 py-2 disabled:bg-slate-50"
             value={values.grade}
-            onChange={(e) =>
-              setValues({ ...values, grade: Number(e.target.value), topicIds: [] })
-            }
+            onChange={(e) => setValues({ ...values, grade: Number(e.target.value) })}
           />
         </label>
 
-        <label className="sm:col-span-2 text-sm">
-          Chủ đề
-          <select
-            multiple
-            className="mt-1 min-h-[88px] w-full rounded-md border border-mist px-3 py-2"
+        <div className="sm:col-span-2">
+          <TopicPicker
+            subjectId={values.subjectId}
+            grade={values.grade}
+            topics={topicSource.topics}
+            loaded={topicSource.loaded}
             value={values.topicIds}
-            onChange={(e) => {
-              const selected = Array.from(e.target.selectedOptions).map((o) => o.value);
-              setValues({ ...values, topicIds: selected });
-            }}
-          >
-            {topics.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
-          <span className="mt-1 block text-xs text-slate-500">
-            Giữ Ctrl/Cmd để chọn nhiều. {topics.length === 0 ? 'Chưa có topic cho môn/lớp này.' : ''}
-          </span>
-        </label>
+            onChange={onTopicIdsChange}
+            onCreated={topicSource.addTopic}
+          />
+        </div>
 
         <label className="text-sm">
           Điểm

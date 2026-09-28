@@ -218,7 +218,7 @@ export async function createQuestion(input: {
 
   if (input.topicIds.length) {
     const { error: topicError } = await getDb().from('question_topic_links').insert(
-      input.topicIds.map((topicId) => ({
+      [...new Set(input.topicIds)].map((topicId) => ({
         question_id: questionId,
         topic_id: topicId,
       })),
@@ -261,7 +261,7 @@ export async function replaceQuestionTopics(
   if (delError) throw delError;
   if (!topicIds.length) return;
   const { error } = await getDb().from('question_topic_links').insert(
-    topicIds.map((topicId) => ({
+    [...new Set(topicIds)].map((topicId) => ({
       question_id: questionId,
       topic_id: topicId,
     })),

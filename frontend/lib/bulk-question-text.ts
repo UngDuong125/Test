@@ -8,6 +8,7 @@
  */
 
 import { normalizeLatexInput } from '@/lib/latex';
+import { normalizeTopicName, topicNameKey } from '@/lib/topics';
 import type {
   ContentBlock,
   Difficulty,
@@ -33,6 +34,11 @@ export type BulkQuestionPayload = {
   explanation: { text?: string };
   points: number;
   tags: string[];
+  /** Topic names from `TOPIC:`; resolved to ids (creating missing topics) before create. */
+  topicNames: string[];
+};
+
+export type BulkQuestionCreatePayload = Omit<BulkQuestionPayload, 'topicNames'> & {
   topicIds: string[];
 };
 
@@ -53,7 +59,7 @@ export type BulkParseErr = {
 export type BulkParseItem = BulkParseOk | BulkParseErr;
 
 const FIELD_RE =
-  /^(TYPE|LOẠI|LOAI|Q|QUESTION|CÂU|CAU|ANSWER|ĐÁP\s*ÁN|DAP\s*AN|POINTS|ĐIỂM|DIEM|DIFFICULTY|ĐỘ\s*KHÓ|DO\s*KHO|EXPLAIN|EXPLANATION|GIẢI\s*THÍCH|GIAI\s*THICH)\s*:\s*(.*)$/i;
+  /^(TYPE|LOẠI|LOAI|Q|QUESTION|CÂU|CAU|ANSWER|ĐÁP\s*ÁN|DAP\s*AN|POINTS|ĐIỂM|DIEM|DIFFICULTY|ĐỘ\s*KHÓ|DO\s*KHO|EXPLAIN|EXPLANATION|GIẢI\s*THÍCH|GIAI\s*THICH|TOPICS?|CHỦ\s*ĐỀ|CHU\s*DE)\s*:\s*(.*)$/i;
 
 const OPTION_RE = /^([A-Ha-h])\s*[\)\.\:]\s*(.+)$/;
 
@@ -336,7 +342,25 @@ type ParsedFields = {
   pointsRaw?: string;
   difficultyRaw?: string;
   explainLines: string[];
+  topicRaws: string[];
 };
+
+function parseTopicNames(raws: string[]): string[] {
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const raw of raws) {
+    for (const part of raw.split('|')) {
+      const name = normalizeTopicName(part);
+      if (!name) continue;
+      if (name.length > 100) throw new Error(`TOPIC "${name.slice(0, 20)}…" dài quá 100 ký tự`);
+      const key = topicNameKey(name);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      names.push(name);
+    }
+  }
+  return names;
+}
 
 function parseFields(block: string): ParsedFields {
   const lines = block.split('\n');
@@ -344,6 +368,7 @@ function parseFields(block: string): ParsedFields {
     questionLines: [],
     options: [],
     explainLines: [],
+    topicRaws: [],
   };
 
   type Mode = 'none' | 'q' | 'explain' | 'answer';
@@ -383,6 +408,8 @@ function parseFields(block: string): ParsedFields {
         result.pointsRaw = value;
       } else if (key === 'difficulty' || key === 'do kho') {
         result.difficultyRaw = value;
+      } else if (key === 'topic' || key === 'topics' || key === 'chu de') {
+        if (value) result.topicRaws.push(value);
       } else if (
         key === 'explain' ||
         key === 'explanation' ||
@@ -466,6 +493,7 @@ function buildPayload(fields: ParsedFields, type: BulkSupportedType): BulkQuesti
 
   const explainText = fields.explainLines.join('\n').trim();
   const explanation = explainText ? { text: explainText } : {};
+  const topicNames = parseTopicNames(fields.topicRaws);
 
   if (type === 'multiple_choice') {
     if (fields.options.length < 2) {
@@ -503,7 +531,7 @@ function buildPayload(fields: ParsedFields, type: BulkSupportedType): BulkQuesti
       explanation,
       points,
       tags: [],
-      topicIds: [],
+      topicNames,
     };
   }
 
@@ -549,7 +577,7 @@ function buildPayload(fields: ParsedFields, type: BulkSupportedType): BulkQuesti
       explanation,
       points,
       tags: [],
-      topicIds: [],
+      topicNames,
     };
   }
 
@@ -569,7 +597,7 @@ function buildPayload(fields: ParsedFields, type: BulkSupportedType): BulkQuesti
     explanation,
     points,
     tags: [],
-    topicIds: [],
+    topicNames,
   };
 }
 
@@ -623,6 +651,7 @@ B) $\\frac{5}{6}$*
 C) $\\frac{2}{5}$
 D) 1
 POINTS: 1
+TOPIC: Phân số
 ===
 TYPE: true_false
 Q: Biểu thức $$a^2 - b^2 = (a-b)(a+b)$$ đúng với mọi số thực $a,b$.
@@ -638,7 +667,9 @@ ANSWER: latex: \\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}
 DIFFICULTY: medium
 ===`;
 
-export const BULK_FORMAT_HELP = `Mỗi câu cách nhau bằng ===. Trường: TYPE, Q, A) B)…, ANSWER, POINTS, DIFFICULTY, EXPLAIN.
+export const BULK_FORMAT_HELP = `Mỗi câu cách nhau bằng ===. Trường: TYPE, Q, A) B)…, ANSWER, POINTS, DIFFICULTY, EXPLAIN, TOPIC.
+
+TOPIC (hoặc CHỦ ĐỀ): tên chủ đề, nhiều tên cách nhau bằng | — chủ đề chưa có sẽ được tạo khi bấm tạo câu.
 
 LaTeX trong Q / phương án:
 - Inline: $...$ hoặc \\(...\\)
@@ -661,7 +692,8 @@ A) $\\frac{1}{5}$
 B) $\\frac{5}{6}$*
 C) 1
 D) $\\frac{2}{3}$
-POINTS: 1`;
+POINTS: 1
+TOPIC: Phân số`;
     case 'true_false':
       return `TYPE: true_false
 Q: $a^2+b^2=(a+b)^2$ với mọi $a,b$.

@@ -34,6 +34,9 @@ export function AppHeader() {
                   <Link href="/question-banks" className="hidden sm:inline hover:text-accentDark">
                     Bank
                   </Link>
+                  <Link href="/topics" className="hidden sm:inline hover:text-accentDark">
+                    Chủ đề
+                  </Link>
                   <Link href="/vocabulary" className="hover:text-accentDark">
                     Từ vựng
                   </Link>

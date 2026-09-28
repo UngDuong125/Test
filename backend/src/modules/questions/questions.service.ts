@@ -20,11 +20,8 @@ import {
   updateQuestionRow,
   type QuestionListFilters,
 } from '../../repositories/questions.repository.js';
-import {
-  findTopicsByIds,
-  mediaExists,
-  subjectExists,
-} from '../../repositories/taxonomy.repository.js';
+import { mediaExists, subjectExists } from '../../repositories/taxonomy.repository.js';
+import { assertTopicsValidForQuestion } from '../taxonomy/topics.service.js';
 import {
   assertQuestionPayloadValid,
   canEditQuestionContent,
@@ -77,19 +74,6 @@ async function assertQuestionMediaExist(content: ContentBlock[], options: Questi
   await assertMediaBlocksExist(optionContentBlocks(options));
 }
 
-async function assertTopicsValid(topicIds: string[], subjectId: TagKey) {
-  if (!topicIds.length) return;
-  const topics = await findTopicsByIds(topicIds);
-  if (topics.length !== topicIds.length) {
-    throw new AppError(422, 'One or more topics not found', 'TOPIC_NOT_FOUND');
-  }
-  for (const t of topics) {
-    if (t.subjectId !== subjectId) {
-      throw new AppError(422, `Topic ${t.id} does not belong to subject ${subjectId}`, 'TOPIC_SUBJECT_MISMATCH');
-    }
-  }
-}
-
 export async function createQuestionForUser(
   actor: PublicUser,
   input: {
@@ -115,7 +99,7 @@ export async function createQuestionForUser(
 
   assertQuestionPayloadValid(input);
   await assertQuestionMediaExist(input.content, input.options);
-  await assertTopicsValid(input.topicIds, input.subjectId);
+  await assertTopicsValidForQuestion(input.topicIds, input.subjectId, input.grade);
 
   if (input.bankId) {
     const bank = await findQuestionBankById(input.bankId);
@@ -216,7 +200,7 @@ export async function updateQuestionForUser(
 
   assertQuestionPayloadValid(next);
   await assertQuestionMediaExist(next.content, next.options);
-  await assertTopicsValid(next.topicIds, next.subjectId);
+  await assertTopicsValidForQuestion(next.topicIds, next.subjectId, next.grade);
 
   if (patch.options) {
     await replaceQuestionOptions(id, next.options);

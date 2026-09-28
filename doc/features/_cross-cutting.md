@@ -25,13 +25,43 @@ GET /api/students/:id/assignments   # teacher/admin, có kiểm tra quyền
 
 ```text
 subjects (TagKey: math, lang, …)
-   └── topics (id, subject_id, name, grade?)
+   └── topics (id, subject_id, name, grade? — null = mọi lớp)
         └── question_bank_items → questions
 ```
 
 - **`subjectId`** trên `Question`, `QuestionBank`, `Exam` = key trong bảng `subjects` (= `TagKey`).
-- **`topicIds`** trên `Question` = FK tới `topics.id`; không trùng với `tags` (nhãn tự do, ví dụ `"algebra"`).
+- **`topicIds`** trên `Question` = mảng UUID tới `topics.id` (bảng nối `question_topic_links`); không trùng với `tags` (nhãn tự do, ví dụ `"algebra"`).
 - `QuestionBank` lọc theo `subjectId` + `grade`; câu hỏi có thể thuộc nhiều bank qua `question_bank_items`.
+
+### Chủ đề (Topic)
+
+Topic là danh mục **dùng chung** (không có owner) theo môn, tùy chọn theo lớp:
+
+- `topic.grade = null` → áp dụng cho **mọi lớp** của môn đó.
+- Tên topic duy nhất trong cùng (`subjectId`, `grade`), so sánh **không phân biệt hoa thường** và bỏ khoảng trắng thừa (backend kiểm tra; constraint DB không bắt được trường hợp `grade = null`).
+
+**Topic hợp lệ cho một câu hỏi** khi:
+
+- `topic.subjectId = question.subjectId`, và
+- `topic.grade = null` hoặc `topic.grade = question.grade`.
+
+Vi phạm → `422` với code `TOPIC_NOT_FOUND`, `TOPIC_SUBJECT_MISMATCH` hoặc `TOPIC_GRADE_MISMATCH`. Áp dụng cho `POST/PATCH /api/questions` và `POST /api/exams/:id/questions/create`.
+
+**API:**
+
+| Method | Path | Role | Mô tả |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/topics?subjectId=&grade=` | admin, teacher | Có `grade` → trả topic của lớp đó **và** topic `grade = null`. Sắp theo `name`. |
+| `POST` | `/api/topics` | admin, teacher | Body `{ subjectId, name, grade? }`. **Idempotent**: đã có topic trùng tên (cùng môn + lớp) → `200` trả topic sẵn có; tạo mới → `201`. Response `{ topic }`. |
+| `PATCH` | `/api/topics/:id` | admin | Body `{ name?, grade? }` (không đổi môn). Trùng tên → `409 TOPIC_DUPLICATE`; đổi `grade` sang lớp cụ thể mà còn câu hỏi lớp khác đang gắn → `409 TOPIC_GRADE_CONFLICT`. |
+| `DELETE` | `/api/topics/:id` | admin | Topic đang gắn câu hỏi → `409 TOPIC_IN_USE`; thành công → `204`. |
+
+**Dùng topic ở đâu:**
+
+- Lọc câu hỏi: `GET /api/questions?topicId=` (danh sách câu hỏi, tab ngân hàng trong composer).
+- Random/generate đề: `selection.topicIds` — lấy câu thuộc **ít nhất một** topic trong danh sách.
+- Tạo câu (form và dán text): chọn topic có sẵn hoặc tạo mới ngay trong form qua `POST /api/topics`.
+- Quản lý tập trung: trang `/topics` (teacher tạo; admin đổi tên/lớp, xóa).
 
 ## Trạng thái
 

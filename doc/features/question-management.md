@@ -21,7 +21,7 @@ Quyền cụ thể phụ thuộc RBAC; không có role `content_creator` riêng 
   "type": "multiple_choice",
   "subjectId": "math",
   "grade": 7,
-  "topicIds": ["linear-equation"],
+  "topicIds": ["10000000-0000-4000-8000-000000000002"],
   "difficulty": "medium",
   "content": [],
   "options": [],
@@ -35,6 +35,20 @@ Quyền cụ thể phụ thuộc RBAC; không có role `content_creator` riêng 
   "updatedAt": "..."
 }
 ```
+
+`topicIds` là UUID của bảng `topics`. Quy tắc hợp lệ và API topic: [\_cross-cutting.md](./_cross-cutting.md#chủ-đề-topic).
+
+### Chủ đề trong form câu hỏi
+
+- Form hiển thị danh sách topic của môn + lớp đang chọn (gồm topic "mọi lớp") dạng checkbox; chọn được nhiều topic.
+- Ô **Thêm chủ đề mới**: nhập tên → `POST /api/topics` với `subjectId` + `grade` của câu hỏi → topic được chọn ngay. Trùng tên với topic có sẵn thì dùng lại topic đó (API idempotent).
+- Đổi môn → bỏ hết topic đã chọn; đổi lớp → chỉ giữ topic "mọi lớp".
+- Composer (môn/lớp khóa theo đề) dùng cùng form nên cũng tạo được topic.
+
+### Hiển thị và lọc
+
+- Danh sách `/questions`: lọc theo topic (`topicId`), mỗi câu hiển thị tên topic.
+- Trang chi tiết câu hỏi: hiển thị tên các topic đã gắn.
 
 ## 4. Question Types
 
@@ -185,11 +199,20 @@ POST   /api/questions/:id/publish
 POST   /api/questions/:id/archive
 
 POST   /api/questions/:id/duplicate
+
+GET    /api/topics
+POST   /api/topics
+PATCH  /api/topics/:id
+DELETE /api/topics/:id
 ```
+
+`GET /api/questions` hỗ trợ query `subjectId`, `grade`, `topicId`, `difficulty`, `type`, `status`, `tag`, `q`, `bankId`, `limit`, `offset`.
 
 ## 11. Acceptance Criteria
 
 - Người dùng có thể tạo câu hỏi thuộc môn/lớp/chủ đề.
+- Có thể tạo chủ đề mới ngay trong form câu hỏi; chủ đề phải khớp môn và lớp (hoặc "mọi lớp").
+- Có thể lọc câu hỏi theo chủ đề và thấy tên chủ đề trên danh sách/chi tiết.
 - Có thể thêm text, LaTeX và hình ảnh.
 - Có thể chọn loại câu hỏi.
 - Có thể khai báo đáp án và lời giải.

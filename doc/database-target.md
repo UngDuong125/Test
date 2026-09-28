@@ -63,8 +63,10 @@ Invite / reset password — giống [database.md](./database.md#bảng-auth_toke
 | `id` | uuid PK | |
 | `subject_id` | text FK → subjects | |
 | `name` | text | |
-| `grade` | int nullable | Lớp áp dụng, nếu có |
+| `grade` | int nullable | Lớp áp dụng; `null` = mọi lớp của môn |
 | `created_at` | timestamptz | |
+
+Constraint `UNIQUE (subject_id, name, grade)` không chặn trùng khi `grade` là `null` và phân biệt hoa thường — backend kiểm tra trùng tên (không phân biệt hoa thường) trước khi tạo/đổi tên. Quy tắc gắn topic vào câu hỏi: [\_cross-cutting.md](./features/_cross-cutting.md#chủ-đề-topic).
 
 ## Questions
 

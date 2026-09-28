@@ -158,7 +158,9 @@ Tạo đề nháp
 | :--- | :--- |
 | Cột trái | Thông tin đề: tên, môn, lớp, thời lượng, loại, tổng điểm, hướng dẫn |
 | Giữa | Section + danh sách câu trên đề: chỉnh điểm, bỏ khỏi đề, (phase 2: kéo-thả); panel **Tạo câu mới** (form) hoặc **Dán text** (tạo hàng loạt) |
-| Phải / modal | “Thêm từ ngân hàng”, “Tạo câu hỏi mới”, “Dán text” |
+| Phải / modal | “Thêm từ ngân hàng” (lọc theo bank và **chủ đề**), “Tạo câu hỏi mới”, “Dán text” |
+
+Form “Tạo câu hỏi mới” trong composer cho chọn/tạo chủ đề như form câu hỏi độc lập (môn/lớp theo đề) — xem [question-management.md](./question-management.md#chủ-đề-trong-form-câu-hỏi).
 
 ### Tạo nhanh từ text (bulk)
 
@@ -169,7 +171,14 @@ Trong composer, tab **Dán text** cho phép paste nhiều câu theo định dạ
 - `fill_blank` (điền khuyết)
 - `short_answer` (trả lời ngắn)
 
-Mỗi câu cách nhau bằng dòng `===`. Trường chính: `TYPE`, `Q`, phương án `A)`…`D)` (đánh dấu `*` đáp án đúng), `ANSWER`, `POINTS`, `DIFFICULTY`, `EXPLAIN`.
+Mỗi câu cách nhau bằng dòng `===`. Trường chính: `TYPE`, `Q`, phương án `A)`…`D)` (đánh dấu `*` đáp án đúng), `ANSWER`, `POINTS`, `DIFFICULTY`, `EXPLAIN`, `TOPIC`.
+
+**Chủ đề khi dán text:**
+
+- Trường `TOPIC:` (alias `CHỦ ĐỀ:`) — một hoặc nhiều **tên** topic cách nhau bằng `|`, ví dụ `TOPIC: Phân số | Số hữu tỉ`.
+- Ô **Chủ đề mặc định** phía trên khung text (chọn topic có sẵn hoặc tạo mới) áp dụng cho mọi câu; topic ghi trong `TOPIC:` được cộng thêm.
+- Preview hiển thị topic của từng câu, đánh dấu “mới” với tên chưa có.
+- Khi bấm tạo: frontend đổi tên → id theo môn/lớp của đề (so khớp không phân biệt hoa thường); tên chưa có thì gọi `POST /api/topics` (idempotent) với `grade` của đề, rồi gửi `topicIds` trong `POST .../questions/create`.
 
 Ví dụ:
 
@@ -181,6 +190,7 @@ A) 3
 B) 4*
 C) 5
 POINTS: 1
+TOPIC: Phép cộng
 ===
 TYPE: true_false
 Q: Trái Đất quay quanh Mặt Trời.
@@ -289,7 +299,7 @@ Sinh đề nháp (`status=draft`) từ Question Bank / filter — dùng cùng pi
   "bankId": "bank_001",
   "selection": {
     "count": 10,
-    "topicIds": ["fractions"],
+    "topicIds": ["10000000-0000-4000-8000-000000000001"],
     "difficulty": { "easy": 0.4, "medium": 0.4, "hard": 0.2 },
     "types": ["multiple_choice", "fill_blank", "short_answer"]
   },
@@ -303,7 +313,7 @@ Sinh đề nháp (`status=draft`) từ Question Bank / filter — dùng cùng pi
 | `title`, `subjectId`, `grade`, `type` | Có | Metadata exam |
 | `duration` | Có | Phút; `0` = không giới hạn thời lượng đề |
 | `bankId` | Không | Giới hạn trong một bank; thiếu → filter theo subject/grade |
-| `selection` | Có | Rule lấy mẫu (chỉ câu `published`) |
+| `selection` | Có | Rule lấy mẫu (chỉ câu `published`). `selection.topicIds` (UUID, tùy chọn): câu thuộc ít nhất một topic |
 | `defaultPoints` | Không | Gán `ExamQuestion.points` nếu không lấy từ `Question.points` |
 
 **Response (201):**
@@ -329,11 +339,14 @@ Sinh đề nháp (`status=draft`) từ Question Bank / filter — dùng cùng pi
 
 Teacher chỉnh section/điểm rồi `POST /api/exams/:id/publish` như đề thủ công. Generate **không** publish sẵn.
 
+UI generate (trang `/exams`): chọn môn, lớp, số câu và **chủ đề** (nhiều, lấy từ `GET /api/topics` theo môn/lớp; không chọn = mọi chủ đề) → gửi `selection.topicIds`.
+
 ## 12. Acceptance Criteria
 
 - Tạo đề thủ công từ Question Bank.
 - Tạo đề trong composer: thêm câu mới (Question draft + link) mà không copy nội dung vào đề.
-- Sinh đề nháp qua `/api/exams/generate` theo filter/difficulty.
+- Sinh đề nháp qua `/api/exams/generate` theo filter/difficulty/chủ đề.
+- Dán text tạo câu có gắn chủ đề (`TOPIC:` hoặc chủ đề mặc định), tự tạo chủ đề chưa có.
 - Sắp xếp câu hỏi theo section/order.
 - Thay đổi điểm từng câu.
 - Autosave metadata đề; reload không mất nội dung đã lưu.

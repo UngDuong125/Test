@@ -152,6 +152,18 @@ export function listTopics(params?: { subjectId?: TagKey; grade?: number }) {
   return api<{ topics: Topic[] }>(`/api/topics${suffix}`);
 }
 
+export function createTopic(body: { subjectId: TagKey; name: string; grade?: number | null }) {
+  return api<{ topic: Topic }>('/api/topics', { method: 'POST', body });
+}
+
+export function updateTopic(id: string, body: { name?: string; grade?: number | null }) {
+  return api<{ topic: Topic }>(`/api/topics/${id}`, { method: 'PATCH', body });
+}
+
+export function deleteTopic(id: string) {
+  return api<void>(`/api/topics/${id}`, { method: 'DELETE' });
+}
+
 export function listQuestions(params?: Record<string, string | number | undefined>) {
   const qs = new URLSearchParams();
   if (params) {
