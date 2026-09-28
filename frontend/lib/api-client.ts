@@ -280,6 +280,10 @@ export function updateExam(id: string, body: unknown) {
   return api<{ exam: Exam }>(`/api/exams/${id}`, { method: 'PATCH', body });
 }
 
+export function deleteExam(id: string) {
+  return api<void>(`/api/exams/${id}`, { method: 'DELETE' });
+}
+
 export function addExamQuestions(
   examId: string,
   body: { questionIds: string[]; sectionId?: string | null; points?: number },

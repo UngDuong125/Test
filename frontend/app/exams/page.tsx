@@ -4,7 +4,8 @@ import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AuthGate } from '@/components/auth/AuthGate';
 import { SUBJECT_TAGS } from '@/constants/tags';
-import { ApiError, generateExam, listExams } from '@/lib/api-client';
+import { ApiError, deleteExam, generateExam, listExams } from '@/lib/api-client';
+import { useSession } from '@/lib/auth';
 import { useTopics } from '@/lib/topics';
 import { TopicPicker } from '@/components/questions/TopicPicker';
 import type { Exam } from '@/types/content';
@@ -14,6 +15,33 @@ function ExamsBody() {
   const [items, setItems] = useState<Exam[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { user } = useSession();
+
+  function canDelete(exam: Exam) {
+    if (exam.status !== 'draft' || !user) return false;
+    return user.role === 'admin' || exam.ownerId === user.id;
+  }
+
+  async function onDelete(exam: Exam) {
+    if (
+      !confirm(
+        `Xóa đề "${exam.title}"? Các câu hỏi vẫn còn trong hệ thống, chỉ đề bị xóa.`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setDeletingId(exam.id);
+    try {
+      await deleteExam(exam.id);
+      setItems((prev) => prev.filter((e) => e.id !== exam.id));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Xóa đề thất bại');
+    } finally {
+      setDeletingId(null);
+    }
+  }
 
   const [gen, setGen] = useState({
     title: '',
@@ -187,6 +215,16 @@ function ExamsBody() {
                 >
                   Kết quả
                 </Link>
+                {canDelete(exam) && (
+                  <button
+                    type="button"
+                    disabled={deletingId === exam.id}
+                    onClick={() => void onDelete(exam)}
+                    className="shrink-0 text-sm text-red-600 hover:underline disabled:opacity-60"
+                  >
+                    {deletingId === exam.id ? 'Đang xóa…' : 'Xóa'}
+                  </button>
+                )}
               </li>
             ))}
             {!items.length && <p className="text-slate-500">Chưa có đề.</p>}

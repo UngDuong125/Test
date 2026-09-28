@@ -5,13 +5,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { SUBJECT_TAGS } from '@/constants/tags';
 import { BulkQuestionTextImport } from '@/components/exams/BulkQuestionTextImport';
+import { ExamPreviewModal } from '@/components/exams/ExamPreviewModal';
 import { QuestionForm } from '@/components/questions/QuestionForm';
-import { QuestionPreview } from '@/components/questions/QuestionPreview';
 import {
   ApiError,
   addExamQuestions,
   addExamSection,
   createExamQuestion,
+  deleteExam,
   listQuestionBanks,
   listQuestions,
   publishExam,
@@ -119,7 +120,9 @@ export function ExamComposer({
     null,
   );
   const [publishing, setPublishing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [formNonce, setFormNonce] = useState(0);
+  const closePreview = useCallback(() => setShowPreview(false), []);
 
   const editable = exam.status === 'draft';
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -414,6 +417,27 @@ export function ExamComposer({
     }
   }
 
+  async function onDeleteExam() {
+    if (!editable) return;
+    if (
+      !confirm(
+        `Xóa đề "${meta.title || 'Chưa đặt tên'}"? Các câu hỏi vẫn còn trong hệ thống, chỉ đề bị xóa.`,
+      )
+    ) {
+      return;
+    }
+    setError(null);
+    setDeleting(true);
+    try {
+      if (saveTimer.current) clearTimeout(saveTimer.current);
+      await deleteExam(exam.id);
+      router.push('/exams');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Xóa đề thất bại');
+      setDeleting(false);
+    }
+  }
+
   const saveLabel =
     saveStatus === 'saving'
       ? 'Đang lưu…'
@@ -461,13 +485,21 @@ export function ExamComposer({
             </Link>
             <button
               type="button"
-              onClick={() => setShowPreview((v) => !v)}
+              onClick={() => setShowPreview(true)}
               className="rounded-md border border-mist px-3 py-1.5 hover:border-accent"
             >
-              {showPreview ? 'Ẩn preview' : 'Preview đề'}
+              Preview đề
             </button>
             {editable && (
               <>
+                <button
+                  type="button"
+                  disabled={deleting}
+                  onClick={() => void onDeleteExam()}
+                  className="rounded-md border border-red-200 px-3 py-1.5 text-red-600 hover:bg-red-50 disabled:opacity-60"
+                >
+                  {deleting ? 'Đang xóa…' : 'Xóa đề'}
+                </button>
                 <button
                   type="button"
                   onClick={openCreateTab}
@@ -638,7 +670,7 @@ export function ExamComposer({
           </label>
         </aside>
 
-        {/* Question list + optional preview */}
+        {/* Question list */}
         <div className="space-y-4">
           <section className="rounded-xl border border-mist bg-white/90 p-4 shadow-sm">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -754,32 +786,6 @@ export function ExamComposer({
               )}
             </ul>
           </section>
-
-          {showPreview && (
-            <section className="space-y-3 rounded-xl border border-mist bg-white/90 p-4 shadow-sm">
-              <h3 className="font-semibold text-ink">Preview đề</h3>
-              {sortedQuestions.map((eq) => {
-                const q = questionMap[eq.questionId];
-                if (!q) return null;
-                return (
-                  <div key={eq.questionId} className="rounded-lg border border-mist/80 p-3">
-                    <p className="mb-2 text-xs font-medium text-slate-500">
-                      Câu {eq.order} · {eq.points}đ
-                    </p>
-                    <QuestionPreview
-                      content={q.content}
-                      options={q.options}
-                      answer={q.answer}
-                      explanation={q.explanation}
-                    />
-                  </div>
-                );
-              })}
-              {!sortedQuestions.length && (
-                <p className="text-sm text-slate-500">Chưa có câu để xem trước.</p>
-              )}
-            </section>
-          )}
         </div>
 
         {/* Right: bank picker */}
@@ -985,6 +991,18 @@ export function ExamComposer({
           />
         </section>
       )}
+
+      <ExamPreviewModal
+        open={showPreview}
+        onClose={closePreview}
+        title={meta.title}
+        duration={meta.duration}
+        totalPoints={meta.totalPoints}
+        instructions={meta.instructions}
+        sections={sections}
+        questions={examQuestions}
+        questionMap={questionMap}
+      />
     </div>
   );
 }
