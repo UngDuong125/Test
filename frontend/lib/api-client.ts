@@ -792,7 +792,7 @@ export function listMyDueVocabulary() {
 }
 
 export function getMyVocabularyStats() {
-  return api<{ total: number; learning: number; due: number }>(
+  return api<{ total: number; learning: number; mastered: number; due: number }>(
     '/api/students/me/vocabulary/stats',
   );
 }

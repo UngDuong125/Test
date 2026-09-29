@@ -171,7 +171,7 @@ Trạng thái SRS **per student × entry × assignment**.
 
 **Unique:** `(user_id, entry_id, assignment_id)`.
 
-Khi `intervalStep` đạt max (4 = 30 ngày) và học sinh vẫn **thuộc**: có thể giữ step = 4 và cộng thêm 30 ngày, hoặc đánh dấu `mastered` (MVP: giữ step 4 + `next_review_at += 30 ngày`; `mastered` tùy product).
+Khi `intervalStep` đạt max (4 = 30 ngày) và học sinh vẫn **thuộc** ở lần ôn đó: thẻ chuyển sang `mastered` và không còn vào queue due.
 
 ### 4.5. VocabularyReviewEvent (khuyến nghị)
 
@@ -211,15 +211,22 @@ INTERVAL_DAYS = [1, 3, 7, 14, 30]
 ### 5.2. Khi học sinh trả lời
 
 ```text
+startOfDay(d) = 00:00 của ngày d theo VOCABULARY_TIME_ZONE (mặc định Asia/Ho_Chi_Minh)
+
 PASS (thuộc):
-  nextStep = min(intervalStep + 1, 4)
-  nextReviewAt = now + INTERVAL_DAYS[nextStep] days
-  intervalStep = nextStep
+  nếu intervalStep = 4 (đã qua mốc 30 ngày):
+    status = mastered   # rời khỏi queue due
+  ngược lại:
+    nextStep = intervalStep + 1
+    nextReviewAt = startOfDay(today + INTERVAL_DAYS[nextStep])
+    intervalStep = nextStep
 
 FAIL (không thuộc):
   intervalStep = 0
-  nextReviewAt = now + INTERVAL_DAYS[0] days   # 1 ngày
+  nextReviewAt = startOfDay(today + INTERVAL_DAYS[0])   # 0h ngày mai
 ```
+
+Ngày được tính theo lịch, không theo giờ: ôn lúc 23:59 hay 00:01 thì mốc +1 ngày đều due từ 0h ngày hôm sau.
 
 Biến thể tùy chọn (cấu hình sau): FAIL → `nextReviewAt = now` (due ngay trong cùng phiên). MVP mặc định: reset về +1 ngày.
 
@@ -384,8 +391,9 @@ Chi tiết cột khi implement: bổ sung vào [database-target.md](../database-
 - Teacher giao bank cho một student hoặc cả lớp (expand per student).
 - Mỗi entry trong bank tạo đúng một card / student / assignment.
 - Student vào mục cố định “Ôn từ vựng” và chỉ thấy thẻ due của mình.
-- Chọn **thuộc** → `intervalStep` tăng, `nextReviewAt` = now + mốc tương ứng (1→3→7→14→30).
-- Chọn **không thuộc** → `intervalStep = 0`, `nextReviewAt` = now + 1 ngày.
+- Chọn **thuộc** → `intervalStep` tăng, `nextReviewAt` = 0h của ngày hôm nay + mốc tương ứng (1→3→7→14→30).
+- Chọn **thuộc** khi đang ở mốc 30 ngày → `status = mastered`, thẻ không còn xuất hiện trong queue due.
+- Chọn **không thuộc** → `intervalStep = 0`, `nextReviewAt` = 0h ngày mai.
 - Thẻ chưa đến hạn không xuất hiện trong danh sách due.
 - Cancel assignment không xóa lịch sử review (nếu có event); card ngừng vào queue due.
 - Không thay đổi schema / hành vi exam hiện có.

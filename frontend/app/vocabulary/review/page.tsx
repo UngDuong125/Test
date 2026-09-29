@@ -20,9 +20,12 @@ function VocabularyReviewBody() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState<{ total: number; learning: number; due: number } | null>(
-    null,
-  );
+  const [stats, setStats] = useState<{
+    total: number;
+    learning: number;
+    mastered: number;
+    due: number;
+  } | null>(null);
   const [sessionDone, setSessionDone] = useState(0);
 
   const load = useCallback(async () => {
@@ -82,7 +85,7 @@ function VocabularyReviewBody() {
         <div>
           <h1 className="font-display text-3xl font-bold text-ink">Ôn từ vựng</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Lặp lại ngắt quãng · mốc {INTERVAL_LABELS.join(' → ')}
+            Lặp lại ngắt quãng · mốc {INTERVAL_LABELS.join(' → ')} → đã thuộc
           </p>
         </div>
         <Link href="/dashboard" className="text-sm text-accentDark hover:underline">
@@ -92,7 +95,8 @@ function VocabularyReviewBody() {
 
       {stats && (
         <p className="mb-4 text-sm text-slate-500">
-          Due: {stats.due} · Đang học: {stats.learning} · Tổng thẻ: {stats.total}
+          Due: {stats.due} · Đang học: {stats.learning} · Đã thuộc: {stats.mastered} · Tổng thẻ:{' '}
+          {stats.total}
           {sessionDone > 0 && ` · Đã ôn phiên này: ${sessionDone}`}
         </p>
       )}

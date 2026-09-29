@@ -1,3 +1,4 @@
+import { env } from '../../config/env.js';
 import { AppError } from '../../domain/errors.js';
 import type {
   DueVocabularyCard,
@@ -698,10 +699,16 @@ export async function reviewCardForStudent(
     throw new AppError(422, 'Card is not due yet', 'CARD_NOT_DUE');
   }
 
-  const schedule = nextIntervalAfterReview(card.intervalStep, result, now);
+  const schedule = nextIntervalAfterReview(
+    card.intervalStep,
+    result,
+    now,
+    env.VOCABULARY_TIME_ZONE,
+  );
   const updated = await updateVocabularyCard(cardId, {
     interval_step: schedule.intervalStep,
     next_review_at: schedule.nextReviewAt.toISOString(),
+    status: schedule.status,
     last_reviewed_at: nowIso,
     review_count: card.reviewCount + 1,
     pass_count: card.passCount + (result === 'pass' ? 1 : 0),

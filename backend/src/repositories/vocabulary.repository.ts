@@ -527,6 +527,7 @@ export async function listDueCardsForUser(
 export async function countCardsForUser(userId: string): Promise<{
   total: number;
   learning: number;
+  mastered: number;
   due: number;
 }> {
   const nowIso = new Date().toISOString();
@@ -543,10 +544,18 @@ export async function countCardsForUser(userId: string): Promise<{
     .eq('status', 'learning');
   if (lErr) throw lErr;
 
+  const { count: mastered, error: mErr } = await getDb()
+    .from('student_vocabulary_cards')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('status', 'mastered');
+  if (mErr) throw mErr;
+
   const dueCards = await listDueCardsForUser(userId, nowIso);
   return {
     total: total ?? 0,
     learning: learning ?? 0,
+    mastered: mastered ?? 0,
     due: dueCards.length,
   };
 }

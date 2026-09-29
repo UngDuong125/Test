@@ -54,6 +54,17 @@ const envSchema = z.object({
   TEMP_PASSWORD_TTL_HOURS: z.coerce.number().positive().default(72),
   RESET_TOKEN_TTL_HOURS: z.coerce.number().positive().default(2),
   INVITE_TOKEN_TTL_HOURS: z.coerce.number().positive().default(72),
+  VOCABULARY_TIME_ZONE: z
+    .string()
+    .default('Asia/Ho_Chi_Minh')
+    .refine((tz) => {
+      try {
+        new Intl.DateTimeFormat('en-US', { timeZone: tz });
+        return true;
+      } catch {
+        return false;
+      }
+    }, 'Invalid IANA time zone'),
   SMTP_HOST: z.string().optional().default(''),
   SMTP_PORT: z.coerce.number().optional().default(587),
   SMTP_USER: z.string().optional().default(''),
