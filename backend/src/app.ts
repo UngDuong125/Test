@@ -36,11 +36,6 @@ export function createApp() {
       credentials: true,
     }),
   );
-  app.use(express.json({ limit: '2mb' }));
-  app.use(cookieParser());
-  app.use(authMiddleware);
-  app.use(enforcePasswordChangeGate);
-
   app.get('/api/health', (_req, res) => {
     res.json({
       ok: true,
@@ -49,6 +44,10 @@ export function createApp() {
     });
   });
 
+  app.use(express.json({ limit: '2mb' }));
+  app.use(cookieParser());
+  app.use(authMiddleware);
+  app.use(enforcePasswordChangeGate);
 
   app.use('/api/auth', authRouter);
   app.use('/api/admin/users', usersRouter);

@@ -1,0 +1,26 @@
+# Giữ backend Render (gói Free) không ngủ vào buổi tối theo giờ Việt Nam (UTC+7).
+# GitHub cron dùng giờ UTC: 09:45 UTC = 16:45 VN, 16:59 UTC = 23:59 VN.
+# Cần tạo repository variable BACKEND_URL (vd: https://ten-app.onrender.com).
+name: Keep backend awake (evening)
+
+on:
+  schedule:
+    - cron: '45,55 9 * * *'
+    - cron: '*/10 10-16 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ping /api/health
+        env:
+          BACKEND_URL: ${{ vars.BACKEND_URL }}
+        run: |
+          if [ -z "$BACKEND_URL" ]; then
+            echo "::error::Chưa cấu hình repository variable BACKEND_URL"
+            exit 1
+          fi
+          curl -fsS --retry 5 --retry-delay 15 --retry-all-errors --max-time 90 \
+            "${BACKEND_URL%/}/api/health"
