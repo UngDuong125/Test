@@ -178,6 +178,16 @@ export async function findVocabularyBankById(id: string): Promise<VocabularyBank
   return mapVocabularyBank(data as VocabularyBankRow);
 }
 
+export async function findVocabularyBanksByIds(ids: string[]): Promise<VocabularyBank[]> {
+  if (!ids.length) return [];
+  const { data, error } = await getDb()
+    .from('vocabulary_banks')
+    .select(BANK_COLUMNS)
+    .in('id', ids);
+  if (error) throw error;
+  return ((data ?? []) as VocabularyBankRow[]).map(mapVocabularyBank);
+}
+
 export async function listVocabularyBanks(filters: {
   subjectId?: TagKey;
   grade?: number;
@@ -304,6 +314,29 @@ export async function findVocabularyAssignmentById(
   if (error) throw error;
   if (!data) return null;
   return mapVocabularyAssignment(data as VocabularyAssignmentRow);
+}
+
+export async function findVocabularyCardForReview(id: string): Promise<{
+  card: StudentVocabularyCard;
+  assignment: VocabularyAssignment | null;
+} | null> {
+  const { data, error } = await getDb()
+    .from('student_vocabulary_cards')
+    .select(`${CARD_COLUMNS}, vocabulary_assignments (${ASSIGNMENT_COLUMNS})`)
+    .eq('id', id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+  const row = data as StudentVocabularyCardRow & {
+    vocabulary_assignments: VocabularyAssignmentRow | VocabularyAssignmentRow[] | null;
+  };
+  const assignmentRow = Array.isArray(row.vocabulary_assignments)
+    ? (row.vocabulary_assignments[0] ?? null)
+    : row.vocabulary_assignments;
+  return {
+    card: mapStudentVocabularyCard(row),
+    assignment: assignmentRow ? mapVocabularyAssignment(assignmentRow) : null,
+  };
 }
 
 export async function findActiveVocabularyAssignment(
@@ -478,50 +511,67 @@ export async function updateVocabularyCard(
     status: VocabularyCardStatus;
   }>,
 ): Promise<StudentVocabularyCard> {
-  const { error } = await getDb().from('student_vocabulary_cards').update(patch).eq('id', id);
+  const { data, error } = await getDb()
+    .from('student_vocabulary_cards')
+    .update(patch)
+    .eq('id', id)
+    .select(CARD_COLUMNS)
+    .single();
   if (error) throw error;
-  const card = await findVocabularyCardById(id);
-  if (!card) throw new Error('Card missing after update');
-  return card;
+  return mapStudentVocabularyCard(data as StudentVocabularyCardRow);
 }
 
-export async function listDueCardsForUser(
+async function listOpenAssignmentsForUser(
   userId: string,
   nowIso: string,
-): Promise<StudentVocabularyCard[]> {
-  const { data: assignments, error: aErr } = await getDb()
+): Promise<VocabularyAssignment[]> {
+  const { data, error } = await getDb()
     .from('vocabulary_assignments')
-    .select('id, available_from, deadline, status')
+    .select(ASSIGNMENT_COLUMNS)
     .eq('target_id', userId)
     .eq('status', 'active');
-  if (aErr) throw aErr;
-
-  const eligibleIds = ((assignments ?? []) as {
-    id: string;
-    available_from: string;
-    deadline: string | null;
-    status: string;
-  }[])
+  if (error) throw error;
+  return ((data ?? []) as VocabularyAssignmentRow[])
     .filter((a) => {
       if (a.available_from > nowIso) return false;
       if (a.deadline != null && a.deadline < nowIso) return false;
       return true;
     })
-    .map((a) => a.id);
+    .map(mapVocabularyAssignment);
+}
 
-  if (!eligibleIds.length) return [];
+export async function listDueCardsWithAssignments(
+  userId: string,
+  nowIso: string,
+): Promise<{ cards: StudentVocabularyCard[]; assignments: VocabularyAssignment[] }> {
+  const assignments = await listOpenAssignmentsForUser(userId, nowIso);
+  if (!assignments.length) return { cards: [], assignments: [] };
 
   const { data, error } = await getDb()
     .from('student_vocabulary_cards')
     .select(CARD_COLUMNS)
     .eq('user_id', userId)
     .eq('status', 'learning')
-    .in('assignment_id', eligibleIds)
+    .in(
+      'assignment_id',
+      assignments.map((a) => a.id),
+    )
     .lte('next_review_at', nowIso)
     .order('next_review_at', { ascending: true })
     .limit(100);
   if (error) throw error;
-  return ((data ?? []) as StudentVocabularyCardRow[]).map(mapStudentVocabularyCard);
+  return {
+    cards: ((data ?? []) as StudentVocabularyCardRow[]).map(mapStudentVocabularyCard),
+    assignments,
+  };
+}
+
+export async function listDueCardsForUser(
+  userId: string,
+  nowIso: string,
+): Promise<StudentVocabularyCard[]> {
+  const { cards } = await listDueCardsWithAssignments(userId, nowIso);
+  return cards;
 }
 
 export async function countCardsForUser(userId: string): Promise<{
@@ -531,31 +581,29 @@ export async function countCardsForUser(userId: string): Promise<{
   due: number;
 }> {
   const nowIso = new Date().toISOString();
-  const { count: total, error: tErr } = await getDb()
-    .from('student_vocabulary_cards')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId);
-  if (tErr) throw tErr;
+  const cardCount = (status?: VocabularyCardStatus) => {
+    let query = getDb()
+      .from('student_vocabulary_cards')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId);
+    if (status) query = query.eq('status', status);
+    return query;
+  };
 
-  const { count: learning, error: lErr } = await getDb()
-    .from('student_vocabulary_cards')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('status', 'learning');
-  if (lErr) throw lErr;
+  const [totalRes, learningRes, masteredRes, dueCards] = await Promise.all([
+    cardCount(),
+    cardCount('learning'),
+    cardCount('mastered'),
+    listDueCardsForUser(userId, nowIso),
+  ]);
+  if (totalRes.error) throw totalRes.error;
+  if (learningRes.error) throw learningRes.error;
+  if (masteredRes.error) throw masteredRes.error;
 
-  const { count: mastered, error: mErr } = await getDb()
-    .from('student_vocabulary_cards')
-    .select('id', { count: 'exact', head: true })
-    .eq('user_id', userId)
-    .eq('status', 'mastered');
-  if (mErr) throw mErr;
-
-  const dueCards = await listDueCardsForUser(userId, nowIso);
   return {
-    total: total ?? 0,
-    learning: learning ?? 0,
-    mastered: mastered ?? 0,
+    total: totalRes.count ?? 0,
+    learning: learningRes.count ?? 0,
+    mastered: masteredRes.count ?? 0,
     due: dueCards.length,
   };
 }

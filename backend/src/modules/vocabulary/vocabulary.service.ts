@@ -32,10 +32,11 @@ import {
   findActiveVocabularyAssignment,
   findVocabularyAssignmentById,
   findVocabularyBankById,
-  findVocabularyCardById,
+  findVocabularyBanksByIds,
+  findVocabularyCardForReview,
   findVocabularyEntriesByIds,
   findVocabularyEntryById,
-  listDueCardsForUser,
+  listDueCardsWithAssignments,
   listPublishedBankEntryIds,
   listVocabularyAssignments,
   listVocabularyBanks,
@@ -622,24 +623,19 @@ export async function listDueForStudent(actor: PublicUser): Promise<{
     throw new AppError(403, 'Forbidden', 'FORBIDDEN');
   }
   const nowIso = new Date().toISOString();
-  const cards = await listDueCardsForUser(actor.id, nowIso);
+  const { cards, assignments } = await listDueCardsWithAssignments(actor.id, nowIso);
   if (!cards.length) return { items: [], dueCount: 0 };
 
   const entryIds = [...new Set(cards.map((c) => c.entryId))];
-  const assignmentIds = [...new Set(cards.map((c) => c.assignmentId))];
-  const entries = await findVocabularyEntriesByIds(entryIds);
+  const bankIds = [...new Set(assignments.map((a) => a.bankId))];
+  const [entries, banks] = await Promise.all([
+    findVocabularyEntriesByIds(entryIds),
+    findVocabularyBanksByIds(bankIds),
+  ]);
   const entryMap = new Map(entries.map((e) => [e.id, e]));
-
-  const assignments = await Promise.all(
-    assignmentIds.map((id) => findVocabularyAssignmentById(id)),
-  );
-  const bankIds = [
-    ...new Set(assignments.filter(Boolean).map((a) => a!.bankId)),
-  ];
-  const banks = await Promise.all(bankIds.map((id) => findVocabularyBankById(id)));
-  const bankNameById = new Map(banks.filter(Boolean).map((b) => [b!.id, b!.name]));
+  const bankNameById = new Map(banks.map((b) => [b.id, b.name]));
   const assignmentBank = new Map(
-    assignments.filter(Boolean).map((a) => [a!.id, bankNameById.get(a!.bankId)]),
+    assignments.map((a) => [a.id, bankNameById.get(a.bankId)]),
   );
 
   const items: DueVocabularyCard[] = [];
@@ -672,7 +668,9 @@ export async function reviewCardForStudent(
     throw new AppError(403, 'Forbidden', 'FORBIDDEN');
   }
 
-  const card = await findVocabularyCardById(cardId);
+  const loaded = await findVocabularyCardForReview(cardId);
+  const card = loaded?.card ?? null;
+  const assignment = loaded?.assignment ?? null;
   if (!card || card.userId !== actor.id) {
     throw new AppError(404, 'Card not found', 'NOT_FOUND');
   }
@@ -680,7 +678,6 @@ export async function reviewCardForStudent(
     throw new AppError(422, 'Card is not in learning status', 'CARD_NOT_LEARNING');
   }
 
-  const assignment = await findVocabularyAssignmentById(card.assignmentId);
   if (!assignment || assignment.status !== 'active') {
     throw new AppError(422, 'Assignment is not active', 'ASSIGNMENT_INACTIVE');
   }
