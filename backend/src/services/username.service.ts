@@ -11,7 +11,10 @@ export function isValidUsername(raw: string): boolean {
 
 export function suggestUsernameFromEmail(email: string): string {
   const local = email.split('@')[0] ?? 'user';
-  const cleaned = local.replace(/[^a-zA-Z0-9._-]/g, '').toLowerCase();
+  const cleaned = local
+    .replace(/[^a-zA-Z0-9._-]/g, '')
+    .replace(/^[._-]+/, '')
+    .toLowerCase();
   const base = cleaned.slice(0, 32) || 'user';
   if (base.length >= 3 && USERNAME_PATTERN.test(base)) return base;
   return `${base}user`.slice(0, 32);

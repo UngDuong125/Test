@@ -177,6 +177,8 @@ export async function updateUserStatus(userId: string, status: UserStatus): Prom
     patch.locked_until = null;
     patch.failed_login_attempts = 0;
   }
+  // Admin lock has no expiry; a leftover lockout timestamp would make it end on its own.
+  if (status === 'locked') patch.locked_until = null;
   const { data, error } = await getDb()
     .from('users')
     .update(patch)

@@ -165,7 +165,14 @@ async function assertCanAccessAttempt(actor: PublicUser, attempt: Attempt) {
   throw new AppError(403, 'Forbidden', 'FORBIDDEN');
 }
 
+/**
+ * Time's up → grade whatever was saved. Also finalizes attempts left in `expired`
+ * (ungraded) so they still get a score and EXP.
+ */
 async function expireIfNeeded(attempt: Attempt, assignmentDeadline?: string): Promise<Attempt> {
+  if (attempt.status === 'expired') {
+    return (await finalizeAttempt(attempt)).attempt;
+  }
   if (attempt.status !== 'in_progress') return attempt;
   const now = Date.now();
   const expiredByTimer =
@@ -175,10 +182,79 @@ async function expireIfNeeded(attempt: Attempt, assignmentDeadline?: string): Pr
 
   if (!expiredByTimer && !expiredByDeadline) return attempt;
 
-  return updateAttempt(attempt.id, {
+  const expired = await updateAttempt(attempt.id, {
     status: 'expired',
     submittedAt: new Date().toISOString(),
   });
+  return (await finalizeAttempt(expired)).attempt;
+}
+
+/** Auto-grade every question, set graded / needs_grading, award EXP, sync the assignment. */
+async function finalizeAttempt(attempt: Attempt): Promise<{
+  attempt: Attempt;
+  expEarned: number | null;
+  expSubject: string | null;
+}> {
+  const snapshot = await getAttemptSnapshot(attempt.id);
+  if (!snapshot) throw new AppError(500, 'Snapshot missing', 'SNAPSHOT_MISSING');
+
+  const existingAnswers = await listAttemptAnswers(attempt.id);
+  const answerMap = new Map(existingAnswers.map((a) => [a.questionId, a]));
+
+  let score = 0;
+  let needsManual = false;
+
+  for (const q of snapshot.questions) {
+    let answer = answerMap.get(q.id);
+    if (!answer) {
+      answer = await ensureAnswerRow({ attemptId: attempt.id, questionId: q.id, value: null });
+    }
+
+    const graded = autoGradeAnswer(q, answer.value);
+    if (graded.requiresManual || questionRequiresManualGrade(q)) {
+      needsManual = true;
+      await updateAnswerGrading(attempt.id, q.id, {
+        isCorrect: null,
+        pointsEarned: 0,
+        feedback: null,
+      });
+    } else {
+      score += graded.pointsEarned;
+      await updateAnswerGrading(attempt.id, q.id, {
+        isCorrect: graded.isCorrect,
+        pointsEarned: graded.pointsEarned,
+      });
+    }
+  }
+
+  const percentage =
+    attempt.maxScore > 0 ? Math.round((score / attempt.maxScore) * 10000) / 100 : 0;
+  const status: Attempt['status'] = needsManual ? 'needs_grading' : 'graded';
+
+  const updated = await updateAttempt(attempt.id, {
+    status,
+    submittedAt: attempt.submittedAt ?? new Date().toISOString(),
+    score,
+    percentage,
+  });
+
+  let expEarned: number | null = null;
+  let expSubject: string | null = null;
+  if (status === 'graded') {
+    const exp = await awardExpForGradedAttempt({
+      attemptId: updated.id,
+      userId: updated.userId,
+      subjectId: snapshot.exam.subjectId,
+      examType: snapshot.exam.type,
+      score,
+      maxScore: updated.maxScore,
+    });
+    expEarned = exp.expEarned;
+    expSubject = exp.expSubject;
+  }
+
+  await syncAssignmentAfterAttempt(updated.assignmentId);
+  return { attempt: updated, expEarned, expSubject };
 }
 
 async function syncAssignmentAfterAttempt(assignmentId: string) {
@@ -308,9 +384,6 @@ export async function getAttemptForUser(actor: PublicUser, attemptId: string) {
 
   const assignment = await findAssignmentById(attempt.assignmentId);
   attempt = await expireIfNeeded(attempt, assignment?.deadline);
-  if (attempt.status === 'expired') {
-    await syncAssignmentAfterAttempt(attempt.assignmentId);
-  }
 
   const [snapshot, answers] = await Promise.all([
     getAttemptSnapshot(attemptId),
@@ -393,81 +466,14 @@ export async function submitAttemptForUser(actor: PublicUser, attemptId: string)
     throw new AppError(403, 'Forbidden', 'FORBIDDEN');
   }
 
-  const assignment = await findAssignmentById(attempt.assignmentId);
-  attempt = await expireIfNeeded(attempt, assignment?.deadline);
-
-  if (attempt.status === 'expired') {
-    // Auto-submit expired: grade what we have
-  } else if (attempt.status !== 'in_progress') {
+  if (attempt.status !== 'in_progress' && attempt.status !== 'expired') {
     throw new AppError(422, 'Attempt already submitted', 'ALREADY_SUBMITTED');
   }
 
-  const snapshot = await getAttemptSnapshot(attemptId);
-  if (!snapshot) throw new AppError(500, 'Snapshot missing', 'SNAPSHOT_MISSING');
-
-  const existingAnswers = await listAttemptAnswers(attemptId);
-  const answerMap = new Map(existingAnswers.map((a) => [a.questionId, a]));
-
-  let score = 0;
-  let needsManual = false;
-
-  for (const q of snapshot.questions) {
-    let answer = answerMap.get(q.id);
-    if (!answer) {
-      answer = await ensureAnswerRow({ attemptId, questionId: q.id, value: null });
-    }
-
-    const graded = autoGradeAnswer(q, answer.value);
-    if (graded.requiresManual || questionRequiresManualGrade(q)) {
-      needsManual = true;
-      await updateAnswerGrading(attemptId, q.id, {
-        isCorrect: null,
-        pointsEarned: 0,
-        feedback: null,
-      });
-    } else {
-      score += graded.pointsEarned;
-      await updateAnswerGrading(attemptId, q.id, {
-        isCorrect: graded.isCorrect,
-        pointsEarned: graded.pointsEarned,
-      });
-    }
-  }
-
-  const percentage =
-    attempt.maxScore > 0 ? Math.round((score / attempt.maxScore) * 10000) / 100 : 0;
-  const submittedAt = new Date().toISOString();
-
-  let status: Attempt['status'] = needsManual ? 'needs_grading' : 'graded';
-  // If was expired, keep expired but still store score for history? Spec: expired. Prefer expired over graded.
-  if (attempt.status === 'expired') {
-    status = needsManual ? 'needs_grading' : 'graded';
-  }
-
-  attempt = await updateAttempt(attemptId, {
-    status,
-    submittedAt,
-    score,
-    percentage,
-  });
-
-  let expEarned: number | null = null;
-  let expSubject: string | null = null;
-
-  if (status === 'graded') {
-    const exp = await awardExpForGradedAttempt({
-      attemptId: attempt.id,
-      userId: attempt.userId,
-      subjectId: snapshot.exam.subjectId,
-      examType: snapshot.exam.type,
-      score,
-      maxScore: attempt.maxScore,
-    });
-    expEarned = exp.expEarned;
-    expSubject = exp.expSubject;
-  }
-
-  await syncAssignmentAfterAttempt(attempt.assignmentId);
+  // Submitting after the timer ran out still grades what was saved.
+  const finalized = await finalizeAttempt(attempt);
+  attempt = finalized.attempt;
+  const { expEarned, expSubject } = finalized;
 
   return {
     attempt,

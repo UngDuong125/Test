@@ -312,18 +312,78 @@ export function normalizeAnswerToken(raw: string): string {
   return t;
 }
 
+/** Split on `|` / newline, but not inside `$...$`, `$$...$$`, `\(...\)`, `\[...\]` (e.g. `$|x|$`). */
+function splitAnswerAlternatives(raw: string): string[] {
+  const parts: string[] = [];
+  let buf = '';
+  let close: string | null = null;
+  let i = 0;
+  while (i < raw.length) {
+    if (close) {
+      if (raw.startsWith(close, i)) {
+        buf += close;
+        i += close.length;
+        close = null;
+      } else {
+        buf += raw[i]!;
+        i += 1;
+      }
+      continue;
+    }
+    if (raw.startsWith('\\$', i)) {
+      buf += '\\$';
+      i += 2;
+      continue;
+    }
+    const open = raw.startsWith('$$', i)
+      ? '$$'
+      : raw[i] === '$'
+        ? '$'
+        : raw.startsWith('\\(', i)
+          ? '\\('
+          : raw.startsWith('\\[', i)
+            ? '\\['
+            : null;
+    if (open) {
+      close = open === '\\(' ? '\\)' : open === '\\[' ? '\\]' : open;
+      buf += open;
+      i += open.length;
+      continue;
+    }
+    if (raw[i] === '|' || raw[i] === '\n') {
+      parts.push(buf);
+      buf = '';
+      i += 1;
+      continue;
+    }
+    buf += raw[i]!;
+    i += 1;
+  }
+  parts.push(buf);
+  return parts;
+}
+
 function parseAnswerList(raw: string): string[] {
-  return raw
-    .split(/[|\n]/)
+  return splitAnswerAlternatives(raw)
     .map((s) => normalizeAnswerToken(s))
     .filter(Boolean);
 }
 
-function resolveTrueFalseAnswer(raw: string): 'A' | 'B' | null {
+const TRUE_WORDS = ['dung', 'true', 't', '1', 'yes', 'correct'];
+const FALSE_WORDS = ['sai', 'false', 'f', '0', 'no', 'incorrect'];
+
+/**
+ * `A`/`B` pick the option directly; đúng/sai pick the option whose text says so
+ * (options may be written as `A) Sai`, `B) Đúng`), defaulting to A = Đúng, B = Sai.
+ */
+function resolveTrueFalseAnswer(raw: string, options: { id: string; text: string }[]): string | null {
   const n = normalizeKey(raw);
-  if (['a', 'dung', 'true', 't', '1', 'yes', 'correct'].includes(n)) return 'A';
-  if (['b', 'sai', 'false', 'f', '0', 'no', 'incorrect'].includes(n)) return 'B';
-  return null;
+  if (n === 'a' || n === 'b') return n.toUpperCase();
+  const want = TRUE_WORDS.includes(n) ? TRUE_WORDS : FALSE_WORDS.includes(n) ? FALSE_WORDS : null;
+  if (!want) return null;
+  const matched = options.find((o) => want.includes(normalizeKey(o.text)));
+  if (matched) return matched.id;
+  return want === TRUE_WORDS ? 'A' : 'B';
 }
 
 function looksLikeTrueFalseOptions(opts: { id: string; text: string }[]): boolean {
@@ -557,7 +617,7 @@ function buildPayload(fields: ParsedFields, type: BulkSupportedType): BulkQuesti
     if (marked.length === 1) {
       answerId = marked[0]!.id;
     } else if (fields.answerRaw) {
-      const mapped = resolveTrueFalseAnswer(fields.answerRaw);
+      const mapped = resolveTrueFalseAnswer(fields.answerRaw, fields.options);
       if (!mapped) throw new Error('ANSWER đúng/sai phải là đúng|sai (hoặc A|B)');
       answerId = mapped;
     } else {

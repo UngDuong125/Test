@@ -39,9 +39,20 @@ function hoursFromNow(hours: number): Date {
   return new Date(Date.now() + hours * 60 * 60 * 1000);
 }
 
-function isTemporarilyLocked(user: { lockedUntil: string | null; status: string }): boolean {
-  if (user.lockedUntil && new Date(user.lockedUntil).getTime() > Date.now()) return true;
-  return user.status === 'locked' && Boolean(user.lockedUntil);
+/**
+ * `lockedUntil` set → lockout after failed logins, ends on its own.
+ * `status = locked` without `lockedUntil` → locked by an admin until unlocked.
+ */
+export function isAccountLocked(
+  user: { lockedUntil: string | null; status: string },
+  now = Date.now(),
+): boolean {
+  if (user.lockedUntil) return new Date(user.lockedUntil).getTime() > now;
+  return user.status === 'locked';
+}
+
+function hasLockoutExpired(user: { lockedUntil: string | null }, now = Date.now()): boolean {
+  return Boolean(user.lockedUntil) && new Date(user.lockedUntil!).getTime() <= now;
 }
 
 export async function login(loginIdentifier: string, password: string): Promise<{
@@ -60,7 +71,7 @@ export async function login(loginIdentifier: string, password: string): Promise<
     throw new AppError(403, 'Account is disabled', 'ACCOUNT_DISABLED');
   }
 
-  if (isTemporarilyLocked(user)) {
+  if (isAccountLocked(user)) {
     throw new AppError(403, 'Account is temporarily locked. Try again later or contact admin.', 'ACCOUNT_LOCKED');
   }
 
@@ -74,7 +85,7 @@ export async function login(loginIdentifier: string, password: string): Promise<
 
   const ok = await verifyPassword(password, user.passwordHash);
   if (!ok) {
-    const attempts = user.failedLoginAttempts + 1;
+    const attempts = (hasLockoutExpired(user) ? 0 : user.failedLoginAttempts) + 1;
     let lockedUntil: string | null = null;
     if (attempts >= env.MAX_FAILED_LOGINS) {
       lockedUntil = new Date(Date.now() + env.LOCKOUT_MINUTES * 60 * 1000).toISOString();

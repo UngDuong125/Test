@@ -26,6 +26,29 @@ function sample<T>(arr: T[], n: number): T[] {
   return shuffle(arr).slice(0, n);
 }
 
+/** Largest-remainder split: targets sum to `count`, never negative; ties go to a random difficulty. */
+function allocateByWeight(
+  count: number,
+  mix: Partial<Record<Difficulty, number>>,
+  totalWeight: number,
+): Record<Difficulty, number> {
+  const diffs: Difficulty[] = ['easy', 'medium', 'hard'];
+  const exact = diffs.map((d) => (count * (mix[d] ?? 0)) / totalWeight);
+  const targets = Object.fromEntries(
+    diffs.map((d, i) => [d, Math.floor(exact[i]!)]),
+  ) as Record<Difficulty, number>;
+  let remaining = count - diffs.reduce((sum, d) => sum + targets[d], 0);
+  const byRemainder = shuffle(diffs.map((d, i) => ({ d, frac: exact[i]! - targets[d] }))).sort(
+    (a, b) => b.frac - a.frac,
+  );
+  for (const { d } of byRemainder) {
+    if (remaining <= 0) break;
+    targets[d] += 1;
+    remaining -= 1;
+  }
+  return targets;
+}
+
 /**
  * Random selection pipeline from question-bank.md:
  * filter → exclude unavailable → group by difficulty → sample → validate.
@@ -67,12 +90,7 @@ export async function selectRandomQuestions(
     hard: pool.filter((q) => q.difficulty === 'hard'),
   };
 
-  const targets: Record<Difficulty, number> = {
-    easy: Math.round(input.count * ((mix.easy ?? 0) / totalWeight)),
-    medium: Math.round(input.count * ((mix.medium ?? 0) / totalWeight)),
-    hard: 0,
-  };
-  targets.hard = input.count - targets.easy - targets.medium;
+  const targets = allocateByWeight(input.count, mix, totalWeight);
 
   const picked: Question[] = [];
   for (const diff of ['easy', 'medium', 'hard'] as Difficulty[]) {

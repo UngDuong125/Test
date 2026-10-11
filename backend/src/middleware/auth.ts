@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import { env } from '../config/env.js';
 import { AppError } from '../domain/errors.js';
+import { isAccountLocked } from '../modules/auth/auth.service.js';
 import { findUserById } from '../repositories/users.repository.js';
 import { toPublicUser } from '../repositories/user.mapper.js';
 import { resolveSession } from '../services/session.service.js';
@@ -34,7 +35,7 @@ export async function authMiddleware(req: Request, _res: Response, next: NextFun
       return;
     }
 
-    if (user.status === 'locked' && user.lockedUntil && new Date(user.lockedUntil).getTime() > Date.now()) {
+    if (isAccountLocked(user)) {
       next();
       return;
     }
