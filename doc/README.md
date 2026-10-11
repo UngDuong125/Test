@@ -59,13 +59,13 @@ Subject
 - `Question` / `QuestionOption` / `QuestionBank` / `Media`
 - `Exam` / `ExamAssignment` / `Class`
 - `Attempt` / `Answer` / `exp_ledger`
-- `VocabularyEntry` / `VocabularyBank` / `VocabularyAssignment` / `StudentVocabularyCard` (planned — xem [vocabulary-srs](./features/vocabulary-srs.md))
+- `VocabularyEntry` / `VocabularyBank` / `VocabularyAssignment` / `StudentVocabularyCard` — xem [vocabulary-srs](./features/vocabulary-srs.md)
 
 ## Quy tắc quan trọng
 
 - `ExamAssignment` trung gian giữa đề và học sinh; giao lớp → expand per student.
 - EXP: nguồn truth `exp_ledger`; `users.*_exp` là projection.
-- Legacy `/api/quizzes` chỉ giai đoạn migrate — xem [migration-legacy.md](./migration-legacy.md).
+- Legacy `/api/quizzes` đã bị loại khỏi code; [migration-legacy.md](./migration-legacy.md) chỉ để tham chiếu lịch sử.
 - API đích: prefix `/api/`, resource `exam-assignments`.
 
 ## Trạng thái thống nhất

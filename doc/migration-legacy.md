@@ -1,5 +1,7 @@
 # Migration Legacy → Mô hình đích (P3)
 
+> **Trạng thái:** Đã hoàn tất trong code. Backend không còn route `/api/quizzes` / `/api/admin/quizzes`, migration trong `supabase/` không tạo bảng `quizzes`, và frontend chỉ dùng `/api/exam-assignments` + `/api/attempts`. Tài liệu dưới đây giữ lại để tham chiếu khi cần import dữ liệu từ hệ thống cũ.
+
 Tài liệu này định nghĩa lộ trình deprecate API/`quizzes` legacy và chuyển sang Attempt + `exp_ledger`. Không dùng endpoint legacy làm spec nghiệp vụ mới.
 
 ## 1. Mục tiêu

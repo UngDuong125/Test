@@ -132,12 +132,4 @@ Request lưu answer chỉ chứa giá trị student chọn/nhập, ví dụ:
 
 ## 10. Tương thích với implementation hiện tại
 
-Implementation hiện tại vẫn dùng `/api/quizzes` và bảng `quizzes` với câu hỏi nhúng. Đây là mô hình legacy cần được migrate dần:
-
-- `quiz` → `Exam`;
-- `target_user_ids` / `is_global` → `ExamAssignment`;
-- `PATCH /api/quizzes` với `score` → `POST /api/attempts/:id/submit`;
-- `high_score` → kết quả của từng `Attempt` và các thống kê được tính từ attempt;
-- `attemptSeed` và lấy mẫu phía client → snapshot/question order do backend tạo khi bắt đầu attempt.
-
-Trong giai đoạn chuyển tiếp, endpoint legacy không được dùng làm cơ sở cho đặc tả business mới. Lộ trình: [migration-legacy.md](../migration-legacy.md).
+Dashboard hiện tại dùng mô hình đích: `GET /api/students/me/assignments` để liệt kê đề được giao, `POST /api/exam-assignments/:id/attempts` để bắt đầu attempt (backend tạo snapshot và thứ tự câu), `PATCH /api/attempts/:id/answers` và `POST /api/attempts/:id/submit` để lưu và nộp bài. Mô hình legacy (`/api/quizzes`, `high_score`, lấy mẫu câu phía client) đã bị loại khỏi code; lộ trình cũ ở [migration-legacy.md](../migration-legacy.md) chỉ để tham chiếu.

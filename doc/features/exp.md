@@ -60,7 +60,7 @@ Môn của attempt lấy từ `Exam.subjectId` (= `TagKey`), không lấy tùy �
 | `exp_ledger` | **Nguồn truth** — một bản ghi / attempt đã `graded`, unique `attempt_id` |
 | `users.*_exp` | Projection/cache aggregate từ ledger; rebuild được |
 
-Legacy (`PATCH /api/quizzes`, cập nhật trực tiếp `users.*_exp`): chỉ giai đoạn migrate.
+Legacy (`PATCH /api/quizzes`, cập nhật trực tiếp `users.*_exp`) đã bị loại khỏi code.
 
 ### Projection cột user (cache)
 
@@ -158,6 +158,4 @@ Response kết quả có thể gồm:
 
 ## 8. Tương thích / migrate
 
-Xem lộ trình đầy đủ: [migration-legacy.md](../migration-legacy.md).
-
-Tóm tắt: `PATCH /api/quizzes` + `high_score` là legacy; EXP mới chỉ từ attempt `graded` → `exp_ledger`.
+Migration đã hoàn tất trong code: `PATCH /api/quizzes` + `high_score` không còn tồn tại; EXP chỉ đến từ attempt `graded` → `exp_ledger`. Lộ trình cũ để tham chiếu: [migration-legacy.md](../migration-legacy.md).

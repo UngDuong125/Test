@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { getMedia } from '@/lib/api-client';
@@ -64,6 +64,65 @@ function ImageBlock({ mediaId, compact }: { mediaId: string; compact?: boolean }
   );
 }
 
+const INLINE_MARK_RE =
+  /\\([*_])|\*\*(?![\s*])(.+?)(?<![\s*])\*\*|__(?![\s_])(.+?)(?<![\s_])__|\*(?![\s*])(.+?)(?<![\s*])\*/gs;
+
+/** Định dạng nhẹ trong text: **đậm**, *nghiêng*, __gạch chân__; `\*`, `\_` để gõ ký tự thường. */
+export function RichText({ value }: { value: string }) {
+  return <>{renderInlineMarks(value)}</>;
+}
+
+function renderInlineMarks(text: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  let last = 0;
+  let key = 0;
+  for (const m of text.matchAll(INLINE_MARK_RE)) {
+    const start = m.index ?? 0;
+    if (start > last) nodes.push(text.slice(last, start));
+    const [, escaped, bold, underline, italic] = m;
+    if (escaped !== undefined) {
+      nodes.push(escaped);
+    } else if (bold !== undefined) {
+      nodes.push(<strong key={key++}>{renderInlineMarks(bold)}</strong>);
+    } else if (underline !== undefined) {
+      nodes.push(
+        <span key={key++} className="underline underline-offset-2">
+          {renderInlineMarks(underline)}
+        </span>,
+      );
+    } else if (italic !== undefined) {
+      nodes.push(<em key={key++}>{renderInlineMarks(italic)}</em>);
+    }
+    last = start + m[0].length;
+  }
+  if (last < text.length) nodes.push(text.slice(last));
+  return nodes;
+}
+
+type FlowItem = { block: Extract<ContentBlock, { type: 'text' | 'latex' }>; index: number };
+type BlockGroup =
+  | { kind: 'flow'; items: FlowItem[] }
+  | { kind: 'image'; mediaId: string; index: number };
+
+/** Gom text ↔ LaTeX xen kẽ vào cùng một đoạn để LaTeX hiển thị inline giữa câu. */
+function groupBlocks(blocks: ContentBlock[]): BlockGroup[] {
+  const groups: BlockGroup[] = [];
+  blocks.forEach((block, index) => {
+    if (block.type === 'image') {
+      groups.push({ kind: 'image', mediaId: block.mediaId, index });
+      return;
+    }
+    const prev = groups[groups.length - 1];
+    const prevItem = prev?.kind === 'flow' ? prev.items[prev.items.length - 1] : undefined;
+    if (prev?.kind === 'flow' && prevItem && prevItem.block.type !== block.type) {
+      prev.items.push({ block, index });
+    } else {
+      groups.push({ kind: 'flow', items: [{ block, index }] });
+    }
+  });
+  return groups;
+}
+
 export function ContentBlocksView({
   blocks,
   compact = false,
@@ -77,21 +136,28 @@ export function ContentBlocksView({
   }
   return (
     <div className={compact ? 'space-y-1' : 'space-y-2'}>
-      {blocks.map((block, i) => {
-        if (block.type === 'text') {
-          return (
-            <p
-              key={i}
-              className={`whitespace-pre-wrap text-ink ${compact ? 'text-sm' : ''}`}
-            >
-              {block.value}
-            </p>
-          );
+      {groupBlocks(blocks).map((group) => {
+        if (group.kind === 'image') {
+          return <ImageBlock key={group.index} mediaId={group.mediaId} compact={compact} />;
         }
-        if (block.type === 'latex') {
-          return <Latex key={i} value={block.value} displayMode={!compact} />;
+        const first = group.items[0]!;
+        if (group.items.length === 1 && first.block.type === 'latex') {
+          return <Latex key={first.index} value={first.block.value} displayMode={!compact} />;
         }
-        return <ImageBlock key={i} mediaId={block.mediaId} compact={compact} />;
+        return (
+          <p
+            key={first.index}
+            className={`whitespace-pre-wrap text-ink ${compact ? 'text-sm' : 'leading-relaxed'}`}
+          >
+            {group.items.map(({ block, index }) =>
+              block.type === 'text' ? (
+                <RichText key={index} value={block.value} />
+              ) : (
+                <Latex key={index} value={block.value} displayMode={false} />
+              ),
+            )}
+          </p>
+        );
       })}
     </div>
   );

@@ -68,11 +68,11 @@ Chi tiết: [authentication-and-authorization.md](./features/authentication-and-
 | Upload | `POST /api/upload` | [media-upload.md](./features/media-upload.md) |
 | Admin EXP | `POST /api/admin/exp/rebuild-projections`, `…/adjust` | [migration-legacy.md](./migration-legacy.md) |
 
-### Legacy (giai đoạn migrate — deprecate)
+### Legacy (đã loại bỏ)
 
-> Không dùng làm spec nghiệp vụ mới. Lộ trình A→D: [migration-legacy.md](./migration-legacy.md).
+> Các endpoint dưới đây **không còn tồn tại** trong backend; bảng chỉ giữ mapping sang endpoint thay thế để tham chiếu. Lộ trình cũ: [migration-legacy.md](./migration-legacy.md).
 
-| Method | Endpoint | Thay thế đích | Trạng thái mục tiêu |
+| Method | Endpoint | Thay thế đích | Trạng thái mục tiêu (cũ) |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/quizzes` | assignments + snapshot | Phase B: read-only + `Sunset` header |
 | `PATCH` | `/api/quizzes` | `POST /api/attempts/:id/submit` + ledger | Phase B: `410` hoặc proxy có flag |

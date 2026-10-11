@@ -13,7 +13,7 @@ Các feature chính:
 - Cho phép học sinh tạo **Attempt**, lưu **Answer**, nộp bài và xem kết quả theo quyền của assignment.
 - Tự động chấm các dạng câu hỏi phù hợp; chuyển câu tự luận hoặc câu cần đánh giá nội dung sang teacher chấm thủ công ([manual grading](features/manual-grading.md)).
 - Ghi nhận EXP theo `Exam.type` sau khi attempt `graded` và tổng hợp bảng xếp hạng theo môn.
-- **(Planned)** Ôn từ vựng theo spaced repetition: teacher giao bộ từ, học sinh flashcard với mốc 1/3/7/14/30 ngày — xem [vocabulary-srs](features/vocabulary-srs.md).
+- Ôn từ vựng theo spaced repetition: teacher giao bộ từ, học sinh flashcard với mốc 1/3/7/14/30 ngày — xem [vocabulary-srs](features/vocabulary-srs.md).
 
 Luồng nghiệp vụ chính:
 
@@ -94,16 +94,13 @@ EXP chỉ được ghi nhận một lần sau khi attempt hợp lệ ở trạng
 
 ## Trạng thái implementation
 
-Tài liệu feature mô tả mô hình đích. Implementation có thể còn legacy — lộ trình deprecate đầy đủ: **[migration-legacy.md](./migration-legacy.md)** (P3).
+Code hiện tại đã triển khai mô hình trong tài liệu feature, kể cả Vocabulary SRS. Mô hình legacy (`quizzes` nhúng câu hỏi JSONB, `target_user_ids` / `is_global`, `PATCH /api/quizzes` ghi `high_score` + EXP từ score frontend) đã bị loại khỏi code và migration; [migration-legacy.md](./migration-legacy.md) chỉ còn giá trị tham chiếu lịch sử.
 
-Tóm tắt khoảng cách hiện tại:
+- Chấm điểm, snapshot attempt và EXP đều nằm ở backend; EXP ghi vào `exp_ledger` có idempotency.
+- Leaderboard aggregate từ ledger, hỗ trợ all-time và theo mùa (`leaderboard_periods`).
+- Chưa có test tự động (integration/e2e).
 
-- `quizzes.questions` nhúng JSONB thay vì Question/QuestionBank.
-- `target_user_ids` / `is_global` thay cho `ExamAssignment`.
-- `PATCH /api/quizzes` cập nhật `high_score` + EXP từ score frontend.
-- `users.*_exp` / leaderboard là aggregate legacy; thiếu lịch sử Attempt đầy đủ.
-
-Khi migrate: submit/grade + EXP trên backend, snapshot, idempotency, dual-write rồi cutover.
+Kiến trúc và cấu trúc thư mục chi tiết: [structure.md](./structure.md).
 
 ## Môn học (tag)
 
@@ -116,4 +113,4 @@ Khi migrate: submit/grade + EXP trên backend, snapshot, idempotency, dual-write
 | `hist_geo` | Lịch sử - Địa lý |
 | `civic` | Giáo dục công dân |
 
-Định nghĩa tại `frontend/constants/tags.ts` và type `TagKey` trong `backend/types/domain.ts`.
+Định nghĩa tại `frontend/constants/tags.ts` và type `TagKey` trong `backend/src/types/domain.ts`.

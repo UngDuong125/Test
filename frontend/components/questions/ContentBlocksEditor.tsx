@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import katex from 'katex';
 import 'katex/dist/katex.min.css';
 import { uploadMedia, ApiError } from '@/lib/api-client';
@@ -40,6 +41,63 @@ function LatexLivePreview({ value }: { value: string }) {
     const message = err instanceof Error ? err.message : 'LaTeX không hợp lệ';
     return <p className="text-xs text-red-600">{message}</p>;
   }
+}
+
+const MARKS = [
+  { label: 'B', marker: '**', title: 'In đậm (**chữ**)', className: 'font-bold' },
+  { label: 'I', marker: '*', title: 'In nghiêng (*chữ*)', className: 'italic' },
+  { label: 'U', marker: '__', title: 'Gạch chân (__chữ__)', className: 'underline' },
+] as const;
+
+function RichTextArea({
+  value,
+  onChange,
+  compact,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  compact: boolean;
+}) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  function wrapSelection(marker: string) {
+    const el = ref.current;
+    if (!el) return;
+    const { selectionStart: start, selectionEnd: end } = el;
+    const selected = value.slice(start, end);
+    onChange(value.slice(0, start) + marker + selected + marker + value.slice(end));
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(start + marker.length, end + marker.length);
+    });
+  }
+
+  return (
+    <div className="space-y-1">
+      <div className="flex gap-1">
+        {MARKS.map((m) => (
+          <button
+            key={m.label}
+            type="button"
+            title={m.title}
+            className={`w-6 rounded border border-mist py-0.5 text-xs hover:border-accent ${m.className}`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => wrapSelection(m.marker)}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+      <textarea
+        ref={ref}
+        rows={compact ? 1 : 3}
+        className="w-full rounded-md border border-mist px-3 py-2 text-sm"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Nội dung văn bản… (**đậm**, *nghiêng*, __gạch chân__)"
+      />
+    </div>
+  );
 }
 
 export function ContentBlocksEditor({
@@ -122,12 +180,10 @@ export function ContentBlocksEditor({
           </div>
 
           {block.type === 'text' && (
-            <textarea
-              rows={compact ? 1 : 3}
-              className="w-full rounded-md border border-mist px-3 py-2 text-sm"
+            <RichTextArea
               value={block.value}
-              onChange={(e) => updateBlock(index, { type: 'text', value: e.target.value })}
-              placeholder="Nội dung văn bản…"
+              compact={compact}
+              onChange={(value) => updateBlock(index, { type: 'text', value })}
             />
           )}
           {block.type === 'latex' && (
