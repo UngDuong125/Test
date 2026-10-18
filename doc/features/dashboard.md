@@ -23,14 +23,14 @@ Dashboard không tự tạo đề, không tự chọn lại câu hỏi và khôn
 
 ## 3. Điều kiện hiển thị assignment
 
-Student chỉ được xem assignment khi:
+`GET /api/students/me/assignments` trả danh sách assignment của student (kể cả `cancelled` / `expired` nếu còn trong DB). UI dashboard hiển thị các status đó; nút **Bắt đầu** chỉ bật khi status `available` hoặc `in_progress` (và còn lượt).
+
+Điều kiện **bắt đầu attempt** mới (backend):
 
 - assignment thuộc user (`targetType=user`, `targetId=studentId`); assignment tạo từ lớp vẫn là bản ghi per-student sau expand;
-- exam đang ở trạng thái `published`;
-- assignment chưa bị `cancelled`;
-- thời điểm hiện tại không trước `availableFrom`;
-- chưa quá `deadline` (nếu có);
-- vẫn còn lượt làm, hoặc đang tiếp tục một attempt `in_progress`.
+- exam đang `published`; assignment không `cancelled`;
+- thời điểm hiện tại ≥ `availableFrom` và chưa quá `deadline`;
+- còn lượt làm, hoặc đang tiếp tục attempt `in_progress`.
 
 Không dùng `Exam.assignedUsers[]` hoặc `User.assignedExams[]` để kiểm tra quyền. Việc truy cập phải đi qua `ExamAssignment`.
 
@@ -68,7 +68,7 @@ Dashboard hỗ trợ các loại câu hỏi MVP trong [Question Management](./qu
 - `fill_blank`, `short_answer`: nhập câu trả lời.
 - `essay`: nhập nội dung để teacher chấm thủ công.
 
-Các loại mở rộng (`multiple_select`, `matching`, `ordering`, `numeric`) được render khi có trong snapshot attempt và backend hỗ trợ chấm tương ứng.
+Các loại đã bật thêm trên UI: `multiple_select`, `numeric`. `matching` / `ordering` chưa có UI làm bài.
 
 Question có thể chứa text, LaTeX và image block. Dashboard chỉ hiển thị question đã có trong snapshot của attempt; không nhận answer key trước khi submit nếu exam yêu cầu kiểm tra nghiêm túc.
 
@@ -92,7 +92,8 @@ percentage = score / maxScore * 100
 
 | Method | Endpoint | Mục đích |
 | :--- | :--- | :--- |
-| `GET` | `/api/students/:id/assignments` | Lấy assignment của student hiện tại |
+| `GET` | `/api/students/me/assignments` | Lấy assignment của student đang đăng nhập |
+| `GET` | `/api/students/:id/assignments` | Teacher/admin (hoặc chính student) xem assignment theo `id` |
 | `GET` | `/api/exam-assignments/:id` | Xem chi tiết assignment và exam |
 | `POST` | `/api/exam-assignments/:id/attempts` | Tạo attempt mới và trả về snapshot |
 | `GET` | `/api/attempts/:id` | Lấy attempt đang làm hoặc đã nộp |

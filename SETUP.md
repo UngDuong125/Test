@@ -1,6 +1,6 @@
 # Setup & chạy dự án TestArchive
 
-Hướng dẫn dựng môi trường local theo bước 1 lộ trình trong [doc/structure.md](doc/structure.md): workspace, Supabase schema, auth/session/RBAC.
+Hướng dẫn dựng môi trường local: workspace, Supabase schema (kể cả Vocabulary SRS), auth/session/RBAC và các module nghiệp vụ đã có trong code.
 
 ## Yêu cầu
 
@@ -19,7 +19,7 @@ Workspace npm: `test-archive-workspace` (`frontend` + `backend`).
 
 ## 2. Database
 
-Apply schema đích rồi seed demo:
+Apply toàn bộ migration theo thứ tự rồi seed demo:
 
 ```bash
 # Thay DATABASE_URL bằng connection string Postgres của project Supabase
@@ -28,6 +28,8 @@ psql "$DATABASE_URL" -f supabase/migrations/20260906000000_init_target_schema.sq
 psql "$DATABASE_URL" -f supabase/migrations/20260906180000_add_users_username.sql
 # Nếu DB đã apply init cũ (duration bắt buộc > 0):
 psql "$DATABASE_URL" -f supabase/migrations/20260908230000_allow_unlimited_exam_duration.sql
+# Vocabulary SRS (bắt buộc nếu dùng ôn từ vựng):
+psql "$DATABASE_URL" -f supabase/migrations/20260924120000_vocabulary_srs.sql
 psql "$DATABASE_URL" -f supabase/seed.sql
 ```
 
@@ -63,6 +65,14 @@ cp .env.example frontend/.env.local
 | `PORT` | `4000` |
 
 Lấy URL và service role key trong Supabase Dashboard → **Project Settings → API**.
+
+Tuỳ chọn thường dùng:
+
+| Biến | Mặc định | Ý nghĩa |
+| :--- | :--- | :--- |
+| `VOCABULARY_TIME_ZONE` | `Asia/Ho_Chi_Minh` | Mốc ngày cho SRS (`next_review_at`) |
+| `COOKIE_SECURE` | `false` | `true` trên HTTPS / Vercel+Render (`SameSite=None`) |
+| `CLOUDINARY_*` | — | Upload ảnh production; local dùng placeholder |
 
 ### Frontend (`frontend/.env.local`)
 
@@ -106,20 +116,23 @@ npm run dev:frontend
 | `POST` | `/api/auth/change-password` |
 | `POST` | `/api/auth/forgot-password` |
 | `POST` | `/api/auth/reset-password` |
-| `GET/POST/PATCH` | `/api/admin/users…` (admin) |
+| `GET` | `/api/admin/users` |
+| `POST/PATCH` | `/api/admin/users…` (invite, status, role, …) |
 
 Spec: [doc/features/authentication-and-authorization.md](doc/features/authentication-and-authorization.md).
 
-## 6. Classes, giao đề & upload (bước 4)
+## 6. Classes, giao đề, làm bài & upload
 
 Sau khi có đề `published`:
 
-1. Teacher đăng nhập → `/classes` — tạo/sửa lớp, thêm học sinh bằng email
+1. Teacher đăng nhập → `/classes` — tạo/sửa lớp, thêm học sinh bằng email (thành viên quản lý trên cùng trang)
 2. `/assignments` — chọn exam published + lớp (hoặc UUID student) → giao đề
-3. Student đăng nhập → `/dashboard` xem assignment của mình
-4. (Tuỳ chọn) `POST /api/upload` multipart field `file` — ảnh JPEG/PNG/WebP ≤ 2MB; không cấu hình Cloudinary thì dùng placeholder HTTPS local
+3. Student đăng nhập → `/dashboard` xem assignment của mình → bắt đầu attempt → nộp bài
+4. Teacher → `/grading` chấm thủ công nếu attempt `needs_grading`
+5. (Tuỳ chọn) Vocabulary: `/vocabulary` (teacher) / `/vocabulary/review` (student)
+6. (Tuỳ chọn) `POST /api/upload` multipart field `file` — ảnh JPEG/PNG/WebP ≤ 2MB; không cấu hình Cloudinary thì dùng placeholder HTTPS local
 
-### API distribution / media
+### API distribution / attempt / media
 
 | Method | Path |
 | :--- | :--- |
@@ -128,12 +141,23 @@ Sau khi có đề `published`:
 | `POST` | `/api/exams/:id/assign`, `/api/exam-assignments` |
 | `GET/PATCH` | `/api/exam-assignments/:id` |
 | `POST` | `/api/exam-assignments/:id/cancel` |
+| `POST` | `/api/exam-assignments/:id/attempts` |
+| `PATCH` | `/api/attempts/:id/answers` |
+| `POST` | `/api/attempts/:id/submit` |
 | `POST` | `/api/upload` |
 | `GET/DELETE` | `/api/media/:id` |
 
-Spec: [class-management.md](doc/features/class-management.md), [exam-distribution.md](doc/features/exam-distribution.md), [media-upload.md](doc/features/media-upload.md).
+Spec: [class-management.md](doc/features/class-management.md), [exam-distribution.md](doc/features/exam-distribution.md), [attempt-and-result.md](doc/features/attempt-and-result.md), [media-upload.md](doc/features/media-upload.md), [vocabulary-srs.md](doc/features/vocabulary-srs.md).
 
-## 7. Lỗi thường gặp
+## 7. Test
+
+```bash
+npm test                 # workspace: backend + frontend unit tests
+npm test --workspace=backend
+npm test --workspace=frontend
+```
+
+## 8. Lỗi thường gặp
 
 | Hiện tượng | Cách xử lý |
 | :--- | :--- |
@@ -145,31 +169,19 @@ Spec: [class-management.md](doc/features/class-management.md), [exam-distributio
 | `403 Password change required` | Hoàn tất `/change-password` trước khi gọi API khác |
 | Giao đề 422 `EXAM_NOT_PUBLISHED` | Publish exam trên `/exams` trước |
 | Giao đề 403 student not in class | Thêm học sinh vào lớp teacher sở hữu |
+| Vocabulary API lỗi thiếu bảng | Chưa apply `20260924120000_vocabulary_srs.sql` |
 | Upload không Cloudinary | OK local — log `[upload:dev-fallback]`; production cần `CLOUDINARY_*` |
 
-## Cấu trúc code (auth + content + distribution)
+## Cấu trúc code (tóm tắt)
 
 ```text
 backend/src/
-  modules/auth/
-  modules/questions/
-  modules/question-banks/
-  modules/exams/
-  modules/classes/
-  modules/assignments/
-  routes/classes.routes.ts
-  routes/assignments.routes.ts
-  routes/students.routes.ts
-  routes/upload.routes.ts
-  services/upload.service.ts
+  modules/{auth,questions,exams,classes,assignments,attempts,grading,exp,vocabulary,…}/
+  routes/*.routes.ts
+  repositories/
 
-frontend/
-  app/questions/
-  app/question-banks/
-  app/exams/
-  app/classes/
-  app/assignments/
-  app/dashboard/          # student: danh sách assignment
+frontend/app/
+  {login,dashboard,questions,exams,classes,assignments,attempts,results,grading,vocabulary,leaderboard,admin}/
 ```
 
-Bước tiếp theo theo lộ trình: Attempt snapshot, submit, auto/manual grading (bước 5 trong `doc/structure.md`).
+Kiến trúc chi tiết: [doc/structure.md](doc/structure.md).

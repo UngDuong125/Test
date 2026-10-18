@@ -1,7 +1,7 @@
 -- TestArchive schema snapshot (target model)
--- Keep in sync with migrations/20260906000000_init_target_schema.sql
--- Prefer applying numbered migrations in order for existing databases.
--- TestArchive target schema (initial)
+-- Keep in sync with numbered migrations under migrations/ (init + username +
+-- unlimited duration + vocabulary_srs). Prefer applying those in order for
+-- existing databases; this file is a greenfield bootstrap snapshot.
 -- Source of truth for fields: doc/database-target.md
 -- Apply with: supabase db push / psql -f ...
 

@@ -143,10 +143,12 @@ TestArchive/
 │   │   ├── topics.ts
 │   │   └── attempt-labels.ts
 │   ├── constants/                      # tags.ts (môn học), questions.ts
-│   └── types/                          # auth.ts, content.ts — DTO cho UI (khai báo riêng, không share với backend)
+│   ├── types/                          # auth.ts, content.ts — DTO cho UI (khai báo riêng, không share với backend)
+│   └── tests/                          # Unit tests (*.test.ts)
 ├── backend/                            # Express + TypeScript API (ESM, tsx khi dev)
 │   ├── package.json
 │   ├── tsconfig.json
+│   ├── test/                           # Unit tests (*.test.ts)
 │   └── src/
 │       ├── server.ts                   # Bootstrap HTTP server
 │       ├── app.ts                      # Middleware và route registry
@@ -201,7 +203,7 @@ TestArchive/
     └── schema.sql                      # Snapshot schema hiện hành
 ```
 
-Chưa có thư mục test tự động (integration/e2e). `npm run lint` của backend hiện chỉ chạy `tsc --noEmit`.
+Unit test: `backend/test/*.test.ts`, `frontend/tests/*.test.ts` (`npm test`). Chưa có suite integration/e2e đầy đủ. `npm run lint` của backend hiện chỉ chạy `tsc --noEmit`.
 
 ## Phân chia database
 

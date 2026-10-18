@@ -79,7 +79,7 @@ Quy tắc:
 - Backward compatible: body vẫn chấp nhận `email` hoặc `username` thay cho `login`.
 - Backend trả về session/token có thời hạn, chứa tối thiểu `userId`, `role` và thời điểm hết hạn.
 - Session lưu bảng `sessions` (token hash, `expires_at`, `revoked_at`); cookie `HttpOnly` chỉ mang session id/token reference.
-- Token được gửi qua cookie `HttpOnly`, `Secure` ở production và `SameSite=Lax` hoặc nghiêm ngặt theo deployment.
+- Token được gửi qua cookie `HttpOnly`. `COOKIE_SECURE=false` (local HTTP): `SameSite=Lax`. `COOKIE_SECURE=true` (production HTTPS / Vercel↔Render): `Secure` + `SameSite=None`.
 - Không lưu mật khẩu hoặc token nhạy cảm trong `localStorage`.
 - Sau khi đăng nhập, nếu `mustChangePassword = true`, chỉ cho phép gọi các API đổi mật khẩu/đăng xuất cho tới khi hoàn tất.
 - Đăng xuất phải hủy session hiện tại.
@@ -104,6 +104,7 @@ Quy tắc:
 | `POST` | `/api/auth/change-password` | Đổi mật khẩu, gồm lần đầu đăng nhập | Authenticated |
 | `POST` | `/api/auth/forgot-password` | Gửi email đặt lại mật khẩu | Public |
 | `POST` | `/api/auth/reset-password` | Đặt mật khẩu từ reset token | Public với token hợp lệ |
+| `GET` | `/api/admin/users` | Danh sách user | `admin` |
 | `POST` | `/api/admin/users/invite` | Tạo tài khoản và gửi email mời | `admin` |
 | `POST` | `/api/admin/users/:id/resend-invite` | Gửi lại email kích hoạt | `admin` |
 | `PATCH` | `/api/admin/users/:id/status` | Khóa/mở khóa/vô hiệu hóa tài khoản | `admin` |
@@ -155,7 +156,7 @@ Invite body tối thiểu: `{ "email", "username", "role", "displayName?" }`.
 
 | Layer | Path |
 | :--- | :--- |
-| UI | `frontend/app/login/page.tsx` |
-| API | `backend/src/routes/auth.routes.ts` |
+| UI | `frontend/app/login/page.tsx`, `change-password/`, `forgot-password/`, `reset-password/`, `admin/users/` |
+| API | `backend/src/routes/auth.routes.ts`, `users.routes.ts` |
 | User type | `backend/src/types/domain.ts` |
 | Database | `supabase/schema.sql`, [database-target.md](../database-target.md) |

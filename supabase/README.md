@@ -8,8 +8,7 @@ Schema đích theo [doc/database-target.md](../doc/database-target.md). Legacy `
 | :--- | :--- |
 | `migrations/` | Migration tăng dần (không sửa file đã apply) |
 | `seed.sql` | Dữ liệu mẫu local (subjects, users demo, class, 1 câu hỏi) |
-| `schema.sql` | Bootstrap greenfield (include migration init) |
-
+| `schema.sql` | Bootstrap greenfield (snapshot gồm init + vocabulary SRS) |
 ## Apply (psql)
 
 ```bash

@@ -95,7 +95,7 @@ Tag không hợp lệ phải bị từ chối hoặc được ánh xạ qua poli
 | Unique | `(attempt_id)` — một dòng ledger / attempt |
 | Insert | Chỉ khi attempt lần đầu → `graded` |
 | Regrade | `UPDATE exp_earned` (+ δ projection); không INSERT mới |
-| Admin adjust | Có thể INSERT dòng `attempt_id=null` với `reason` **hoặc** API riêng ghi `exp_adjustments` — MVP: `POST /api/admin/exp/adjust` cập nhật projection + audit, không bịa attempt |
+| Admin adjust | MVP: `POST /api/admin/exp/adjust` chỉ cập nhật projection `users.*_exp` và trả `reason` trong response; **không** ghi `exp_ledger` (cột `attempt_id` NOT NULL) và không có bảng audit riêng |
 
 Transaction gợi ý khi grade:
 
@@ -114,7 +114,7 @@ COMMIT
 3. Nếu teacher chấm lại attempt, ghi **điều chỉnh** vào `exp_ledger`: `exp_adjustment = newExpEarned - oldExpEarned`; cập nhật projection `users.*_exp` trong cùng transaction; không insert bản ghi ledger thứ hai cho cùng `attempt_id`.
 4. Hủy assignment không xóa EXP của attempt đã hoàn tất.
 5. Xóa hoặc sửa Exam không làm thay đổi EXP lịch sử của attempt vì attempt giữ snapshot/version.
-6. Admin có thể reset hoặc điều chỉnh EXP qua một API quản trị có audit log; student không được tự sửa EXP.
+6. Admin có thể điều chỉnh EXP qua `POST /api/admin/exp/adjust` (chỉ projection) hoặc rebuild projection từ ledger; student không được tự sửa EXP.
 
 ### Ví dụ MVP
 

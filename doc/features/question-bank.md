@@ -31,20 +31,21 @@ Một question có thể thuộc nhiều bank qua `question_bank_items`. Taxonom
 
 ## 3. Search & Filter
 
-Hỗ trợ:
+Hỗ trợ (query `GET /api/questions`):
 
-- Subject
+- Subject (`subjectId`)
 - Grade
-- Topic
+- Topic (`topicId`)
 - Difficulty
-- Question type
-- Tags
+- Question type (`type`)
+- Tags (`tag`)
 - Status
-- Creator
-- Has image
-- Has LaTeX
-- Created date
-- Updated date
+- Creator (`createdBy`)
+- Free text (`q`)
+- Bank (`bankId`)
+- Phân trang (`limit`, `offset`)
+
+Chưa có filter Has image / Has LaTeX / khoảng Created–Updated date.
 
 Ví dụ:
 
@@ -61,20 +62,18 @@ Lọc topic dùng `GET /api/questions?topicId=<uuid>` — có trên trang `/ques
 
 ## 4. Question Metadata
 
-Nên có:
+Metadata hiện có trên question:
 
 ```json
 {
   "difficulty": "easy | medium | hard",
-  "estimatedTime": 60,
   "points": 1,
   "tags": [],
-  "topicIds": [],
-  "learningObjectiveIds": []
+  "topicIds": []
 }
 ```
 
-`estimatedTime` tính theo giây hoặc phút và có thể dùng để sinh đề theo tổng thời lượng.
+`estimatedTime` / `learningObjectiveIds` chưa có trong schema/API (có thể bổ sung sau).
 
 ## 5. Question Usage
 

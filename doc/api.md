@@ -8,16 +8,30 @@ Quy ước API đích (naming, lỗi, idempotency): [features/_cross-cutting.md]
 | :--- | :--- | :--- |
 | `/` | `frontend/app/page.tsx` | Landing |
 | `/login` | `frontend/app/login/page.tsx` | Đăng nhập email hoặc username + mật khẩu |
+| `/change-password` | `frontend/app/change-password/page.tsx` | Đổi mật khẩu (bắt buộc khi `mustChangePassword`) |
+| `/forgot-password` | `frontend/app/forgot-password/page.tsx` | Quên mật khẩu |
+| `/reset-password` | `frontend/app/reset-password/page.tsx` | Đặt lại mật khẩu từ token |
 | `/dashboard` | `frontend/app/dashboard/page.tsx` | Danh sách assignment & làm bài |
+| `/topics` | `frontend/app/topics/page.tsx` | Quản lý chủ đề (taxonomy) |
+| `/questions` | `frontend/app/questions/page.tsx` | Danh sách / lọc câu hỏi |
+| `/questions/new` | `frontend/app/questions/new/page.tsx` | Tạo câu hỏi |
+| `/questions/[id]` | `frontend/app/questions/[id]/page.tsx` | Sửa, review, lifecycle |
+| `/question-banks` | `frontend/app/question-banks/page.tsx` | Ngân hàng câu hỏi |
 | `/attempts/[id]` | `frontend/app/attempts/[id]/page.tsx` | Làm bài theo snapshot |
+| `/results` | `frontend/app/results/page.tsx` | Danh sách kết quả |
 | `/results/[id]` | `frontend/app/results/[id]/page.tsx` | Kết quả attempt |
+| `/students/[id]/results` | `frontend/app/students/[id]/results/page.tsx` | Kết quả theo học sinh |
 | `/exams` | `frontend/app/exams/page.tsx` | Danh sách đề / generate |
 | `/exams/new` | `frontend/app/exams/new/page.tsx` | Tạo đề nháp → composer |
 | `/exams/[id]/edit` | `frontend/app/exams/[id]/edit/page.tsx` | Trình soạn đề tích hợp |
+| `/exams/[id]/results` | `frontend/app/exams/[id]/results/page.tsx` | Kết quả theo đề |
 | `/assignments` | `frontend/app/assignments/page.tsx` | Teacher giao đề |
-| `/classes` | `frontend/app/classes/page.tsx` | Quản lý lớp |
+| `/assignments/[id]/attempts` | `frontend/app/assignments/[id]/attempts/page.tsx` | Attempts của assignment |
+| `/classes` | `frontend/app/classes/page.tsx` | Quản lý lớp + thành viên (cùng trang) |
 | `/grading` | `frontend/app/grading/page.tsx` | Queue chấm thủ công |
+| `/grading/[attemptId]` | `frontend/app/grading/[attemptId]/page.tsx` | Chấm một attempt |
 | `/admin` | `frontend/app/admin/page.tsx` | Công cụ admin |
+| `/admin/users` | `frontend/app/admin/users/page.tsx` | Mời và quản lý tài khoản |
 | `/leaderboard` | `frontend/app/leaderboard/page.tsx` | Xếp hạng EXP |
 | `/vocabulary` | `frontend/app/vocabulary/page.tsx` | Teacher: bộ từ + giao SRS |
 | `/vocabulary/review` | `frontend/app/vocabulary/review/page.tsx` | Student: ôn flashcard |
@@ -45,6 +59,7 @@ Chi tiết: [authentication-and-authorization.md](./features/authentication-and-
 
 | Method | Endpoint | Quyền |
 | :--- | :--- | :--- |
+| `GET` | `/api/admin/users` | `admin` |
 | `POST` | `/api/admin/users/invite` | `admin` |
 | `POST` | `/api/admin/users/:id/resend-invite` | `admin` |
 | `PATCH` | `/api/admin/users/:id/status` | `admin` |
@@ -54,19 +69,19 @@ Chi tiết: [authentication-and-authorization.md](./features/authentication-and-
 
 | Nhóm | Endpoint chính | Feature doc |
 | :--- | :--- | :--- |
-| Questions | `POST/GET/PATCH /api/questions`, `…/publish` | [question-management.md](./features/question-management.md) |
+| Questions | `POST/GET/PATCH /api/questions`, `…/submit-review`, `…/reject-review`, `…/publish`, `…/archive`, `…/duplicate` | [question-management.md](./features/question-management.md) |
 | Question banks | `POST/GET /api/question-banks`, search | [question-bank.md](./features/question-bank.md) |
 | Exams | `POST/GET/PATCH /api/exams`, `…/questions`, `…/questions/create`, `…/validate`, `…/publish`, `…/generate` | [exam-management.md](./features/exam-management.md) |
 | Assignments | `POST/GET/PATCH /api/exam-assignments`, `POST /api/exams/:id/assign` | [exam-distribution.md](./features/exam-distribution.md) |
-| Classes | `POST/GET/PATCH /api/classes`, `…/members` | [class-management.md](./features/class-management.md) |
-| Attempts | `POST /api/exam-assignments/:id/attempts`, `POST /api/attempts/:id/submit` | [attempt-and-result.md](./features/attempt-and-result.md) |
-| Grading | `GET /api/grading/queue`, `POST /api/attempts/:id/grade` | [manual-grading.md](./features/manual-grading.md) |
-| Student | `GET /api/students/:id/assignments` | [dashboard.md](./features/dashboard.md) |
-| Vocabulary SRS | `POST/GET /api/vocabulary-banks`, `/api/vocabulary-entries`, `/api/vocabulary-assignments`, `GET /api/students/me/vocabulary/due`, `POST /api/vocabulary-cards/:id/review` | [vocabulary-srs.md](./features/vocabulary-srs.md) |
+| Classes | `POST/GET/PATCH /api/classes`, `…/members`, `…/analytics` | [class-management.md](./features/class-management.md) |
+| Attempts | `POST /api/exam-assignments/:id/attempts`, `PATCH /api/attempts/:id/answers`, `POST /api/attempts/:id/submit` | [attempt-and-result.md](./features/attempt-and-result.md) |
+| Grading | `GET /api/grading/queue`, `GET /api/grading/:attemptId`, `POST /api/attempts/:id/grade`, `…/regrade` | [manual-grading.md](./features/manual-grading.md) |
+| Student | `GET /api/students/me/assignments`, `GET /api/students/:id/assignments`, `GET /api/students/:id/results` | [dashboard.md](./features/dashboard.md) |
+| Vocabulary SRS | `POST/GET /api/vocabulary-banks`, `/api/vocabulary-entries`, `/api/vocabulary-assignments` (+ cancel), `GET /api/students/me/vocabulary/due`, `POST /api/vocabulary-cards/:id/review` | [vocabulary-srs.md](./features/vocabulary-srs.md) |
 | Leaderboard | `GET /api/leaderboard`, `?period=`, `/periods` | [leaderboard.md](./features/leaderboard.md) |
-| Analytics | `GET /api/questions/:id/stats`, `…/exams/:id/analytics` | [analytics.md](./features/analytics.md) |
-| Upload | `POST /api/upload` | [media-upload.md](./features/media-upload.md) |
-| Admin EXP | `POST /api/admin/exp/rebuild-projections`, `…/adjust` | [migration-legacy.md](./migration-legacy.md) |
+| Analytics | `GET /api/questions/:id/stats`, `…/exams/:id/analytics`, `…/classes/:id/analytics` | [analytics.md](./features/analytics.md) |
+| Upload | `POST /api/upload`, `GET/DELETE /api/media/:id` | [media-upload.md](./features/media-upload.md) |
+| Admin EXP | `POST /api/admin/exp/rebuild-projections`, `…/adjust` | [exp.md](./features/exp.md) |
 
 ### Legacy (đã loại bỏ)
 
@@ -78,6 +93,5 @@ Chi tiết: [authentication-and-authorization.md](./features/authentication-and-
 | `PATCH` | `/api/quizzes` | `POST /api/attempts/:id/submit` + ledger | Phase B: `410` hoặc proxy có flag |
 | `GET/PATCH/DELETE` | `/api/admin/quizzes` | `/api/exams`, assignments | Phase D: remove |
 | `PATCH` | `/api/admin/users` (action) | `/api/admin/users/:id/status`, `…/role` | Phase B |
-| `GET` | `/api/leaderboard` | Giữ path; nguồn = `exp_ledger` + `period` | Phase A |
 
 Mọi endpoint bảo vệ lấy danh tính từ session, không tin `userId` client gửi. `401` / `403` theo [\_cross-cutting.md](./features/_cross-cutting.md).

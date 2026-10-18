@@ -60,12 +60,15 @@ MVP:
 - `short_answer`
 - `essay`
 
-Có thể mở rộng:
+Đã bật trên UI tạo/làm bài:
 
 - `multiple_select`
+- `numeric`
+
+Chưa có UI làm bài (chỉ mở khi hỗ trợ đầy đủ):
+
 - `matching`
 - `ordering`
-- `numeric`
 
 ## 5. Rich Content
 
@@ -195,6 +198,7 @@ PATCH  /api/questions/:id
 DELETE /api/questions/:id
 
 POST   /api/questions/:id/submit-review
+POST   /api/questions/:id/reject-review   # review → draft
 POST   /api/questions/:id/publish
 POST   /api/questions/:id/archive
 

@@ -2,7 +2,7 @@
 
 Schema mô tả **mô hình đích** sau migrate. Schema legacy (`quizzes`, …) xem [database.md](./database.md).
 
-Types TypeScript dự kiến: `backend/types/domain.ts`. Migration: [`supabase/migrations/`](../supabase/migrations/). Snapshot: [`supabase/schema.sql`](../supabase/schema.sql). Seed: [`supabase/seed.sql`](../supabase/seed.sql).
+Types TypeScript: `backend/src/types/domain.ts`. Migration: [`supabase/migrations/`](../supabase/migrations/). Snapshot: [`supabase/schema.sql`](../supabase/schema.sql). Seed: [`supabase/seed.sql`](../supabase/seed.sql).
 
 ## Identity
 

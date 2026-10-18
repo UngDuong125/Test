@@ -164,7 +164,8 @@ PATCH  /api/exam-assignments/:id
 DELETE /api/exam-assignments/:id
 
 GET    /api/exams/:id/assignments
-GET    /api/students/:id/assignments
+GET    /api/students/me/assignments            # Student đang đăng nhập
+GET    /api/students/:id/assignments           # Teacher/admin / chính student
 
 POST   /api/exam-assignments/:id/cancel
 POST   /api/exam-assignments/:id/attempts      # Tạo attempt (nested)

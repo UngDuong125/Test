@@ -4,7 +4,7 @@ Hệ thống tạo câu hỏi, ngân hàng đề và phân phối bài học cho
 
 - **Tài liệu đặc tả:** [doc/README.md](doc/README.md)
 - **Setup & chạy local:** [SETUP.md](SETUP.md)
-- **Lộ trình triển khai:** [doc/structure.md](doc/structure.md)
+- **Kiến trúc & cấu trúc:** [doc/structure.md](doc/structure.md)
 
 ## Tech stack
 
@@ -27,6 +27,11 @@ npm run dev:frontend
 
 ## Trạng thái implementation
 
-**Bước 1 (đang có):** workspace monorepo, schema Supabase, auth (login/logout/me, đổi mật khẩu, forgot/reset, admin invite/RBAC), UI login & quản lý user.
+Đã triển khai mô hình đích trong `doc/`:
 
-Các bước tiếp theo (question bank → exam → assignment → attempt → EXP) chưa implement.
+- Auth (login/logout/me, đổi mật khẩu, forgot/reset, admin invite/RBAC)
+- Question bank, exam composer, class, giao đề, attempt + snapshot, chấm tự động/thủ công
+- EXP (`exp_ledger`) + leaderboard (all-time / seasonal)
+- Vocabulary SRS (flashcard 1/3/7/14/30 ngày)
+
+Chi tiết: [doc/overview.md](doc/overview.md). Test unit: `npm test` (workspace / `backend` / `frontend`).

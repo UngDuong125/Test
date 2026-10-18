@@ -117,7 +117,8 @@ UI path gợi ý: `/grading` (queue), `/grading/[attemptId]` (chi tiết).
 | `POST` | `/api/attempts/:id/grade` | Chấm / hoàn tất manual grade | Owner exam / admin |
 | `POST` | `/api/attempts/:id/regrade` | Chấm lại attempt đã graded | Owner exam / admin |
 | `GET` | `/api/exams/:id/results` | Kết quả theo đề | Owner / admin |
-| `GET` | `/api/classes/:id/results` | Kết quả theo lớp (assignments có `sourceClassId`) | Class owner / admin |
+| `GET` | `/api/students/:id/results` | Kết quả theo học sinh | Teacher/admin (có authz) / chính student |
+| `GET` | `/api/grading/:attemptId` | Chi tiết attempt trong queue chấm | Owner exam / admin |
 
 ### Query queue
 

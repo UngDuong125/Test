@@ -98,10 +98,9 @@ Email không tồn tại / không phải student → `422` với danh sách lỗ
 
 | Path | Vai trò |
 | :--- | :--- |
-| `/classes` | Teacher: danh sách / tạo / sửa lớp |
-| `/classes/[id]` | Thành viên, thêm/bớt, shortcut giao đề |
+| `/classes` | Teacher: danh sách / tạo / sửa lớp, quản lý thành viên (chọn lớp trên cùng trang) |
 
-Student có thể thấy tên lớp trên dashboard nếu assignment có `sourceClassId` (tùy chọn UI).
+Không có route `/classes/[id]` riêng. Student có thể thấy tên lớp trên dashboard nếu assignment có `sourceClassId` (tùy chọn UI).
 
 ## 8. Acceptance Criteria
 

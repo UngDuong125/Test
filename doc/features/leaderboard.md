@@ -151,11 +151,9 @@ API tính thứ hạng sau filter/limit/tie-break; không để frontend `.slice
 
 ## 10. Tương thích với implementation hiện tại
 
-Implementation hiện tại dùng `GET /api/leaderboard`, tổng hợp trực tiếp các cột `*_exp` trên `users`. Nguồn tạo EXP phải chuyển sang `exp_ledger` — lộ trình: [migration-legacy.md](../migration-legacy.md).
+Implementation hiện tại dùng `GET /api/leaderboard` (+ `GET /api/leaderboard/periods`):
 
-Các điểm cần migrate:
-
-- `/api/leaderboard` → filter/limit/period rõ ràng ở backend;
-- `users.*_exp` → projection từ ledger;
-- tie-break xác định;
-- `.slice(0, 20)` ở frontend → limit và rank do backend trả về.
+- `period=all` (mặc định): đọc projection `users.*_exp` (cache từ ledger).
+- `period=week|month|term|custom`: aggregate `exp_ledger` trong cửa sổ thời gian.
+- Limit / rank / tie-break do backend trả về.
+- Nguồn ghi EXP: `exp_ledger` (xem [exp.md](./exp.md)). Lộ trình legacy chỉ còn tham chiếu: [migration-legacy.md](../migration-legacy.md).

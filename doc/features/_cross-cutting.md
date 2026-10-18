@@ -78,7 +78,7 @@ Vi phạm → `422` với code `TOPIC_NOT_FOUND`, `TOPIC_SUBJECT_MISMATCH` hoặ
 | Khái niệm | Nguồn | Ý nghĩa |
 | :--- | :--- | :--- |
 | **Thời lượng làm bài** | `Exam.duration` (phút) | `duration > 0`: timer đếm ngược từ `Attempt.startedAt`; hết giờ → auto-submit hoặc `expired`. `duration = 0`: không giới hạn thời lượng đề |
-| **Hạn nộp** | `ExamAssignment.deadline` | Không cho **bắt đầu** attempt mới sau deadline; attempt đang `in_progress` vẫn được nộp trong grace period ngắn nếu đã start trước deadline. Với đề `duration = 0`, `expires_at` thường bằng deadline |
+| **Hạn nộp** | `ExamAssignment.deadline` | Không cho **bắt đầu** attempt mới sau deadline. Attempt đang `in_progress` cũng hết hạn khi `deadline` đến (`expireIfNeeded`); `expires_at` khi start = `min(now + duration, deadline)` nếu `duration > 0`, hoặc bằng deadline nếu `duration = 0` |
 | **Thời gian mở** | `ExamAssignment.availableFrom` | Không hiển thị / không cho start trước thời điểm này |
 
 ## Điểm câu hỏi
@@ -97,7 +97,9 @@ Vi phạm → `422` với code `TOPIC_NOT_FOUND`, `TOPIC_SUBJECT_MISMATCH` hoặ
 
 **MVP** (tạo + chấm + hiển thị): `multiple_choice`, `true_false`, `fill_blank`, `short_answer`, `essay`.
 
-**Mở rộng** (chỉ bật khi backend + UI hỗ trợ đầy đủ): `multiple_select`, `matching`, `ordering`, `numeric`.
+**Đã bật UI/chấm:** `multiple_select`, `numeric`.
+
+**Chưa có UI làm bài:** `matching`, `ordering` (chỉ mở khi backend + UI hỗ trợ đầy đủ).
 
 Auto-grade trong [attempt-and-result.md](./attempt-and-result.md) chỉ áp dụng cho loại đã bật ở môi trường tương ứng.
 
@@ -139,5 +141,5 @@ Không dùng permission granular riêng `assign_exam`. Quyền giao đề nằm 
 
 ## Idempotency
 
-- `POST /api/exam-assignments/:id/attempts/:attemptId/submit` (hoặc submit attempt): header `Idempotency-Key` để tránh cộng EXP / chấm trùng.
-- Ghi `exp_ledger` bắt buộc unique `(attempt_id)`.
+- Submit attempt: `POST /api/attempts/:id/submit`. Không dùng header `Idempotency-Key`; client gọi lại submit khi attempt đã khóa nhận lỗi nghiệp vụ (`409` / trạng thái không còn `in_progress`).
+- Ghi `exp_ledger` bắt buộc unique `(attempt_id)` — chống cộng EXP trùng khi grade/regrade.

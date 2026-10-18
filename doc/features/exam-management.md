@@ -81,14 +81,14 @@ Không copy question vào exam. Dùng reference:
 
 Hành vi khi `duration > 0` và hết giờ:
 
-- Backend set `Attempt.expires_at = min(startedAt + duration, assignment.deadline)`.
-- Hết giờ: auto-submit nếu có answer, hoặc chuyển `expired`.
-- Attempt đã bắt đầu trước `deadline` vẫn được nộp trong thời lượng còn lại (không bị deadline cắt giữa chừng trừ khi policy bổ sung).
+- Khi start: backend set `Attempt.expires_at = min(now + duration, assignment.deadline)`.
+- Hết `expires_at` hoặc đã qua `assignment.deadline`: chuyển `expired` (không nhận thêm answer / không submit).
+- Deadline **có cắt** attempt đang làm: không có grace period sau deadline.
 
 Hành vi khi `duration = 0`:
 
 - Không có timer thời lượng đề; học sinh làm đến khi nộp hoặc đến hạn assignment.
-- `Attempt.expires_at` lấy theo `assignment.deadline`.
+- `Attempt.expires_at` lấy theo `assignment.deadline`; khi deadline đến attempt bị `expired`.
 
 Chi tiết: [\_cross-cutting.md](./_cross-cutting.md#timer-duration-vs-deadline).
 

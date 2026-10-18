@@ -85,7 +85,7 @@ Query chung: `from`, `to` (ISO datetime) để giới hạn cửa sổ thời gi
 ## 6. Privacy
 
 - Không trả nội dung answer của student khác trong analytics aggregate.
-- Danh sách điểm từng học sinh trong lớp: endpoint riêng (`/api/classes/:id/results`) — xem [manual-grading.md](./manual-grading.md), cần quyền class owner.
+- Danh sách điểm từng học sinh: `GET /api/exams/:id/results` (theo đề) hoặc `GET /api/students/:id/results` (theo HS); thống kê lớp dùng `GET /api/classes/:id/analytics`. Không có `GET /api/classes/:id/results`.
 - Rate-limit các endpoint nặng.
 
 ## 7. Acceptance Criteria

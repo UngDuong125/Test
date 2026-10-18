@@ -194,7 +194,7 @@ Audit / analytics; không bắt buộc cho logic SRS.
 
 ### 5.1. Bảng mốc
 
-| `intervalStep` | Khoảng cách tới lần ôn tiếp theo |
+| `intervalStep` | `INTERVAL_DAYS[step]` (dùng sau FAIL hoặc làm chỉ số bước) |
 | :---: | :--- |
 | 0 | 1 ngày |
 | 1 | 3 ngày |
@@ -202,11 +202,7 @@ Audit / analytics; không bắt buộc cho logic SRS.
 | 3 | 14 ngày |
 | 4 | 30 ngày |
 
-Hằng số gợi ý (backend):
-
-```text
-INTERVAL_DAYS = [1, 3, 7, 14, 30]
-```
+Hằng số backend: `INTERVAL_DAYS = [1, 3, 7, 14, 30]`. Khi **PASS**, `nextReviewAt` lấy `INTERVAL_DAYS[nextStep]` (step 0 → pass → step 1 → +3 ngày), không phải +1 ngày.
 
 ### 5.2. Khi học sinh trả lời
 
@@ -272,7 +268,7 @@ Không dùng một assignment trỏ thẳng class trong MVP.
 | Role | VocabularyEntry / Bank | Assignment | Ôn flashcard |
 | :--- | :--- | :--- | :--- |
 | `admin` | CRUD mọi nội dung | Giao mọi bank published | — |
-| `teacher` | CRUD bank/entry mình sở hữu | Giao cho HS / lớp mình quản lý | Xem tiến độ HS mình |
+| `teacher` | CRUD bank/entry mình sở hữu | Giao cho HS / lớp mình quản lý | Xem danh sách assignment đã giao (`GET /api/students/:id/vocabulary-assignments`); thống kê due/pass rate chi tiết — phase sau |
 | `student` | Chỉ đọc entry thuộc assignment của mình | Chỉ thấy assignment của mình | Review card của mình |
 
 - Chỉ bank có entry `published` (hoặc bank đã “ready”) mới được giao — rule cụ thể: khi assign, chỉ tạo card cho entry `status = published`.
@@ -295,17 +291,18 @@ POST   /api/vocabulary-entries
 GET    /api/vocabulary-entries/:id
 PATCH  /api/vocabulary-entries/:id
 
-POST   /api/vocabulary-banks/:id/items      # { entryId }
+POST   /api/vocabulary-banks/:id/items      # { entryIds: string[] }
 DELETE /api/vocabulary-banks/:id/items/:entryId
 ```
 
 ### Assignment
 
 ```text
+GET    /api/vocabulary-assignments
 POST   /api/vocabulary-assignments
 GET    /api/vocabulary-assignments/:id
-PATCH  /api/vocabulary-assignments/:id
 POST   /api/vocabulary-assignments/:id/cancel
+# Không có PATCH assignment — hủy rồi giao lại nếu cần sửa
 
 POST   /api/vocabulary-banks/:id/assign     # bulk user | class
 GET    /api/students/me/vocabulary-assignments
@@ -391,7 +388,7 @@ Chi tiết cột khi implement: bổ sung vào [database-target.md](../database-
 - Teacher giao bank cho một student hoặc cả lớp (expand per student).
 - Mỗi entry trong bank tạo đúng một card / student / assignment.
 - Student vào mục cố định “Ôn từ vựng” và chỉ thấy thẻ due của mình.
-- Chọn **thuộc** → `intervalStep` tăng, `nextReviewAt` = 0h của ngày hôm nay + mốc tương ứng (1→3→7→14→30).
+- Chọn **thuộc** → `intervalStep` tăng lên `nextStep`, `nextReviewAt` = 0h hôm nay + `INTERVAL_DAYS[nextStep]` (PASS lần đầu từ step 0 → +3 ngày; rồi 7 → 14 → 30; mốc 1 ngày chủ yếu dùng sau FAIL).
 - Chọn **thuộc** khi đang ở mốc 30 ngày → `status = mastered`, thẻ không còn xuất hiện trong queue due.
 - Chọn **không thuộc** → `intervalStep = 0`, `nextReviewAt` = 0h ngày mai.
 - Thẻ chưa đến hạn không xuất hiện trong danh sách due.

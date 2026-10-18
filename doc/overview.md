@@ -96,9 +96,9 @@ EXP chỉ được ghi nhận một lần sau khi attempt hợp lệ ở trạng
 
 Code hiện tại đã triển khai mô hình trong tài liệu feature, kể cả Vocabulary SRS. Mô hình legacy (`quizzes` nhúng câu hỏi JSONB, `target_user_ids` / `is_global`, `PATCH /api/quizzes` ghi `high_score` + EXP từ score frontend) đã bị loại khỏi code và migration; [migration-legacy.md](./migration-legacy.md) chỉ còn giá trị tham chiếu lịch sử.
 
-- Chấm điểm, snapshot attempt và EXP đều nằm ở backend; EXP ghi vào `exp_ledger` có idempotency.
-- Leaderboard aggregate từ ledger, hỗ trợ all-time và theo mùa (`leaderboard_periods`).
-- Chưa có test tự động (integration/e2e).
+- Chấm điểm, snapshot attempt và EXP đều nằm ở backend; EXP ghi vào `exp_ledger` có idempotency (unique `attempt_id`).
+- Leaderboard: `period=all` đọc projection `users.*_exp`; các period khác aggregate từ `exp_ledger` (+ `leaderboard_periods`).
+- Có unit test (`backend/test/`, `frontend/tests/`; `npm test`). Chưa có suite integration/e2e đầy đủ.
 
 Kiến trúc và cấu trúc thư mục chi tiết: [structure.md](./structure.md).
 

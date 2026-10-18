@@ -97,4 +97,4 @@ Catalog thay thế: [api.md](./api.md#legacy-giai-đoạn-migrate--deprecate).
 - [exp.md](./features/exp.md)
 - [leaderboard.md](./features/leaderboard.md)
 - [overview.md](./overview.md#trạng-thái-implementation)
-- [structure.md](./structure.md) — bước 7 lộ trình triển khai
+- [structure.md](./structure.md) — kiến trúc hiện hành (migration legacy đã hoàn tất trong code)

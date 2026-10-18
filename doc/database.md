@@ -92,7 +92,7 @@ users 1 ─── * quizzes          (created_by)
 users * ←── soft link ── quizzes.target_user_ids  (jsonb UUID[])
 ```
 
-- Câu hỏi **nhúng** trong `quizzes.questions`, không có bảng `questions` riêng (khác mô tả cũ trong `Architecture.md`).
+- Câu hỏi **nhúng** trong `quizzes.questions`, không có bảng `questions` riêng (khác schema đích trong [database-target.md](./database-target.md)).
 - Không có bảng lưu lịch sử lần làm bài — chỉ giữ `high_score` trên đề và các cột EXP trên user.
 
 ## Biến môi trường liên quan DB
