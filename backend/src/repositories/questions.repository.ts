@@ -20,6 +20,9 @@ import type {
 const QUESTION_COLUMNS =
   'id, type, subject_id, grade, difficulty, content, answer, explanation, points, tags, status, version, created_by, created_at, updated_at';
 
+/** Keep PostgREST `.in()` URLs under ~16KB header limit (~100 UUIDs). */
+const IN_FILTER_CHUNK = 100;
+
 export interface QuestionListFilters {
   subjectId?: TagKey;
   grade?: number;
@@ -38,19 +41,29 @@ export interface QuestionListFilters {
   offset?: number;
 }
 
+function chunkIds(ids: string[], size = IN_FILTER_CHUNK): string[][] {
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += size) {
+    chunks.push(ids.slice(i, i + size));
+  }
+  return chunks;
+}
+
 async function loadOptionsMap(questionIds: string[]): Promise<Map<string, QuestionOption[]>> {
   const map = new Map<string, QuestionOption[]>();
   if (!questionIds.length) return map;
-  const { data, error } = await getDb()
-    .from('question_options')
-    .select('question_id, id, content, order')
-    .in('question_id', questionIds)
-    .order('order');
-  if (error) throw error;
-  for (const row of (data ?? []) as QuestionOptionRow[]) {
-    const list = map.get(row.question_id) ?? [];
-    list.push(mapOption(row));
-    map.set(row.question_id, list);
+  for (const chunk of chunkIds(questionIds)) {
+    const { data, error } = await getDb()
+      .from('question_options')
+      .select('question_id, id, content, order')
+      .in('question_id', chunk)
+      .order('order');
+    if (error) throw error;
+    for (const row of (data ?? []) as QuestionOptionRow[]) {
+      const list = map.get(row.question_id) ?? [];
+      list.push(mapOption(row));
+      map.set(row.question_id, list);
+    }
   }
   return map;
 }
@@ -58,23 +71,29 @@ async function loadOptionsMap(questionIds: string[]): Promise<Map<string, Questi
 async function loadTopicIdsMap(questionIds: string[]): Promise<Map<string, string[]>> {
   const map = new Map<string, string[]>();
   if (!questionIds.length) return map;
-  const { data, error } = await getDb()
-    .from('question_topic_links')
-    .select('question_id, topic_id')
-    .in('question_id', questionIds);
-  if (error) throw error;
-  for (const row of (data ?? []) as { question_id: string; topic_id: string }[]) {
-    const list = map.get(row.question_id) ?? [];
-    list.push(row.topic_id);
-    map.set(row.question_id, list);
+  for (const chunk of chunkIds(questionIds)) {
+    const { data, error } = await getDb()
+      .from('question_topic_links')
+      .select('question_id, topic_id')
+      .in('question_id', chunk);
+    if (error) throw error;
+    for (const row of (data ?? []) as { question_id: string; topic_id: string }[]) {
+      const list = map.get(row.question_id) ?? [];
+      list.push(row.topic_id);
+      map.set(row.question_id, list);
+    }
   }
   return map;
 }
 
-async function hydrateQuestions(rows: QuestionRow[]): Promise<Question[]> {
+async function hydrateQuestions(
+  rows: QuestionRow[],
+  opts?: { includeOptions?: boolean },
+): Promise<Question[]> {
   const ids = rows.map((r) => r.id);
+  const includeOptions = opts?.includeOptions !== false;
   const [optionsMap, topicsMap] = await Promise.all([
-    loadOptionsMap(ids),
+    includeOptions ? loadOptionsMap(ids) : Promise.resolve(new Map<string, QuestionOption[]>()),
     loadTopicIdsMap(ids),
   ]);
   return rows.map((row) =>
@@ -96,12 +115,16 @@ export async function findQuestionById(id: string): Promise<Question | null> {
 
 export async function findQuestionsByIds(ids: string[]): Promise<Question[]> {
   if (!ids.length) return [];
-  const { data, error } = await getDb()
-    .from('questions')
-    .select(QUESTION_COLUMNS)
-    .in('id', ids);
-  if (error) throw error;
-  return hydrateQuestions((data ?? []) as QuestionRow[]);
+  const rows: QuestionRow[] = [];
+  for (const chunk of chunkIds(ids)) {
+    const { data, error } = await getDb()
+      .from('questions')
+      .select(QUESTION_COLUMNS)
+      .in('id', chunk);
+    if (error) throw error;
+    rows.push(...((data ?? []) as QuestionRow[]));
+  }
+  return hydrateQuestions(rows);
 }
 
 export async function listQuestions(filters: QuestionListFilters): Promise<{
@@ -330,17 +353,30 @@ export async function listPublishedCandidates(filters: {
     if (!ids.length) return [];
   }
 
-  let query = getDb()
-    .from('questions')
-    .select(QUESTION_COLUMNS)
-    .eq('status', 'published');
+  const base = () => {
+    let query = getDb()
+      .from('questions')
+      .select(QUESTION_COLUMNS)
+      .eq('status', 'published');
+    if (filters.subjectId) query = query.eq('subject_id', filters.subjectId);
+    if (filters.grade !== undefined) query = query.eq('grade', filters.grade);
+    if (filters.types?.length) query = query.in('type', filters.types);
+    return query;
+  };
 
-  if (filters.subjectId) query = query.eq('subject_id', filters.subjectId);
-  if (filters.grade !== undefined) query = query.eq('grade', filters.grade);
-  if (filters.types?.length) query = query.in('type', filters.types);
-  if (ids) query = query.in('id', ids);
+  const rows: QuestionRow[] = [];
+  if (ids?.length) {
+    for (const chunk of chunkIds(ids)) {
+      const { data, error } = await base().in('id', chunk).limit(500);
+      if (error) throw error;
+      rows.push(...((data ?? []) as QuestionRow[]));
+    }
+  } else {
+    const { data, error } = await base().limit(500);
+    if (error) throw error;
+    rows.push(...((data ?? []) as QuestionRow[]));
+  }
 
-  const { data, error } = await query.limit(500);
-  if (error) throw error;
-  return hydrateQuestions((data ?? []) as QuestionRow[]);
+  // Random selection only needs id / difficulty / topics / points — skip options.
+  return hydrateQuestions(rows, { includeOptions: false });
 }

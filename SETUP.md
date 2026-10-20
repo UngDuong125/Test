@@ -30,6 +30,8 @@ psql "$DATABASE_URL" -f supabase/migrations/20260906180000_add_users_username.sq
 psql "$DATABASE_URL" -f supabase/migrations/20260908230000_allow_unlimited_exam_duration.sql
 # Vocabulary SRS (bắt buộc nếu dùng ôn từ vựng):
 psql "$DATABASE_URL" -f supabase/migrations/20260924120000_vocabulary_srs.sql
+# Interactive lessons (exam_sections.content + exams.type = lesson):
+psql "$DATABASE_URL" -f supabase/migrations/20261020000000_interactive_lessons.sql
 psql "$DATABASE_URL" -f supabase/seed.sql
 ```
 
