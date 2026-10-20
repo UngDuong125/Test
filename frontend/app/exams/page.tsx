@@ -179,7 +179,7 @@ function ExamsBody() {
             value={genTopicIds}
             onChange={setGenTopicIds}
             label="Chủ đề (không chọn = mọi chủ đề)"
-            hint="Lấy câu published thuộc ít nhất một chủ đề đã chọn."
+            hint="Lấy câu published thuộc các chủ đề đã chọn. Nếu số chủ đề nhiều hơn số câu, hệ thống chọn ngẫu nhiên một số chủ đề bằng đúng số câu."
           />
         </div>
         <button

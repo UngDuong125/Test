@@ -26,6 +26,44 @@ function sample<T>(arr: T[], n: number): T[] {
   return shuffle(arr).slice(0, n);
 }
 
+function topicIdsOf(q: Question): string[] {
+  return q.topicIds ?? [];
+}
+
+/** Topics that actually have a question in `pool`. `allowed` limits the set when the caller picked topics. */
+function topicsWithQuestions(pool: Question[], allowed?: string[]): string[] {
+  const allow = allowed?.length ? new Set(allowed) : null;
+  const seen = new Set<string>();
+  for (const q of pool) {
+    for (const id of topicIdsOf(q)) {
+      if (allow && !allow.has(id)) continue;
+      seen.add(id);
+    }
+  }
+  return [...seen];
+}
+
+/**
+ * One question from each topic in `topicIds` (already a random subset).
+ * If shared questions make that subset short, fill from the same pool.
+ */
+function sampleOnePerTopic(pool: Question[], topicIds: string[], count: number): Question[] {
+  const picked: Question[] = [];
+  const used = new Set<string>();
+  for (const topicId of topicIds) {
+    if (picked.length >= count) break;
+    const candidates = pool.filter((q) => !used.has(q.id) && topicIdsOf(q).includes(topicId));
+    const [q] = sample(candidates, 1);
+    if (!q) continue;
+    picked.push(q);
+    used.add(q.id);
+  }
+  if (picked.length < count) {
+    picked.push(...sample(pool.filter((q) => !used.has(q.id)), count - picked.length));
+  }
+  return picked.slice(0, count);
+}
+
 /** Largest-remainder split: targets sum to `count`, never negative; ties go to a random difficulty. */
 function allocateByWeight(
   count: number,
@@ -56,13 +94,19 @@ function allocateByWeight(
 export async function selectRandomQuestions(
   input: RandomSelectionInput,
 ): Promise<{ questions: Question[]; warnings: string[] }> {
-  const pool = await listPublishedCandidates({
+  const fetched = await listPublishedCandidates({
     subjectId: input.subjectId,
     grade: input.grade,
     topicIds: input.topicIds,
     types: input.types,
     bankId: input.bankId,
   });
+
+  const allowed = input.topicIds?.length ? input.topicIds : undefined;
+  // No topic filter means every topic on the candidate questions ("không chọn = mọi chủ đề").
+  const pool = allowed
+    ? fetched.filter((q) => topicIdsOf(q).some((id) => allowed.includes(id)))
+    : fetched;
 
   const warnings: string[] = [];
 
@@ -72,6 +116,21 @@ export async function selectRandomQuestions(
       `Not enough published questions (have ${pool.length}, need ${input.count})`,
       'INSUFFICIENT_QUESTIONS',
     );
+  }
+
+  const topics = topicsWithQuestions(pool, allowed);
+  // More topics than questions: cover a random subset, one question from each.
+  if (topics.length > input.count) {
+    const chosen = sample(topics, input.count);
+    const questions = sampleOnePerTopic(pool, chosen, input.count);
+    if (questions.length < input.count) {
+      throw new AppError(
+        422,
+        `Not enough published questions (have ${questions.length}, need ${input.count})`,
+        'INSUFFICIENT_QUESTIONS',
+      );
+    }
+    return { questions, warnings };
   }
 
   const mix = input.difficulty;

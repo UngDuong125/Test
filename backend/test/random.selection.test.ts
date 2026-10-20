@@ -74,6 +74,55 @@ describe('selectRandomQuestions', () => {
     }
   });
 
+  it('randomly samples topics when there are more topics than questions', async () => {
+    const topicIds = ['a', 'b', 'c', 'd'];
+    pool = topicIds.flatMap((topicId) =>
+      [0, 1, 2].map(
+        (i) => ({ id: `${topicId}-${i}`, difficulty: 'easy', topicIds: [topicId] }) as Question,
+      ),
+    );
+    const seen = new Set<string>();
+    for (let run = 0; run < 40; run += 1) {
+      const { questions } = await selectRandomQuestions({ count: 2 });
+      assert.equal(questions.length, 2);
+      const used = questions.map((q) => q.topicIds[0]!);
+      assert.equal(new Set(used).size, 2);
+      for (const id of used) seen.add(id);
+    }
+    assert.deepEqual([...seen].sort(), topicIds);
+  });
+
+  it('samples only among the selected topics when those outnumber the questions', async () => {
+    pool = ['a', 'b', 'c', 'd'].flatMap((topicId) =>
+      [0, 1].map(
+        (i) => ({ id: `${topicId}-${i}`, difficulty: 'medium', topicIds: [topicId] }) as Question,
+      ),
+    );
+    const seen = new Set<string>();
+    for (let run = 0; run < 30; run += 1) {
+      const { questions } = await selectRandomQuestions({ count: 2, topicIds: ['a', 'b', 'c'] });
+      assert.equal(questions.length, 2);
+      const used = questions.map((q) => q.topicIds[0]!);
+      assert.equal(new Set(used).size, 2);
+      for (const id of used) {
+        assert.notEqual(id, 'd');
+        seen.add(id);
+      }
+    }
+    assert.deepEqual([...seen].sort(), ['a', 'b', 'c']);
+  });
+
+  it('keeps sampling the whole pool when topics do not outnumber questions', async () => {
+    pool = ['a', 'b'].flatMap((topicId) =>
+      [0, 1, 2, 3].map(
+        (i) => ({ id: `${topicId}-${i}`, difficulty: 'easy', topicIds: [topicId] }) as Question,
+      ),
+    );
+    const { questions } = await selectRandomQuestions({ count: 4 });
+    assert.equal(questions.length, 4);
+    assert.equal(new Set(questions.map((q) => q.id)).size, 4);
+  });
+
   it('does not always favour easy on a 50/50 mix', async () => {
     const seen = { easy: 0, medium: 0, hard: 0 };
     for (let run = 0; run < 50; run += 1) {
