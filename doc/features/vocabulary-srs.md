@@ -17,7 +17,7 @@ Học sinh có **một mục cố định** trên UI (ví dụ “Ôn từ vựn
 
 Trong phạm vi:
 
-- Teacher tạo / quản lý từ vựng và bộ từ (vocabulary bank).
+- Teacher tạo / quản lý từ vựng và bộ từ (vocabulary bank). Có thể dán nhiều từ một lúc: mỗi dòng `từ | nghĩa`, `từ | /phiên âm/ | nghĩa`, `từ | nghĩa | ví dụ`, hoặc khối `TERM` / `READING` / `DEF` / `EXAMPLE` cách nhau bằng `===`. `term`, `definition` và `example` giữ `**đậm**`, `*nghiêng*`, `__gạch chân__`.
 - Teacher giao bộ từ cho học sinh hoặc lớp (expand per student — giống [exam-distribution](./exam-distribution.md)).
 - Student ôn flashcard: mặt trước → lật → chọn thuộc / không thuộc.
 - Lịch ôn theo mốc 1 / 3 / 7 / 14 / 30 ngày; `next_review_at` quyết định từ nào “due”.
@@ -30,7 +30,7 @@ Ngoài phạm vi MVP (có thể mở rộng sau):
 - Thuật toán SM-2 / ease factor động.
 - Gõ chính tả / nghe – nói (chỉ flashcard nhận biết nghĩa).
 - Cộng EXP khi ôn từ (xem mục 12).
-- Import CSV / từ điển ngoài.
+- Import CSV / từ điển ngoài (dán text trong trang bộ từ đã có).
 - Nhắc push / email khi đến hạn ôn.
 
 ## 3. Tại sao module riêng?

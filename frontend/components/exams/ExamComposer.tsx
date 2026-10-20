@@ -930,7 +930,7 @@ export function ExamComposer({
                 Khung dán text nằm riêng phía dưới. Dán nhiều câu theo field (
                 <code className="text-xs">TYPE</code>, <code className="text-xs">Q</code>,{' '}
                 <code className="text-xs">A)</code>, <code className="text-xs">ANSWER</code>…) rồi
-                tạo hàng loạt — hỗ trợ TN, Đ/S, điền, trả lời ngắn.
+                tạo hàng loạt — trắc nghiệm, chọn thẻ, Đ/S, điền, trả lời ngắn, nối cặp, sắp xếp.
               </p>
               <button
                 type="button"

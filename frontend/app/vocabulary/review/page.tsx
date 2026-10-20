@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AuthGate } from '@/components/auth/AuthGate';
+import { RichText } from '@/components/questions/QuestionPreview';
 import { MatchGame } from '@/components/vocabulary/MatchGame';
 import {
   ApiError,
@@ -295,7 +296,7 @@ function VocabularyReviewBody({ preload }: { preload: Preload }) {
               <>
                 <p className="text-xs uppercase tracking-wide text-slate-400">Mặt trước</p>
                 <p className="mt-4 font-display text-4xl font-bold text-ink sm:text-5xl">
-                  {current.entry.term}
+                  <RichText value={current.entry.term} />
                 </p>
                 {current.entry.reading && (
                   <p className="mt-3 text-lg text-slate-500">/{current.entry.reading}/</p>
@@ -308,11 +309,11 @@ function VocabularyReviewBody({ preload }: { preload: Preload }) {
               <>
                 <p className="text-xs uppercase tracking-wide text-slate-400">Mặt sau</p>
                 <p className="mt-4 font-display text-3xl font-semibold text-ink">
-                  {current.entry.definition}
+                  <RichText value={current.entry.definition} />
                 </p>
                 {current.entry.example && (
                   <p className="mt-4 max-w-md text-base italic text-slate-600">
-                    {current.entry.example}
+                    <RichText value={current.entry.example} />
                   </p>
                 )}
                 <p className="mt-6 text-xs text-slate-400">

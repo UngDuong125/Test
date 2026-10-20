@@ -1,6 +1,7 @@
 /**
  * Parse teacher-authored text blocks into create-question payloads
- * for multiple_choice, true_false, fill_blank, short_answer.
+ * for multiple_choice, multiple_select, true_false, fill_blank, short_answer,
+ * matching and ordering.
  *
  * Q / phương án hỗ trợ text lẫn LaTeX (`$...$`, `$$...$$`, `\(...\)`, `\[...\]`,
  * hoặc cả field `latex: ...`). ANSWER điền/ngắn: có thể bọc `$...$` — lưu chuỗi
@@ -18,9 +19,12 @@ import type {
 
 export const BULK_SUPPORTED_TYPES = [
   'multiple_choice',
+  'multiple_select',
   'true_false',
   'fill_blank',
   'short_answer',
+  'matching',
+  'ordering',
 ] as const;
 
 export type BulkSupportedType = (typeof BULK_SUPPORTED_TYPES)[number];
@@ -59,7 +63,7 @@ export type BulkParseErr = {
 export type BulkParseItem = BulkParseOk | BulkParseErr;
 
 const FIELD_RE =
-  /^(TYPE|LOẠI|LOAI|Q|QUESTION|CÂU|CAU|ANSWER|ĐÁP\s*ÁN|DAP\s*AN|POINTS|ĐIỂM|DIEM|DIFFICULTY|ĐỘ\s*KHÓ|DO\s*KHO|EXPLAIN|EXPLANATION|GIẢI\s*THÍCH|GIAI\s*THICH|TOPICS?|CHỦ\s*ĐỀ|CHU\s*DE)\s*:\s*(.*)$/i;
+  /^(TYPE|LOẠI|LOAI|Q|QUESTION|CÂU|CAU|ANSWER|ĐÁP\s*ÁN|DAP\s*AN|PAIR|CẶP|CAP|POINTS|ĐIỂM|DIEM|DIFFICULTY|ĐỘ\s*KHÓ|DO\s*KHO|EXPLAIN|EXPLANATION|GIẢI\s*THÍCH|GIAI\s*THICH|TOPICS?|CHỦ\s*ĐỀ|CHU\s*DE)\s*:\s*(.*)$/i;
 
 const OPTION_RE = /^([A-Ha-h])\s*[\)\.\:]\s*(.+)$/;
 
@@ -91,6 +95,19 @@ const TYPE_ALIASES: Record<string, BulkSupportedType> = {
   'ngắn': 'short_answer',
   'tra loi ngan': 'short_answer',
   'trả lời ngắn': 'short_answer',
+  multiple_select: 'multiple_select',
+  ms: 'multiple_select',
+  'nhieu dap an': 'multiple_select',
+  'chon the': 'multiple_select',
+  'chon nhieu': 'multiple_select',
+  matching: 'matching',
+  match: 'matching',
+  noi: 'matching',
+  'noi cap': 'matching',
+  ordering: 'ordering',
+  order: 'ordering',
+  'sap xep': 'ordering',
+  xep: 'ordering',
 };
 
 const DIFF_ALIASES: Record<string, Difficulty> = {
@@ -126,19 +143,31 @@ function splitBlocks(text: string): string[] {
     .filter(Boolean);
 }
 
+/** Stars that are not part of **bold** and not escaped. Odd count means a trailing marker star. */
+function markerStarCount(value: string): number {
+  return value.replace(/\\\*/g, '').replace(/\*\*/g, '').split('*').length - 1;
+}
+
 function stripCorrectMarker(text: string): { text: string; correct: boolean } {
   let t = text.trim();
-  let correct = false;
-  if (/\*$/.test(t) || /\(đúng\)\s*$/i.test(t) || /\(dung\)\s*$/i.test(t) || /\(correct\)\s*$/i.test(t)) {
-    correct = true;
-    t = t
-      .replace(/\*$/, '')
-      .replace(/\(đúng\)\s*$/i, '')
-      .replace(/\(dung\)\s*$/i, '')
-      .replace(/\(correct\)\s*$/i, '')
-      .trim();
+  if (/\(đúng\)\s*$/i.test(t) || /\(dung\)\s*$/i.test(t) || /\(correct\)\s*$/i.test(t)) {
+    return {
+      text: t
+        .replace(/\(đúng\)\s*$/i, '')
+        .replace(/\(dung\)\s*$/i, '')
+        .replace(/\(correct\)\s*$/i, '')
+        .trim(),
+      correct: true,
+    };
   }
-  return { text: t, correct };
+  // Prefer " *" so *nghiêng* and **đậm** stay intact.
+  if (/\s\*\s*$/.test(t)) {
+    return { text: t.replace(/\s\*\s*$/, '').trim(), correct: true };
+  }
+  if (t.endsWith('*') && markerStarCount(t) % 2 === 1) {
+    return { text: t.slice(0, -1).trim(), correct: true };
+  }
+  return { text: t, correct: false };
 }
 
 function assertBalancedBraces(value: string, context: string) {
@@ -399,11 +428,33 @@ type ParsedFields = {
   questionLines: string[];
   options: { id: string; text: string; marked: boolean }[];
   answerRaw?: string;
+  pairRaw?: string;
   pointsRaw?: string;
   difficultyRaw?: string;
   explainLines: string[];
   topicRaws: string[];
+  lefts: { id: string; text: string }[];
+  rights: { id: string; text: string }[];
+  shorthandPairs: { left: string; right: string }[];
+  distractors: string[];
+  orderLines: string[];
 };
+
+function knownType(raw?: string): BulkSupportedType | undefined {
+  if (!raw) return undefined;
+  return TYPE_ALIASES[normalizeKey(raw)];
+}
+
+function splitPairLine(line: string): { left: string; right: string } | null {
+  const arrow = line.match(/^(.+?)\s*(?:→|->|=>)\s*(.+)$/);
+  if (arrow?.[1]?.trim() && arrow[2]?.trim()) {
+    return { left: arrow[1].trim(), right: arrow[2].trim() };
+  }
+  if (!line.includes('|')) return null;
+  const parts = splitAnswerAlternatives(line).map((part) => part.trim()).filter(Boolean);
+  if (parts.length !== 2) return null;
+  return { left: parts[0]!, right: parts[1]! };
+}
 
 function parseTopicNames(raws: string[]): string[] {
   const seen = new Set<string>();
@@ -429,9 +480,14 @@ function parseFields(block: string): ParsedFields {
     options: [],
     explainLines: [],
     topicRaws: [],
+    lefts: [],
+    rights: [],
+    shorthandPairs: [],
+    distractors: [],
+    orderLines: [],
   };
 
-  type Mode = 'none' | 'q' | 'explain' | 'answer';
+  type Mode = 'none' | 'q' | 'explain' | 'answer' | 'pair' | 'order';
   let mode: Mode = 'none';
 
   for (const rawLine of lines) {
@@ -451,6 +507,9 @@ function parseFields(block: string): ParsedFields {
 
       if (key === 'type' || key === 'loai') {
         result.typeRaw = value;
+      } else if (key === 'pair' || key === 'cap') {
+        mode = 'pair';
+        if (value) result.pairRaw = value;
       } else if (key === 'q' || key === 'question' || key === 'cau') {
         mode = 'q';
         if (value) result.questionLines.push(value);
@@ -481,8 +540,22 @@ function parseFields(block: string): ParsedFields {
       continue;
     }
 
+    const typeNow = knownType(result.typeRaw);
+    const leftMatch = trimmed.match(/^L(\d+)\s*[).:]\s*(.+)$/i);
+    const rightMatch = trimmed.match(/^R(\d+)\s*[).:]\s*(.+)$/i);
+    if (leftMatch && (typeNow === 'matching' || typeNow === undefined)) {
+      mode = 'none';
+      result.lefts.push({ id: `L${leftMatch[1]}`, text: leftMatch[2]!.trim() });
+      continue;
+    }
+    if (rightMatch && (typeNow === 'matching' || typeNow === undefined)) {
+      mode = 'none';
+      result.rights.push({ id: `R${rightMatch[1]}`, text: rightMatch[2]!.trim() });
+      continue;
+    }
+
     const opt = trimmed.match(OPTION_RE);
-    if (opt) {
+    if (opt && typeNow !== 'ordering') {
       mode = 'none';
       const id = opt[1]!.toUpperCase();
       const { text, correct } = stripCorrectMarker(opt[2]!);
@@ -490,11 +563,50 @@ function parseFields(block: string): ParsedFields {
       result.options.push({ id, text, marked: correct });
       continue;
     }
+    if (opt && typeNow === 'ordering') {
+      mode = 'order';
+      const { text } = stripCorrectMarker(opt[2]!);
+      if (text) result.orderLines.push(text);
+      continue;
+    }
+
+    if (typeNow === 'ordering') {
+      const numbered = trimmed.match(/^\d+\s*[).]\s*(.+)$/);
+      if (numbered) {
+        mode = 'order';
+        result.orderLines.push(numbered[1]!.trim());
+        continue;
+      }
+    }
+
+    if (typeNow === 'matching') {
+      if (/^[~|]\s*\S/.test(trimmed)) {
+        mode = 'none';
+        const text = trimmed.replace(/^[~|]\s*/, '').trim();
+        if (text) result.distractors.push(text);
+        continue;
+      }
+      const pair = splitPairLine(trimmed);
+      if (pair) {
+        mode = 'none';
+        result.shorthandPairs.push(pair);
+        continue;
+      }
+    }
 
     if (mode === 'q') {
+      if (typeNow === 'ordering' && result.questionLines.some((line) => line.trim())) {
+        mode = 'order';
+        result.orderLines.push(trimmed);
+        continue;
+      }
       result.questionLines.push(trimmed);
+    } else if (mode === 'order') {
+      result.orderLines.push(trimmed);
     } else if (mode === 'explain') {
       result.explainLines.push(trimmed);
+    } else if (mode === 'pair') {
+      result.pairRaw = result.pairRaw ? `${result.pairRaw}\n${trimmed}` : trimmed;
     } else if (mode === 'answer') {
       result.answerRaw = result.answerRaw
         ? `${result.answerRaw}\n${trimmed}`
@@ -520,12 +632,46 @@ function resolveType(
   }
   if (fields.options.length >= 2) {
     if (looksLikeTrueFalseOptions(fields.options)) return 'true_false';
+    if (fields.options.filter((opt) => opt.marked).length > 1) return 'multiple_select';
     return 'multiple_choice';
   }
+  if (fields.shorthandPairs.length >= 2 || (fields.lefts.length >= 2 && fields.rights.length >= 2)) {
+    return 'matching';
+  }
+  if (fields.orderLines.length >= 2) return 'ordering';
   const q = fields.questionLines.join('\n');
   if (/_{2,}|\[\s*\]|\(\s*\)/.test(q)) return 'fill_blank';
   if (fields.answerRaw) return fallback ?? 'short_answer';
   return fallback ?? null;
+}
+
+function toOptions(items: { id: string; text: string }[], label: string): QuestionOption[] {
+  return items.map((item, index) => ({
+    id: item.id,
+    content: parseContentBlocks(item.text, `${label} ${item.id}`),
+    order: index + 1,
+  }));
+}
+
+function parsePairSpec(raw: string): Record<string, string> {
+  const pairs: Record<string, string> = {};
+  for (const part of raw.split(/[|,\n]+/)) {
+    const token = part.trim();
+    if (!token) continue;
+    const match = token.match(/^(L\d+)\s*(?:→|->|=>|=|-)\s*(R\d+)$/i);
+    if (!match) throw new Error(`Cặp không hợp lệ "${token}" (dùng L1-R2)`);
+    const left = match[1]!.toUpperCase();
+    const right = match[2]!.toUpperCase();
+    if (pairs[left]) throw new Error(`Vế ${left} bị nối hai lần`);
+    if (Object.values(pairs).includes(right)) throw new Error(`Vế ${right} bị nối hai lần`);
+    pairs[left] = right;
+  }
+  if (!Object.keys(pairs).length) throw new Error('Thiếu cặp L1-R2');
+  return pairs;
+}
+
+function assertUniqueIds(ids: string[], label: string) {
+  if (new Set(ids).size !== ids.length) throw new Error(`${label} bị trùng id`);
 }
 
 function buildPayload(fields: ParsedFields, type: BulkSupportedType): BulkQuestionPayload {
@@ -554,6 +700,137 @@ function buildPayload(fields: ParsedFields, type: BulkSupportedType): BulkQuesti
   const explainText = fields.explainLines.join('\n').trim();
   const explanation = explainText ? { text: explainText } : {};
   const topicNames = parseTopicNames(fields.topicRaws);
+
+  if (type === 'multiple_select') {
+    if (fields.options.length < 2) {
+      throw new Error('Chọn thẻ cần ít nhất 2 phương án (A) B) …)');
+    }
+    const marked = fields.options.filter((opt) => opt.marked).map((opt) => opt.id);
+    let answerIds = marked;
+    if (!answerIds.length && fields.answerRaw) {
+      answerIds = [
+        ...new Set(
+          fields.answerRaw
+            .toUpperCase()
+            .split(/[^A-H]+/)
+            .filter((letter) => letter.length === 1),
+        ),
+      ];
+    }
+    if (!answerIds.length) {
+      throw new Error('Đánh dấu mỗi thẻ đúng bằng * hoặc ghi ANSWER: A, C');
+    }
+    if (answerIds.some((id) => !fields.options.some((opt) => opt.id === id))) {
+      throw new Error('ANSWER có chữ cái không khớp phương án');
+    }
+    return {
+      type,
+      difficulty,
+      content,
+      options: toOptions(fields.options, 'Phương án'),
+      answer: { type: 'multiple', value: answerIds },
+      explanation,
+      points,
+      tags: [],
+      topicNames,
+    };
+  }
+
+  if (type === 'matching') {
+    if (fields.shorthandPairs.length || fields.distractors.length) {
+      if (fields.lefts.length || fields.rights.length) {
+        throw new Error('Nối cặp: dùng "trái | phải" hoặc L1)/R1), không trộn hai kiểu');
+      }
+      if (fields.shorthandPairs.length < 2) {
+        throw new Error('Nối cặp cần ít nhất 2 dòng "trái | phải"');
+      }
+      const sides: { id: string; text: string }[] = [];
+      const pairs: Record<string, string> = {};
+      fields.shorthandPairs.forEach((pair, index) => {
+        const leftId = `L${index + 1}`;
+        const rightId = `R${index + 1}`;
+        sides.push({ id: leftId, text: pair.left }, { id: rightId, text: pair.right });
+        pairs[leftId] = rightId;
+      });
+      fields.distractors.forEach((text, index) => {
+        sides.push({ id: `R${fields.shorthandPairs.length + index + 1}`, text });
+      });
+      return {
+        type,
+        difficulty,
+        content,
+        options: toOptions(sides, 'Vế'),
+        answer: { type: 'pairs', value: pairs },
+        explanation,
+        points,
+        tags: [],
+        topicNames,
+      };
+    }
+
+    if (fields.lefts.length < 2 || fields.rights.length < 2) {
+      throw new Error('Nối cặp cần ít nhất 2 vế trái và 2 vế phải, hoặc các dòng "trái | phải"');
+    }
+    assertUniqueIds(fields.lefts.map((item) => item.id), 'Vế trái');
+    assertUniqueIds(fields.rights.map((item) => item.id), 'Vế phải');
+    const spec =
+      fields.pairRaw?.trim() ||
+      (fields.answerRaw && /L\d+/i.test(fields.answerRaw) ? fields.answerRaw : '');
+    const pairs: Record<string, string> = spec ? parsePairSpec(spec) : {};
+    if (!spec) {
+      fields.lefts.forEach((left, index) => {
+        const rightId = fields.rights[index]?.id;
+        if (rightId) pairs[left.id] = rightId;
+      });
+    }
+    if (fields.lefts.some((left) => !pairs[left.id])) {
+      throw new Error('Mỗi vế trái cần một vế phải (ANSWER: L1-R2 | L2-R1)');
+    }
+    for (const [leftId, rightId] of Object.entries(pairs)) {
+      if (!fields.lefts.some((item) => item.id === leftId) || !fields.rights.some((item) => item.id === rightId)) {
+        throw new Error(`Cặp ${leftId}-${rightId} không khớp vế đã khai`);
+      }
+    }
+    if (Object.keys(pairs).length !== fields.lefts.length) {
+      throw new Error('Mỗi vế trái chỉ được nối một lần');
+    }
+    return {
+      type,
+      difficulty,
+      content,
+      options: toOptions([...fields.lefts, ...fields.rights], 'Vế'),
+      answer: { type: 'pairs', value: pairs },
+      explanation,
+      points,
+      tags: [],
+      topicNames,
+    };
+  }
+
+  if (type === 'ordering') {
+    const alphabet = 'ABCDEFGHIJKL';
+    let items = fields.orderLines.map((text, index) => ({
+      id: alphabet[index] ?? '',
+      text,
+    }));
+    if (!items.length && fields.options.length) {
+      items = fields.options.map((opt) => ({ id: opt.id, text: opt.text }));
+    }
+    if (items.length < 2) throw new Error('Sắp xếp cần ít nhất 2 mục theo thứ tự đúng');
+    if (items.length > alphabet.length) throw new Error('Sắp xếp tối đa 12 mục');
+    if (items.some((item) => !item.id)) throw new Error('Sắp xếp tối đa 12 mục');
+    return {
+      type,
+      difficulty,
+      content,
+      options: toOptions(items, 'Mục'),
+      answer: { type: 'sequence', value: items.map((item) => item.id) },
+      explanation,
+      points,
+      tags: [],
+      topicNames,
+    };
+  }
 
   if (type === 'multiple_choice') {
     if (fields.options.length < 2) {
@@ -675,7 +952,7 @@ export function parseBulkQuestionText(
         return {
           ok: false as const,
           index,
-          message: `TYPE không hỗ trợ: ${fields.typeRaw} (chỉ TN / Đ-S / điền / ngắn)`,
+          message: `TYPE không hỗ trợ: ${fields.typeRaw}`,
           raw,
         };
       }
@@ -685,7 +962,7 @@ export function parseBulkQuestionText(
           ok: false as const,
           index,
           message:
-            'Không nhận diện được loại câu — thêm TYPE: multiple_choice|true_false|fill_blank|short_answer',
+            'Không nhận diện được loại câu — thêm TYPE: multiple_choice|multiple_select|true_false|fill_blank|short_answer|matching|ordering',
           raw,
         };
       }
@@ -729,19 +1006,22 @@ DIFFICULTY: medium
 
 export const BULK_FORMAT_HELP = `Mỗi câu cách nhau bằng ===. Trường: TYPE, Q, A) B)…, ANSWER, POINTS, DIFFICULTY, EXPLAIN, TOPIC.
 
+Định dạng chữ (câu, phương án, vế nối, mục sắp xếp): **đậm**, *nghiêng*, __gạch chân__. Muốn hiện ký tự thật thì gõ \\* hoặc \\_. Đáp án đúng của trắc nghiệm là dấu * đứng riêng (cuối phương án, hoặc có dấu cách phía trước) — không nuốt dấu đóng của *nghiêng* / **đậm**.
+
 TOPIC (hoặc CHỦ ĐỀ): tên chủ đề, nhiều tên cách nhau bằng | — chủ đề chưa có sẽ được tạo khi bấm tạo câu.
 
-LaTeX trong Q / phương án:
+LaTeX trong Q / phương án / vế:
 - Inline: $...$ hoặc \\(...\\)
 - Display: $$...$$ hoặc \\[...\\]
 - Cả field: latex: \\frac{1}{2}
 - Dấu $ thường: ghi \\$
 
-ANSWER điền/ngắn: text thường, hoặc bọc $...$ / latex: ... (lưu chuỗi LaTeX để chấm).
-
-- Trắc nghiệm: * sau phương án đúng hoặc ANSWER: B
+- Trắc nghiệm: * sau một phương án đúng, hoặc ANSWER: B
+- Chọn thẻ: TYPE: multiple_select, đánh dấu mỗi thẻ đúng bằng *, hoặc ANSWER: A, C
 - Đúng/Sai: ANSWER: đúng|sai
-- Điền / ngắn: ANSWER: đáp1 | đáp2`;
+- Điền / ngắn: ANSWER: đáp1 | đáp2 (text hoặc $...$ / latex:)
+- Nối cặp: TYPE: matching, mỗi dòng "trái | phải" hoặc "trái -> phải". Nhiễu: ~ nghĩa sai. Hoặc L1) … R1) … và ANSWER: L1-R1 | L2-R2
+- Sắp xếp: TYPE: ordering, các dòng 1) 2)… hoặc A) B)… theo thứ tự đúng`;
 
 export function templateForType(type: BulkSupportedType): string {
   switch (type) {
@@ -768,6 +1048,28 @@ POINTS: 1`;
       return `TYPE: short_answer
 Q: Công thức diện tích hình tròn bán kính $r$?
 ANSWER: $\\pi r^2$ | pi r^2
+POINTS: 1`;
+    case 'multiple_select':
+      return `TYPE: multiple_select
+Q: Chọn các **số nguyên tố**.
+A) 2*
+B) 4
+C) 3*
+D) 9
+POINTS: 1`;
+    case 'matching':
+      return `TYPE: matching
+Q: Nối từ với nghĩa
+apple | quả táo
+book | quyển sách
+~ xe đạp
+POINTS: 1`;
+    case 'ordering':
+      return `TYPE: ordering
+Q: Sắp xếp các bước giải phương trình
+1) Chuyển vế
+2) Rút gọn
+3) Kết luận
 POINTS: 1`;
   }
 }

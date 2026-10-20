@@ -114,7 +114,7 @@ ANSWER: \\(|b-a|\\) | $|a-b|$ | |a-b|`);
     assert.deepEqual(ok(item).payload.answer, { type: 'text', value: ['|b-a|', '|a-b|', 'a-b'] });
   });
 
-  it('rejects unknown types, two marked answers and bad points', () => {
+  it('rejects a matching block without pairs, accepts several marked options, rejects bad points', () => {
     const items = parseBulkQuestionText(`TYPE: matching
 Q: x
 ===
@@ -126,10 +126,85 @@ Q: 1+1
 A) 2*
 B) 3
 POINTS: 0`);
+    assert.equal(items[0]!.ok, false);
+    assert.equal(ok(items[1]).payload.type, 'multiple_select');
+    assert.deepEqual(ok(items[1]).payload.answer, { type: 'multiple', value: ['A', 'B'] });
+    assert.equal(items[2]!.ok, false);
+  });
+
+  it('keeps italic and bold stars, and still accepts a trailing answer star', () => {
+    const [marked, italic, bold] = parseBulkQuestionText(`Q: Một
+A) *nghiêng*
+B) 4*
+===
+Q: Hai
+A) *nghiêng* *
+B) thường
+===
+Q: Ba
+A) **đậm**
+B) thường*`);
+    const markedAnswer = ok(marked).payload.answer;
+    assert.equal(markedAnswer.type, 'single');
+    if (markedAnswer.type === 'single') assert.equal(markedAnswer.value, 'B');
+    const italicPayload = ok(italic).payload;
+    assert.equal(italicPayload.answer.type, 'single');
+    if (italicPayload.answer.type === 'single') assert.equal(italicPayload.answer.value, 'A');
+    assert.deepEqual(italicPayload.options[0]!.content, [{ type: 'text', value: '*nghiêng*' }]);
+    const boldPayload = ok(bold).payload;
+    assert.equal(boldPayload.answer.type, 'single');
+    if (boldPayload.answer.type === 'single') assert.equal(boldPayload.answer.value, 'B');
+    assert.deepEqual(boldPayload.options[0]!.content, [{ type: 'text', value: '**đậm**' }]);
+  });
+
+  it('parses select-all, matching and ordering', () => {
+    const [selectQ, matchQ, orderQ] = parseBulkQuestionText(`TYPE: multiple_select
+Q: Chọn số chẵn
+A) 1
+B) 2
+C) 4
+ANSWER: B, C
+===
+TYPE: nối cặp
+Q: Nối
+apple | quả táo
+book | quyển sách
+~ xe đạp
+===
+TYPE: sắp xếp
+Q: Các bước
+1) Một
+2) Hai
+3) Ba`);
+    const selected = ok(selectQ).payload;
+    assert.equal(selected.type, 'multiple_select');
+    assert.deepEqual(selected.answer, { type: 'multiple', value: ['B', 'C'] });
+
+    const matched = ok(matchQ).payload;
+    assert.equal(matched.type, 'matching');
+    assert.deepEqual(matched.answer, { type: 'pairs', value: { L1: 'R1', L2: 'R2' } });
     assert.deepEqual(
-      items.map((i) => i.ok),
-      [false, false, false],
+      matched.options.map((opt) => opt.id),
+      ['L1', 'R1', 'L2', 'R2', 'R3'],
     );
+
+    const ordered = ok(orderQ).payload;
+    assert.equal(ordered.type, 'ordering');
+    assert.deepEqual(ordered.answer, { type: 'sequence', value: ['A', 'B', 'C'] });
+    const firstContent = ordered.options[0]!.content;
+    assert.ok(Array.isArray(firstContent));
+    assert.deepEqual(firstContent[0], { type: 'text', value: 'Một' });
+  });
+
+  it('pairs explicit columns with ANSWER', () => {
+    const [item] = parseBulkQuestionText(`TYPE: matching
+Q: Nối phép tính
+L1) 1+1
+L2) 2+2
+R1) 4
+R2) 2
+ANSWER: L1-R2 | L2-R1`);
+    assert.deepEqual(ok(item).payload.answer, { type: 'pairs', value: { L1: 'R2', L2: 'R1' } });
   });
 
   it('fill_blank answer with absolute value LaTeX is not split on |', () => {

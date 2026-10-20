@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { RichText } from '@/components/questions/QuestionPreview';
 import type { DueVocabularyCard } from '@/types/content';
 
 function shuffle<T>(list: T[]): T[] {
@@ -83,7 +84,9 @@ export function MatchGame({ items }: { items: DueVocabularyCard[] }) {
                       : 'border-mist bg-white hover:border-accent'
                 }`}
               >
-                <span className="font-semibold text-ink">{item.entry.term}</span>
+                <span className="font-semibold text-ink">
+                  <RichText value={item.entry.term} />
+                </span>
                 {item.entry.reading && (
                   <span className="mt-1 block text-xs text-slate-500">/{item.entry.reading}/</span>
                 )}
@@ -109,7 +112,7 @@ export function MatchGame({ items }: { items: DueVocabularyCard[] }) {
                       : 'border-mist bg-white hover:border-accent'
                 }`}
               >
-                {item.entry.definition}
+                <RichText value={item.entry.definition} />
               </button>
             );
           })}

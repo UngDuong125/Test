@@ -170,14 +170,25 @@ Form “Tạo câu hỏi mới” trong composer cho chọn/tạo chủ đề nh
 
 ### Tạo nhanh từ text (bulk)
 
-Trong composer, tab **Dán text** cho phép paste nhiều câu theo định dạng field, xem trước, rồi tạo hàng loạt (gọi `POST .../questions/create` từng câu). MVP hỗ trợ:
+Trong composer, tab **Dán text** cho phép paste nhiều câu theo định dạng field, xem trước, rồi tạo hàng loạt (gọi `POST .../questions/create` từng câu). Hỗ trợ:
 
 - `multiple_choice` (trắc nghiệm)
+- `multiple_select` (chọn thẻ — nhiều đáp án đúng)
 - `true_false` (đúng/sai)
 - `fill_blank` (điền khuyết)
 - `short_answer` (trả lời ngắn)
+- `matching` (nối cặp)
+- `ordering` (sắp xếp)
 
-Mỗi câu cách nhau bằng dòng `===`. Trường chính: `TYPE`, `Q`, phương án `A)`…`D)` (đánh dấu `*` đáp án đúng), `ANSWER`, `POINTS`, `DIFFICULTY`, `EXPLAIN`, `TOPIC`.
+Mỗi câu cách nhau bằng dòng `===`. Trường chính: `TYPE`, `Q`, phương án `A)`…`D)` (dấu `*` đứng riêng đánh dấu đáp án đúng), `ANSWER`, `POINTS`, `DIFFICULTY`, `EXPLAIN`, `TOPIC`.
+
+**Chữ trong câu, phương án, vế nối và mục sắp xếp:** `**đậm**`, `*nghiêng*`, `__gạch chân__`. Ký tự thật: `\*` và `\_`. Dấu `*` của đáp án đúng đứng riêng ở cuối phương án (hoặc có dấu cách phía trước) nên không nuốt dấu đóng của in nghiêng / in đậm.
+
+**Chọn thẻ:** `TYPE: multiple_select`. Đánh dấu mỗi thẻ đúng bằng `*`, hoặc `ANSWER: A, C`. Nhiều dấu `*` mà không ghi `TYPE` cũng được nhận là chọn thẻ.
+
+**Nối cặp:** `TYPE: matching`. Mỗi dòng `trái | phải` hoặc `trái -> phải`. Dòng nhiễu: `~ nghĩa sai`. Hoặc cột `L1)` / `R1)` kèm `ANSWER: L1-R2 | L2-R1`. Không trộn hai kiểu trong một câu. Ít nhất hai cặp.
+
+**Sắp xếp:** `TYPE: ordering`. Các dòng `1)` `2)`… hoặc `A)` `B)`… theo thứ tự đúng. Tối đa 12 mục.
 
 **Chủ đề khi dán text:**
 
@@ -210,9 +221,27 @@ TYPE: short_answer
 Q: Công thức diện tích hình vuông cạnh a?
 ANSWER: a^2 | a²
 ===
+TYPE: multiple_select
+Q: Chọn các **số nguyên tố**.
+A) 2*
+B) 4
+C) 3*
+===
+TYPE: matching
+Q: Nối từ với nghĩa
+apple | quả táo
+book | quyển sách
+~ xe đạp
+===
+TYPE: ordering
+Q: Sắp xếp các bước
+1) Chuyển vế
+2) Rút gọn
+3) Kết luận
+===
 ```
 
-Parse chạy trên frontend; câu không hợp lệ phải sửa trước khi tạo. Ảnh/media và loại câu khác vẫn dùng form UI.
+Parse chạy trên frontend; câu không hợp lệ phải sửa trước khi tạo. Ảnh/media vẫn dùng form UI.
 
 **Text / LaTeX:** Trong `Q` và phương án `A)`… có thể xen text với LaTeX:
 
@@ -251,8 +280,8 @@ ANSWER: latex: \frac{-b\pm\sqrt{b^2-4ac}}{2a}
 
 | Đợt | Phạm vi |
 | :--- | :--- |
-| **MVP** | Đề nháp, tạo câu mới trong editor, **dán text hàng loạt** (TN/Đ-S/điền/ngắn), thêm từ bank, autosave, preview, validate trước publish |
-| **Hoàn thiện** | Kéo-thả, section template, phím tắt, duplicate question, cảnh báo chưa vào bank, version/draft recovery, bulk API 1 request, hỗ trợ thêm loại câu |
+| **MVP** | Đề nháp, tạo câu mới trong editor, **dán text hàng loạt** (TN, chọn thẻ, Đ-S, điền, ngắn, nối cặp, sắp xếp), thêm từ bank, autosave, preview, validate trước publish |
+| **Hoàn thiện** | Kéo-thả, section template, phím tắt, duplicate question, cảnh báo chưa vào bank, version/draft recovery, bulk API 1 request |
 
 ## 11. API gợi ý
 

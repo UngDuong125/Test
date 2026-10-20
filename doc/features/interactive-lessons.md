@@ -137,7 +137,6 @@ Trang `/vocabulary/review` có chế độ **Nối từ** cạnh flashcard.
 ## 10. Ngoài phạm vi
 
 - Kéo-thả.
-- Nhập câu nối / sắp xếp bằng dán text hàng loạt.
 - Sinh câu `matching` từ vocabulary bank vào đề.
 - Điểm từng phần cho trắc nghiệm nhiều đáp án.
 - Hiện đáp án đúng ngay sau **Kiểm tra** (chỉ đúng/sai và điểm từng phần).

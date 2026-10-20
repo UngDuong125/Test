@@ -3,6 +3,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AuthGate } from '@/components/auth/AuthGate';
+import { RichText } from '@/components/questions/QuestionPreview';
+import { BulkVocabularyImport } from '@/components/vocabulary/BulkVocabularyImport';
 import { SUBJECT_TAGS } from '@/constants/tags';
 import {
   ApiError,
@@ -352,6 +354,14 @@ function VocabularyBanksBody() {
               </div>
             </form>
 
+            <BulkVocabularyImport
+              subjectId={selected.subjectId}
+              grade={selected.grade}
+              bankId={selected.id}
+              status={entryForm.status}
+              onCreated={() => openBank(selected)}
+            />
+
             {entries.length === 0 ? (
               <p className="text-sm text-slate-500">Bank trống — thêm ít nhất một từ published.</p>
             ) : (
@@ -359,11 +369,15 @@ function VocabularyBanksBody() {
                 {entries.map((entry) => (
                   <li key={entry.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                     <div>
-                      <span className="font-medium text-ink">{entry.term}</span>
+                      <span className="font-medium text-ink">
+                        <RichText value={entry.term} />
+                      </span>
                       {entry.reading && (
                         <span className="ml-2 text-slate-500">/{entry.reading}/</span>
                       )}
-                      <span className="ml-2 text-slate-600">— {entry.definition}</span>
+                      <span className="ml-2 text-slate-600">
+                        — <RichText value={entry.definition} />
+                      </span>
                       <span className="ml-2 rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-600">
                         {entry.status}
                       </span>

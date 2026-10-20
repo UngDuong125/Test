@@ -19,9 +19,12 @@ import type { Topic } from '@/types/content';
 
 const TYPE_LABEL: Record<BulkSupportedType, string> = {
   multiple_choice: 'Trắc nghiệm',
+  multiple_select: 'Chọn thẻ',
   true_false: 'Đúng / Sai',
   fill_blank: 'Điền khuyết',
   short_answer: 'Trả lời ngắn',
+  matching: 'Nối cặp',
+  ordering: 'Sắp xếp',
 };
 
 type Props = {
@@ -173,8 +176,8 @@ export function BulkQuestionTextImport({
         <div>
           <h2 className="font-semibold text-ink">Tạo nhanh từ text</h2>
           <p className="text-xs text-slate-500">
-            Dán nhiều câu theo định dạng field → xem trước → tạo hàng loạt (TN, Đ/S, điền,
-            ngắn).
+            Dán nhiều câu theo định dạng field → xem trước → tạo hàng loạt (trắc nghiệm, chọn
+            thẻ, Đ/S, điền, ngắn, nối cặp, sắp xếp).
           </p>
         </div>
         {onClose && (
@@ -292,9 +295,24 @@ export function BulkQuestionTextImport({
                             item.payload.answer.value === o.id && (
                               <span className="shrink-0 text-emerald-600">✓</span>
                             )}
+                          {item.payload.answer.type === 'multiple' &&
+                            item.payload.answer.value.includes(o.id) && (
+                              <span className="shrink-0 text-emerald-600">✓</span>
+                            )}
+                          {item.payload.answer.type === 'pairs' &&
+                            item.payload.answer.value[o.id] && (
+                              <span className="shrink-0 text-emerald-600">
+                                → {item.payload.answer.value[o.id]}
+                              </span>
+                            )}
                         </li>
                       ))}
                     </ul>
+                  )}
+                  {item.payload.answer.type === 'sequence' && (
+                    <p className="mt-1.5 border-t border-mist/60 pt-1.5 text-slate-600">
+                      Thứ tự đúng: {item.payload.answer.value.join(' → ')}
+                    </p>
                   )}
                   {item.payload.answer.type === 'text' && (
                     <p className="mt-1.5 border-t border-mist/60 pt-1.5 text-slate-600">
