@@ -28,6 +28,17 @@ describe('question payload validation', () => {
     assert.deepEqual(issues('fill_blank', [], { type: 'text', value: ['2x'] }), []);
     assert.deepEqual(issues('numeric', [], { type: 'numeric', value: 5 }), []);
     assert.deepEqual(issues('essay', [], { type: 'manual' }), []);
+    assert.deepEqual(
+      issues('matching', opts('L1', 'L2', 'R1', 'R2', 'R3'), {
+        type: 'pairs',
+        value: { L1: 'R2', L2: 'R3' },
+      }),
+      [],
+    );
+    assert.deepEqual(
+      issues('ordering', opts('A', 'B', 'C'), { type: 'sequence', value: ['C', 'A', 'B'] }),
+      [],
+    );
   });
 
   it('rejects broken payloads', () => {
@@ -39,6 +50,18 @@ describe('question payload validation', () => {
     assert.deepEqual(issues('fill_blank', [], { type: 'manual' }), ['ANSWER_REQUIRED']);
     assert.deepEqual(issues('essay', [], { type: 'text', value: ['x'] }), ['ESSAY_ANSWER']);
     assert.deepEqual(issues('numeric', [], { type: 'numeric', value: 1 }, 0), ['INVALID_POINTS']);
+    assert.deepEqual(
+      issues('matching', opts('L1', 'R1'), { type: 'pairs', value: { L1: 'R1' } }),
+      ['MATCHING_OPTIONS'],
+    );
+    assert.deepEqual(
+      issues('matching', opts('L1', 'L2', 'R1', 'R2'), { type: 'pairs', value: { L1: 'R1', L2: 'R1' } }),
+      ['MATCHING_PAIRS'],
+    );
+    assert.deepEqual(
+      issues('ordering', opts('A', 'B'), { type: 'sequence', value: ['A'] }),
+      ['ORDERING_SEQUENCE'],
+    );
   });
 
   it('only draft / review questions are editable', () => {

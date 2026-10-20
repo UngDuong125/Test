@@ -30,6 +30,7 @@ Cho phép tạo một bộ đề từ Question Bank và quản lý cấu trúc, 
 
 ```text
 practice
+lesson
 quiz
 homework
 worksheet
@@ -37,7 +38,11 @@ midterm
 final
 ```
 
+`lesson` là bài học: section mang lý thuyết, học sinh kiểm tra từng câu khi đang làm. Xem [interactive-lessons.md](./interactive-lessons.md). EXP giống `practice`.
+
 ## 4. Section
+
+`content` là danh sách block text / LaTeX / ảnh (cùng mô hình câu hỏi). Đề thường để `[]`. Đề `lesson` dùng `content` làm phần lý thuyết hiện trước câu của section.
 
 ```json
 {
@@ -45,6 +50,7 @@ final
   "examId": "exam_001",
   "title": "Phần 1 - Trắc nghiệm",
   "description": "...",
+  "content": [],
   "order": 1
 }
 ```

@@ -97,9 +97,9 @@ Vi phạm → `422` với code `TOPIC_NOT_FOUND`, `TOPIC_SUBJECT_MISMATCH` hoặ
 
 **MVP** (tạo + chấm + hiển thị): `multiple_choice`, `true_false`, `fill_blank`, `short_answer`, `essay`.
 
-**Đã bật UI/chấm:** `multiple_select`, `numeric`.
+**Đã bật UI/chấm:** `multiple_select`, `numeric`, `matching`, `ordering`.
 
-**Chưa có UI làm bài:** `matching`, `ordering` (chỉ mở khi backend + UI hỗ trợ đầy đủ).
+Bài học (`Exam.type = lesson`), thẻ chọn, kiểm tra tức thì và game nối từ: [interactive-lessons.md](./interactive-lessons.md).
 
 Auto-grade trong [attempt-and-result.md](./attempt-and-result.md) chỉ áp dụng cho loại đã bật ở môi trường tương ứng.
 

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { AuthGate } from '@/components/auth/AuthGate';
+import { MatchGame } from '@/components/vocabulary/MatchGame';
 import {
   ApiError,
   getMyVocabularyStats,
@@ -46,6 +47,7 @@ function VocabularyReviewBody({ preload }: { preload: Preload }) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<VocabStats | null>(null);
   const [sessionDone, setSessionDone] = useState(0);
+  const [mode, setMode] = useState<'flashcard' | 'match'>('flashcard');
   const [pendingSaves, setPendingSaves] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [pullTick, setPullTick] = useState(0);
@@ -216,9 +218,27 @@ function VocabularyReviewBody({ preload }: { preload: Preload }) {
             Lặp lại ngắt quãng · mốc {INTERVAL_LABELS.join(' → ')} → đã thuộc
           </p>
         </div>
-        <Link href="/dashboard" className="text-sm text-accentDark hover:underline">
-          ← Dashboard
-        </Link>
+        <div className="flex items-center gap-3">
+          <div className="flex rounded-lg bg-slate-100 p-0.5 text-xs font-medium">
+            <button
+              type="button"
+              onClick={() => setMode('flashcard')}
+              className={`rounded-md px-3 py-1.5 ${mode === 'flashcard' ? 'bg-white text-ink shadow-sm' : 'text-slate-600'}`}
+            >
+              Flashcard
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('match')}
+              className={`rounded-md px-3 py-1.5 ${mode === 'match' ? 'bg-white text-ink shadow-sm' : 'text-slate-600'}`}
+            >
+              Nối từ
+            </button>
+          </div>
+          <Link href="/dashboard" className="text-sm text-accentDark hover:underline">
+            ← Dashboard
+          </Link>
+        </div>
       </div>
 
       {stats && (
@@ -238,6 +258,8 @@ function VocabularyReviewBody({ preload }: { preload: Preload }) {
 
       {loading ? (
         <p className="text-slate-500">Đang tải…</p>
+      ) : mode === 'match' ? (
+        <MatchGame items={queue.slice(index)} />
       ) : !current ? (
         <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-mist bg-white px-6 py-16 text-center shadow-sm">
           <p className="font-display text-2xl font-semibold text-ink">

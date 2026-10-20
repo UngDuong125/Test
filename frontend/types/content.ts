@@ -13,7 +13,7 @@ export type QuestionType =
 
 export type QuestionStatus = 'draft' | 'review' | 'published' | 'archived';
 export type Difficulty = 'easy' | 'medium' | 'hard';
-export type ExamType = 'practice' | 'quiz' | 'homework' | 'worksheet' | 'midterm' | 'final';
+export type ExamType = 'practice' | 'quiz' | 'homework' | 'worksheet' | 'midterm' | 'final' | 'lesson';
 export type ExamStatus = 'draft' | 'published' | 'archived';
 
 export type ContentBlock =
@@ -26,6 +26,8 @@ export type QuestionAnswer =
   | { type: 'multiple'; value: string[] }
   | { type: 'text'; value: string[] }
   | { type: 'numeric'; value: number; tolerance?: number }
+  | { type: 'pairs'; value: Record<string, string> }
+  | { type: 'sequence'; value: string[] }
   | { type: 'manual' };
 
 export interface QuestionOption {
@@ -98,6 +100,7 @@ export interface ExamSection {
   examId: string;
   title: string;
   description: string;
+  content: ContentBlock[];
   order: number;
 }
 
@@ -175,7 +178,16 @@ export type AttemptStatus =
   | 'expired'
   | 'cancelled';
 
-export type StudentAnswerValue = string | string[] | number | null;
+export type StudentAnswerValue = string | string[] | number | Record<string, string> | null;
+
+export interface AnswerCheckResult {
+  isCorrect: boolean | null;
+  pointsEarned: number;
+  points: number;
+  requiresManual: boolean;
+  pairs?: { leftId: string; correct: boolean }[];
+  positions?: { index: number; optionId: string; correct: boolean }[];
+}
 
 export interface Attempt {
   id: string;

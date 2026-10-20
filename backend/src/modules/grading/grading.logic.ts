@@ -22,6 +22,15 @@ function arraysEqualAsSets(a: string[], b: string[]): boolean {
   return b.every((x) => set.has(x));
 }
 
+function roundPoints(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+export function isPairMap(value: StudentAnswerValue): value is Record<string, string> {
+  if (value == null || typeof value !== 'object' || Array.isArray(value)) return false;
+  return Object.values(value).every((item) => typeof item === 'string');
+}
+
 export function questionRequiresManualGrade(q: SnapshotQuestion): boolean {
   if (q.requiresManualGrade) return true;
   if (q.type === 'essay') return true;
@@ -95,7 +104,85 @@ export function autoGradeAnswer(
     return { isCorrect: ok, pointsEarned: ok ? maxPoints : 0, requiresManual: false };
   }
 
+  if (key.type === 'pairs') {
+    const entries = Object.entries(key.value);
+    if (entries.length === 0) {
+      return { isCorrect: null, pointsEarned: 0, requiresManual: true };
+    }
+    const given = isPairMap(studentValue) ? studentValue : {};
+    let correct = 0;
+    for (const [leftId, rightId] of entries) {
+      if (given[leftId] === rightId) correct += 1;
+    }
+    const full = correct === entries.length;
+    return {
+      isCorrect: full,
+      pointsEarned: full ? maxPoints : roundPoints((maxPoints * correct) / entries.length),
+      requiresManual: false,
+    };
+  }
+
+  if (key.type === 'sequence') {
+    const expected = key.value;
+    if (expected.length === 0) {
+      return { isCorrect: null, pointsEarned: 0, requiresManual: true };
+    }
+    const given = Array.isArray(studentValue) ? studentValue : [];
+    let correct = 0;
+    for (let i = 0; i < expected.length; i += 1) {
+      if (given[i] === expected[i]) correct += 1;
+    }
+    const full = correct === expected.length && given.length === expected.length;
+    return {
+      isCorrect: full,
+      pointsEarned: full ? maxPoints : roundPoints((maxPoints * correct) / expected.length),
+      requiresManual: false,
+    };
+  }
+
   return { isCorrect: null, pointsEarned: 0, requiresManual: true };
+}
+
+export interface InteractiveGradeDetail {
+  isCorrect: boolean | null;
+  pointsEarned: number;
+  points: number;
+  requiresManual: boolean;
+  /** Per left item. Does not include the correct right id. */
+  pairs?: { leftId: string; correct: boolean }[];
+  /** Per submitted position. optionId is the student's choice, not the key. */
+  positions?: { index: number; optionId: string; correct: boolean }[];
+}
+
+/** Feedback for a lesson check. Never includes the answer key. */
+export function interactiveGradeDetail(
+  question: SnapshotQuestion,
+  studentValue: StudentAnswerValue,
+): InteractiveGradeDetail {
+  const graded = autoGradeAnswer(question, studentValue);
+  const detail: InteractiveGradeDetail = {
+    isCorrect: graded.isCorrect,
+    pointsEarned: graded.pointsEarned,
+    points: question.points,
+    requiresManual: graded.requiresManual,
+  };
+  const key = question.answer;
+  if (key?.type === 'pairs') {
+    const given = isPairMap(studentValue) ? studentValue : {};
+    detail.pairs = Object.keys(key.value).map((leftId) => ({
+      leftId,
+      correct: given[leftId] === key.value[leftId],
+    }));
+  }
+  if (key?.type === 'sequence') {
+    const given = Array.isArray(studentValue) ? studentValue : [];
+    detail.positions = key.value.map((expectedId, index) => ({
+      index,
+      optionId: typeof given[index] === 'string' ? given[index] : '',
+      correct: given[index] === expectedId,
+    }));
+  }
+  return detail;
 }
 
 export function computeExpEarned(
@@ -110,6 +197,7 @@ export function computeExpEarned(
   switch (examType) {
     case 'practice':
     case 'worksheet':
+    case 'lesson':
       earned = baseExp;
       break;
     case 'homework':

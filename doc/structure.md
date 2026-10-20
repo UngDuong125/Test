@@ -237,7 +237,9 @@ Chi tiết field: [database-target.md](database-target.md). Schema legacy `quizz
 | Media Upload | (question editor) | `routes/upload`, `services/upload` | `media` |
 | Analytics | `components/analytics/StatsPanel`, `app/exams/[id]/results`, `app/students/[id]/results` | `modules/analytics` | `question_stats`, tính từ attempts |
 | EXP & Leaderboard | `app/leaderboard` | `modules/exp`, `modules/leaderboard` | `exp_ledger`, `leaderboard_periods` |
-| Vocabulary SRS | `app/vocabulary`, `app/vocabulary/review` | `modules/vocabulary`, `routes/vocabulary`, `routes/students` | `vocabulary_*`, `student_vocabulary_cards` |
+| Vocabulary SRS | `app/vocabulary`, `app/vocabulary/review` (flashcard và game nối từ) | `modules/vocabulary`, `routes/vocabulary`, `routes/students` | `vocabulary_*`, `student_vocabulary_cards` |
+| Bài học tương tác | `AttemptQuestionCard`, `LessonPlayer`, `LessonSectionsPanel`, form nối/sắp xếp | `grading.logic`, `snapshot.logic`, `POST /api/attempts/:id/check` | `questions.answer`, `exam_sections.content`, `exams.type = lesson` |
+
 ## Trạng thái triển khai
 
 Đã có code cho toàn bộ feature trong bảng trên, bao gồm auth/RBAC, question/bank, exam, class, assignment, attempt + snapshot, chấm tự động/thủ công, EXP ledger, leaderboard theo mùa, analytics và vocabulary SRS. Endpoint legacy `/api/quizzes` đã bị loại bỏ.

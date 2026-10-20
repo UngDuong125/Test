@@ -14,7 +14,11 @@ const AUTO_GRADE_TYPES: QuestionType[] = [
   'short_answer',
   'multiple_select',
   'numeric',
+  'matching',
+  'ordering',
 ];
+const LEFT_MATCH_ID = /^L[1-9]\d*$/;
+const RIGHT_MATCH_ID = /^R[1-9]\d*$/;
 
 export function assertQuestionPayloadValid(input: {
   type: QuestionType;
@@ -91,6 +95,52 @@ export function assertQuestionPayloadValid(input: {
 
   if (input.type === 'numeric' && input.answer.type !== 'numeric') {
     throw new AppError(422, 'numeric requires numeric answer', 'ANSWER_SHAPE');
+  }
+
+  if (input.type === 'matching') {
+    const left = input.options.filter((opt) => LEFT_MATCH_ID.test(opt.id));
+    const right = input.options.filter((opt) => RIGHT_MATCH_ID.test(opt.id));
+    if (left.length + right.length !== input.options.length || left.length < 2 || right.length < 2) {
+      throw new AppError(
+        422,
+        'matching needs at least 2 left (L1…) and 2 right (R1…) options',
+        'MATCHING_OPTIONS',
+      );
+    }
+    if (input.answer.type !== 'pairs') {
+      throw new AppError(422, 'matching requires pairs answer', 'ANSWER_SHAPE');
+    }
+    const pairs = input.answer.value;
+    const usedRight = new Set<string>();
+    if (Object.keys(pairs).length !== left.length) {
+      throw new AppError(422, 'Every left option must be paired once', 'MATCHING_PAIRS');
+    }
+    for (const item of left) {
+      const rightId = pairs[item.id];
+      if (!rightId || !right.some((opt) => opt.id === rightId) || usedRight.has(rightId)) {
+        throw new AppError(422, 'Each left option pairs to a unique right option', 'MATCHING_PAIRS');
+      }
+      usedRight.add(rightId);
+    }
+  }
+
+  if (input.type === 'ordering') {
+    if (input.options.length < 2) {
+      throw new AppError(422, 'ordering needs at least 2 items', 'ORDERING_ITEMS');
+    }
+    if (input.answer.type !== 'sequence') {
+      throw new AppError(422, 'ordering requires sequence answer', 'ANSWER_SHAPE');
+    }
+    const ids = input.options.map((opt) => opt.id);
+    const sequence = input.answer.value;
+    const unique = new Set(sequence);
+    const permutation =
+      sequence.length === ids.length &&
+      unique.size === sequence.length &&
+      sequence.every((id) => ids.includes(id));
+    if (!permutation) {
+      throw new AppError(422, 'sequence must be a permutation of the option ids', 'ORDERING_SEQUENCE');
+    }
   }
 }
 

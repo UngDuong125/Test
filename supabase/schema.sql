@@ -216,7 +216,7 @@ CREATE TABLE public.exams (
   subject_id text NOT NULL REFERENCES public.subjects (id) ON DELETE RESTRICT,
   grade integer NOT NULL CHECK (grade BETWEEN 6 AND 9),
   type text NOT NULL DEFAULT 'practice'
-    CHECK (type IN ('practice', 'quiz', 'homework', 'worksheet', 'midterm', 'final')),
+    CHECK (type IN ('practice', 'quiz', 'homework', 'worksheet', 'midterm', 'final', 'lesson')),
   difficulty text NOT NULL DEFAULT 'medium'
     CHECK (difficulty IN ('easy', 'medium', 'hard')),
   duration integer NOT NULL CHECK (duration >= 0),
@@ -249,6 +249,7 @@ CREATE TABLE public.exam_sections (
   exam_id uuid NOT NULL REFERENCES public.exams (id) ON DELETE CASCADE,
   title text NOT NULL,
   description text NOT NULL DEFAULT '',
+  content jsonb NOT NULL DEFAULT '[]'::jsonb,
   "order" integer NOT NULL DEFAULT 1,
   CONSTRAINT exam_sections_exam_order_unique UNIQUE (exam_id, "order")
 );

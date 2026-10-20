@@ -1,5 +1,6 @@
 import type { PublicUser, TagKey } from '@/types/auth';
 import type {
+  AnswerCheckResult,
   Attempt,
   AttemptAnswer,
   AttemptDetail,
@@ -343,11 +344,29 @@ export function generateExam(body: unknown) {
   }>('/api/exams/generate', { method: 'POST', body });
 }
 
-export function addExamSection(examId: string, body: { title: string; description?: string }) {
+export function addExamSection(
+  examId: string,
+  body: { title: string; description?: string; content?: ExamSection['content'] },
+) {
   return api<{ section: ExamSection }>(`/api/exams/${examId}/sections`, {
     method: 'POST',
     body,
   });
+}
+
+export function updateExamSection(
+  examId: string,
+  sectionId: string,
+  body: { title?: string; description?: string; content?: ExamSection['content']; order?: number },
+) {
+  return api<{ section: ExamSection }>(`/api/exams/${examId}/sections/${sectionId}`, {
+    method: 'PATCH',
+    body,
+  });
+}
+
+export function deleteExamSection(examId: string, sectionId: string) {
+  return api<void>(`/api/exams/${examId}/sections/${sectionId}`, { method: 'DELETE' });
 }
 
 // --- Classes / Assignments / Upload ---
@@ -485,6 +504,16 @@ export function saveAttemptAnswer(
 ) {
   return api<{ answer: AttemptAnswer }>(`/api/attempts/${attemptId}/answers`, {
     method: 'PATCH',
+    body,
+  });
+}
+
+export function checkAttemptAnswer(
+  attemptId: string,
+  body: { questionId: string; value: StudentAnswerValue },
+) {
+  return api<AnswerCheckResult>(`/api/attempts/${attemptId}/check`, {
+    method: 'POST',
     body,
   });
 }

@@ -155,6 +155,8 @@ function QuestionsBody() {
           <option value="short_answer">Trả lời ngắn</option>
           <option value="essay">Tự luận</option>
           <option value="multiple_select">Nhiều đáp án</option>
+          <option value="matching">Nối cặp</option>
+          <option value="ordering">Sắp xếp</option>
           <option value="numeric">Số học</option>
         </select>
         <select

@@ -14,6 +14,7 @@ Các feature chính:
 - Tự động chấm các dạng câu hỏi phù hợp; chuyển câu tự luận hoặc câu cần đánh giá nội dung sang teacher chấm thủ công ([manual grading](features/manual-grading.md)).
 - Ghi nhận EXP theo `Exam.type` sau khi attempt `graded` và tổng hợp bảng xếp hạng theo môn.
 - Ôn từ vựng theo spaced repetition: teacher giao bộ từ, học sinh flashcard với mốc 1/3/7/14/30 ngày — xem [vocabulary-srs](features/vocabulary-srs.md).
+- Bài học tương tác: chọn thẻ, nối cặp, sắp xếp, lý thuyết từng phần và kiểm tra ngay trên đề loại `lesson` — xem [interactive-lessons](features/interactive-lessons.md).
 
 Luồng nghiệp vụ chính:
 

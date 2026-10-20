@@ -59,6 +59,23 @@ describe('autoGradeAnswer', () => {
     assert.equal(autoGradeAnswer(question, 'abc').isCorrect, false);
   });
 
+  it('matching: partial credit per correct pair', () => {
+    const question = q('matching', { type: 'pairs', value: { L1: 'R2', L2: 'R1' } }, 2);
+    assert.equal(autoGradeAnswer(question, { L1: 'R2', L2: 'R1' }).isCorrect, true);
+    assert.equal(autoGradeAnswer(question, { L1: 'R2', L2: 'R2' }).pointsEarned, 1);
+    assert.equal(autoGradeAnswer(question, { L1: 'R2', L2: 'R2' }).isCorrect, false);
+    assert.equal(autoGradeAnswer(question, {}).pointsEarned, 0);
+    assert.equal(autoGradeAnswer(question, null).pointsEarned, 0);
+  });
+
+  it('ordering: partial credit per correct position', () => {
+    const question = q('ordering', { type: 'sequence', value: ['A', 'B', 'C'] }, 3);
+    assert.equal(autoGradeAnswer(question, ['A', 'B', 'C']).isCorrect, true);
+    assert.equal(autoGradeAnswer(question, ['A', 'C', 'B']).pointsEarned, 1);
+    assert.equal(autoGradeAnswer(question, ['A', 'B']).pointsEarned, 2);
+    assert.equal(autoGradeAnswer(question, ['A', 'B', 'C', 'D']).isCorrect, false);
+  });
+
   it('essay / short_answer without key go to manual grading', () => {
     assert.equal(autoGradeAnswer(q('essay', { type: 'manual' }), 'bài làm').requiresManual, true);
     assert.equal(autoGradeAnswer(q('short_answer', undefined), 'x').requiresManual, true);
@@ -69,6 +86,7 @@ describe('autoGradeAnswer', () => {
 describe('computeExpEarned', () => {
   it('applies exam-type multipliers', () => {
     assert.equal(computeExpEarned('practice', 8, 10), 8);
+    assert.equal(computeExpEarned('lesson', 8, 10), 8);
     assert.equal(computeExpEarned('homework', 10, 10), 8);
     assert.equal(computeExpEarned('quiz', 8, 10), 9);
     assert.equal(computeExpEarned('quiz', 7, 10), 7);

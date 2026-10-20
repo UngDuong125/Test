@@ -6,6 +6,7 @@ export const saveAnswerSchema = z.object({
     z.string(),
     z.array(z.string()),
     z.number(),
+    z.record(z.string().min(1).max(32), z.string().min(1).max(32)),
     z.null(),
   ]),
 });

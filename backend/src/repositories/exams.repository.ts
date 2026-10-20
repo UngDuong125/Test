@@ -128,10 +128,12 @@ export async function deleteExam(id: string): Promise<void> {
   if (error) throw error;
 }
 
+const SECTION_COLUMNS = 'id, exam_id, title, description, content, order';
+
 export async function listExamSections(examId: string): Promise<ExamSection[]> {
   const { data, error } = await getDb()
     .from('exam_sections')
-    .select('id, exam_id, title, description, order')
+    .select(SECTION_COLUMNS)
     .eq('exam_id', examId)
     .order('order');
   if (error) throw error;
@@ -144,7 +146,7 @@ export async function findExamSectionById(
 ): Promise<ExamSection | null> {
   const { data, error } = await getDb()
     .from('exam_sections')
-    .select('id, exam_id, title, description, order')
+    .select(SECTION_COLUMNS)
     .eq('exam_id', examId)
     .eq('id', sectionId)
     .maybeSingle();
@@ -157,6 +159,7 @@ export async function createExamSection(input: {
   examId: string;
   title: string;
   description: string;
+  content?: ExamSection['content'];
   order: number;
 }): Promise<ExamSection> {
   const { data, error } = await getDb()
@@ -165,9 +168,10 @@ export async function createExamSection(input: {
       exam_id: input.examId,
       title: input.title,
       description: input.description,
+      content: input.content ?? [],
       order: input.order,
     })
-    .select('id, exam_id, title, description, order')
+    .select(SECTION_COLUMNS)
     .single();
   if (error) throw error;
   return mapExamSection(data as ExamSectionRow);
@@ -175,13 +179,13 @@ export async function createExamSection(input: {
 
 export async function updateExamSection(
   sectionId: string,
-  patch: Partial<{ title: string; description: string; order: number }>,
+  patch: Partial<{ title: string; description: string; content: ExamSection['content']; order: number }>,
 ): Promise<ExamSection> {
   const { data, error } = await getDb()
     .from('exam_sections')
     .update(patch)
     .eq('id', sectionId)
-    .select('id, exam_id, title, description, order')
+    .select(SECTION_COLUMNS)
     .single();
   if (error) throw error;
   return mapExamSection(data as ExamSectionRow);

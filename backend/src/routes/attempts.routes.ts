@@ -32,6 +32,16 @@ attemptsRouter.patch('/:id/answers', requireRole('student'), async (req, res, ne
   }
 });
 
+attemptsRouter.post('/:id/check', requireRole('student'), async (req, res, next) => {
+  try {
+    const body = saveAnswerSchema.parse(req.body);
+    const result = await attemptsService.checkAnswerForUser(req.auth!.user, req.params.id, body);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
 attemptsRouter.post('/:id/submit', requireRole('student', 'admin'), async (req, res, next) => {
   try {
     const result = await attemptsService.submitAttemptForUser(req.auth!.user, req.params.id);

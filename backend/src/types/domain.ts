@@ -16,7 +16,14 @@ export type QuestionType =
 
 export type QuestionStatus = 'draft' | 'review' | 'published' | 'archived';
 export type Difficulty = 'easy' | 'medium' | 'hard';
-export type ExamType = 'practice' | 'quiz' | 'homework' | 'worksheet' | 'midterm' | 'final';
+export type ExamType =
+  | 'practice'
+  | 'quiz'
+  | 'homework'
+  | 'worksheet'
+  | 'midterm'
+  | 'final'
+  | 'lesson';
 export type ExamStatus = 'draft' | 'published' | 'archived';
 
 export interface User {
@@ -65,6 +72,8 @@ export type QuestionAnswer =
   | { type: 'multiple'; value: string[] }
   | { type: 'text'; value: string[] }
   | { type: 'numeric'; value: number; tolerance?: number }
+  | { type: 'pairs'; value: Record<string, string> }
+  | { type: 'sequence'; value: string[] }
   | { type: 'manual' };
 
 export interface QuestionExplanation {
@@ -142,6 +151,8 @@ export interface ExamSection {
   examId: string;
   title: string;
   description: string;
+  /** Theory blocks shown before the section's questions. Empty for ordinary exams. */
+  content: ContentBlock[];
   order: number;
 }
 
@@ -231,8 +242,8 @@ export type AttemptStatus =
   | 'expired'
   | 'cancelled';
 
-/** Student answer payload stored in attempt_answers.value */
-export type StudentAnswerValue = string | string[] | number | null;
+/** Student answer payload stored in attempt_answers.value. Pair maps are leftId → rightId. */
+export type StudentAnswerValue = string | string[] | number | Record<string, string> | null;
 
 export interface Attempt {
   id: string;
@@ -342,6 +353,7 @@ export const EXAM_TYPES: ExamType[] = [
   'worksheet',
   'midterm',
   'final',
+  'lesson',
 ];
 
 export const ASSIGNMENT_STATUSES: AssignmentStatus[] = [

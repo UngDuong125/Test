@@ -28,6 +28,7 @@ import type {
   QuestionType,
 } from '@/types/content';
 import { ContentBlocksEditor } from './ContentBlocksEditor';
+import { MatchingEditor, OrderingEditor, type FormOption } from './MatchOrderEditor';
 import { TopicPicker } from './TopicPicker';
 import {
   QuestionPreview,
@@ -37,7 +38,7 @@ import {
 } from './QuestionPreview';
 import { normalizeLatexInput } from '@/lib/latex';
 
-export type FormOption = { id: string; content: ContentBlock[] };
+export type { FormOption };
 
 export type QuestionFormValues = {
   type: QuestionType;
@@ -47,6 +48,10 @@ export type QuestionFormValues = {
   difficulty: Difficulty;
   content: ContentBlock[];
   options: FormOption[];
+  matchLeft: FormOption[];
+  matchRight: FormOption[];
+  matchPairs: Record<string, string>;
+  orderItems: FormOption[];
   singleAnswer: string;
   multiAnswers: string[];
   textAnswers: string;
@@ -76,13 +81,40 @@ function trueFalseOptions(existing?: FormOption[]): FormOption[] {
   ];
 }
 
+function blankPair(): { left: FormOption[]; right: FormOption[]; pairs: Record<string, string> } {
+  return {
+    left: [emptyOption('L1'), emptyOption('L2')],
+    right: [emptyOption('R1'), emptyOption('R2')],
+    pairs: { L1: 'R1', L2: 'R2' },
+  };
+}
+
 export function questionToFormValues(q: Question): QuestionFormValues {
   const options = q.options.map((o) => ({
     id: o.id,
     content: normalizeOptionContent(o.content),
   }));
-  while (options.length < 2) {
-    options.push(emptyOption(OPTION_IDS[options.length]!));
+  const blanks = blankPair();
+  const matchLeft = options.filter((opt) => /^L[1-9]\d*$/.test(opt.id));
+  const matchRight = options.filter((opt) => /^R[1-9]\d*$/.test(opt.id));
+  let orderItems = [emptyOption('A'), emptyOption('B'), emptyOption('C')];
+  if (q.type === 'ordering') {
+    if (q.answer.type === 'sequence') {
+      const byId = new Map(options.map((opt) => [opt.id, opt]));
+      const ordered = q.answer.value
+        .map((id) => byId.get(id))
+        .filter((opt): opt is FormOption => Boolean(opt));
+      if (ordered.length) orderItems = ordered;
+    } else if (options.length) {
+      orderItems = options;
+    }
+  }
+  const choiceOptions =
+    q.type === 'matching' || q.type === 'ordering'
+      ? [emptyOption('A'), emptyOption('B'), emptyOption('C'), emptyOption('D')]
+      : options;
+  while (choiceOptions.length < 2) {
+    choiceOptions.push(emptyOption(OPTION_IDS[choiceOptions.length]!));
   }
 
   return {
@@ -92,7 +124,11 @@ export function questionToFormValues(q: Question): QuestionFormValues {
     topicIds: q.topicIds,
     difficulty: q.difficulty,
     content: q.content.length ? q.content : [{ type: 'text', value: '' }],
-    options: q.type === 'true_false' ? trueFalseOptions(options) : options.slice(0, 6),
+    options: q.type === 'true_false' ? trueFalseOptions(choiceOptions) : choiceOptions.slice(0, 6),
+    matchLeft: q.type === 'matching' && matchLeft.length ? matchLeft : blanks.left,
+    matchRight: q.type === 'matching' && matchRight.length ? matchRight : blanks.right,
+    matchPairs: q.answer.type === 'pairs' ? q.answer.value : blanks.pairs,
+    orderItems,
     singleAnswer: q.answer.type === 'single' ? q.answer.value : 'A',
     multiAnswers: q.answer.type === 'multiple' ? q.answer.value : [],
     textAnswers: q.answer.type === 'text' ? q.answer.value.join('\n') : '',
@@ -117,6 +153,10 @@ export function emptyFormValues(): QuestionFormValues {
     difficulty: 'medium',
     content: [{ type: 'text', value: '' }],
     options: [emptyOption('A'), emptyOption('B'), emptyOption('C'), emptyOption('D')],
+    matchLeft: [emptyOption('L1'), emptyOption('L2')],
+    matchRight: [emptyOption('R1'), emptyOption('R2')],
+    matchPairs: { L1: 'R1', L2: 'R2' },
+    orderItems: [emptyOption('A'), emptyOption('B'), emptyOption('C')],
     singleAnswer: 'A',
     multiAnswers: [],
     textAnswers: '',
@@ -152,6 +192,11 @@ function buildPayload(values: QuestionFormValues): {
       b.type === 'latex' ? { ...b, value: normalizeLatexInput(b.value) } : b,
     );
 
+  const normalizeBlocks = (blocks: ContentBlock[]) =>
+    filterOptionBlocks(blocks).map((block) =>
+      block.type === 'latex' ? { ...block, value: normalizeLatexInput(block.value) } : block,
+    );
+
   let options: QuestionOption[] = [];
   if (isOptionBasedType(values.type)) {
     const source =
@@ -160,11 +205,30 @@ function buildPayload(values: QuestionFormValues): {
         : values.options.filter((o) => optionHasContent(o.content));
     options = source.map((o, i) => ({
       id: o.id,
-      content: filterOptionBlocks(o.content).map((b) =>
-        b.type === 'latex' ? { ...b, value: normalizeLatexInput(b.value) } : b,
-      ),
+      content: normalizeBlocks(o.content),
       order: i + 1,
     }));
+  } else if (values.type === 'matching') {
+    const left = values.matchLeft
+      .map((item) => ({ ...item, content: normalizeBlocks(item.content) }))
+      .filter((item) => optionHasContent(item.content));
+    const right = values.matchRight
+      .map((item) => ({ ...item, content: normalizeBlocks(item.content) }))
+      .filter((item) => optionHasContent(item.content));
+    options = [...left, ...right].map((item, index) => ({
+      id: item.id,
+      content: item.content,
+      order: index + 1,
+    }));
+  } else if (values.type === 'ordering') {
+    options = values.orderItems
+      .map((item) => ({ ...item, content: normalizeBlocks(item.content) }))
+      .filter((item) => optionHasContent(item.content))
+      .map((item, index) => ({
+        id: item.id,
+        content: item.content,
+        order: index + 1,
+      }));
   }
 
   let answer: QuestionAnswer;
@@ -194,6 +258,20 @@ function buildPayload(values: QuestionFormValues): {
           ? { tolerance: Number(values.numericTolerance) }
           : {}),
       };
+      break;
+    case 'matching': {
+      const rightIds = new Set(options.filter((opt) => opt.id.startsWith('R')).map((opt) => opt.id));
+      const pairs: Record<string, string> = {};
+      for (const opt of options) {
+        if (!opt.id.startsWith('L')) continue;
+        const target = values.matchPairs[opt.id];
+        if (target && rightIds.has(target)) pairs[opt.id] = target;
+      }
+      answer = { type: 'pairs', value: pairs };
+      break;
+    }
+    case 'ordering':
+      answer = { type: 'sequence', value: options.map((opt) => opt.id) };
       break;
     case 'essay':
     default:
@@ -289,6 +367,9 @@ export function QuestionForm({
     const imageIds = [
       ...values.content,
       ...values.options.flatMap((o) => o.content),
+      ...values.matchLeft.flatMap((o) => o.content),
+      ...values.matchRight.flatMap((o) => o.content),
+      ...values.orderItems.flatMap((o) => o.content),
     ]
       .filter((b): b is Extract<ContentBlock, { type: 'image' }> => b.type === 'image')
       .map((b) => b.mediaId)
@@ -319,7 +400,7 @@ export function QuestionForm({
     };
     // Only resolve missing media when content/option image ids change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [values.content, values.options]);
+  }, [values.content, values.matchLeft, values.matchRight, values.options, values.orderItems]);
 
   function setType(type: QuestionType) {
     setValues((v) => {
@@ -328,7 +409,8 @@ export function QuestionForm({
         next.options = trueFalseOptions(v.options);
         next.singleAnswer = 'A';
       } else if (type === 'multiple_choice' || type === 'multiple_select') {
-        if (v.options.length < 2) {
+        const looksLikeMatch = v.options.some((opt) => /^[LR]\d+$/.test(opt.id));
+        if (v.options.length < 2 || looksLikeMatch) {
           next.options = [emptyOption('A'), emptyOption('B'), emptyOption('C'), emptyOption('D')];
         }
       }
@@ -377,6 +459,23 @@ export function QuestionForm({
       }
       if (isOptionBasedType(values.type) && payload.options.length < 2) {
         throw new Error('Cần ít nhất 2 phương án có nội dung');
+      }
+      if (values.type === 'matching') {
+        const left = payload.options.filter((opt) => opt.id.startsWith('L'));
+        const right = payload.options.filter((opt) => opt.id.startsWith('R'));
+        if (left.length < 2 || right.length < 2) {
+          throw new Error('Cần ít nhất 2 vế trái và 2 vế phải có nội dung');
+        }
+        if (payload.answer.type !== 'pairs' || Object.keys(payload.answer.value).length !== left.length) {
+          throw new Error('Hãy nối mỗi vế trái với một vế phải');
+        }
+        const targets = Object.values(payload.answer.type === 'pairs' ? payload.answer.value : {});
+        if (new Set(targets).size !== targets.length) {
+          throw new Error('Mỗi vế phải chỉ được nối một lần');
+        }
+      }
+      if (values.type === 'ordering' && payload.options.length < 2) {
+        throw new Error('Cần ít nhất 2 mục có nội dung');
       }
       if (values.type === 'multiple_select' && values.multiAnswers.length === 0) {
         throw new Error('Hãy đánh dấu ít nhất một đáp án đúng');
@@ -623,6 +722,33 @@ export function QuestionForm({
             </button>
           )}
         </div>
+      )}
+
+      {values.type === 'matching' && (
+        <MatchingEditor
+          left={values.matchLeft}
+          right={values.matchRight}
+          pairs={values.matchPairs}
+          mediaUrls={mediaUrls}
+          onMediaUrl={(id, url) => setMediaUrls((m) => ({ ...m, [id]: url }))}
+          onChange={(next) =>
+            setValues({
+              ...values,
+              matchLeft: next.left,
+              matchRight: next.right,
+              matchPairs: next.pairs,
+            })
+          }
+        />
+      )}
+
+      {values.type === 'ordering' && (
+        <OrderingEditor
+          items={values.orderItems}
+          mediaUrls={mediaUrls}
+          onMediaUrl={(id, url) => setMediaUrls((m) => ({ ...m, [id]: url }))}
+          onChange={(orderItems) => setValues({ ...values, orderItems })}
+        />
       )}
 
       {(values.type === 'fill_blank' || values.type === 'short_answer') && (

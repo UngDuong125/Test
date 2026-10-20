@@ -10,7 +10,9 @@ export const QUESTION_TYPES_MVP: { value: QuestionType; label: string }[] = [
 ];
 
 export const QUESTION_TYPES_EXTENDED: { value: QuestionType; label: string }[] = [
-  { value: 'multiple_select', label: 'Trắc nghiệm (nhiều đáp án)' },
+  { value: 'multiple_select', label: 'Chọn các thẻ đúng' },
+  { value: 'matching', label: 'Nối cặp' },
+  { value: 'ordering', label: 'Sắp xếp' },
   { value: 'numeric', label: 'Số học' },
 ];
 
@@ -42,6 +44,8 @@ export function isAutoGradeType(type: QuestionType): boolean {
     type === 'fill_blank' ||
     type === 'short_answer' ||
     type === 'multiple_select' ||
-    type === 'numeric'
+    type === 'numeric' ||
+    type === 'matching' ||
+    type === 'ordering'
   );
 }

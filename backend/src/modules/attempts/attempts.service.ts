@@ -2,6 +2,7 @@ import { AppError } from '../../domain/errors.js';
 import { awardExpForGradedAttempt } from '../exp/exp.service.js';
 import {
   autoGradeAnswer,
+  interactiveGradeDetail,
   isAnswerKeyRevealAllowed,
   questionRequiresManualGrade,
   stripSnapshotForStudent,
@@ -31,6 +32,7 @@ import {
 import { findExamById, listExamQuestions, listExamSections } from '../../repositories/exams.repository.js';
 import { findQuestionsByIds } from '../../repositories/questions.repository.js';
 import { isStudentInTeacherClass } from '../../repositories/classes.repository.js';
+import { arrangeSnapshotOptions, shuffleCopy } from './snapshot.logic.js';
 import type {
   Attempt,
   AttemptAnswer,
@@ -54,14 +56,6 @@ function mergeSettings(
   };
 }
 
-function shuffleInPlace<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
 
 async function buildSnapshot(
   examId: string,
@@ -88,7 +82,7 @@ async function buildSnapshot(
 
   let ordered = [...examQuestions].sort((a, b) => a.order - b.order);
   if (effectiveSettings.shuffleQuestions) {
-    ordered = shuffleInPlace(ordered);
+    ordered = shuffleCopy(ordered);
   }
 
   const snapshotQuestions: SnapshotQuestion[] = [];
@@ -100,10 +94,11 @@ async function buildSnapshot(
     if (!q) {
       throw new AppError(422, `Question ${eq.questionId} missing`, 'QUESTION_MISSING');
     }
-    let options = [...q.options].sort((a, b) => a.order - b.order);
-    if (effectiveSettings.shuffleOptions && options.length > 0) {
-      options = shuffleInPlace(options).map((opt, idx) => ({ ...opt, order: idx + 1 }));
-    }
+    const options = arrangeSnapshotOptions(
+      q.type,
+      q.options,
+      effectiveSettings.shuffleOptions,
+    );
 
     const points = eq.points;
     maxScore += points;
@@ -453,6 +448,51 @@ export async function saveAnswerForUser(
   });
 
   return { answer };
+}
+
+/**
+ * Grade one saved answer immediately. Only lesson exams may do this, so quiz
+ * and exam keys stay hidden until the normal reveal rules.
+ */
+export async function checkAnswerForUser(
+  actor: PublicUser,
+  attemptId: string,
+  body: { questionId: string; value: StudentAnswerValue },
+) {
+  if (actor.role !== 'student') {
+    throw new AppError(403, 'Only students can check answers', 'FORBIDDEN');
+  }
+
+  let attempt = await findAttemptById(attemptId);
+  if (!attempt) throw new AppError(404, 'Attempt not found', 'NOT_FOUND');
+  if (attempt.userId !== actor.id) {
+    throw new AppError(403, 'Forbidden', 'FORBIDDEN');
+  }
+
+  const assignment = await findAssignmentById(attempt.assignmentId);
+  attempt = await expireIfNeeded(attempt, assignment?.deadline);
+  if (attempt.status !== 'in_progress') {
+    throw new AppError(422, 'Attempt is not in progress', 'ATTEMPT_LOCKED');
+  }
+
+  const snapshot = await getAttemptSnapshot(attemptId);
+  if (!snapshot) throw new AppError(500, 'Snapshot missing', 'SNAPSHOT_MISSING');
+  if (snapshot.exam.type !== 'lesson') {
+    throw new AppError(422, 'Instant check is only available for lessons', 'CHECK_NOT_ALLOWED');
+  }
+
+  const question = snapshot.questions.find((item) => item.id === body.questionId);
+  if (!question) {
+    throw new AppError(422, 'Question not in this attempt', 'QUESTION_NOT_IN_ATTEMPT');
+  }
+
+  await upsertAttemptAnswer({
+    attemptId,
+    questionId: body.questionId,
+    value: body.value,
+  });
+
+  return interactiveGradeDetail(question, body.value);
 }
 
 export async function submitAttemptForUser(actor: PublicUser, attemptId: string) {

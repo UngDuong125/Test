@@ -5,13 +5,16 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AuthGate } from '@/components/auth/AuthGate';
 import { AttemptQuestionCard } from '@/components/attempts/AttemptQuestionCard';
+import { LessonPlayer } from '@/components/attempts/LessonPlayer';
+import { sameAnswerValue } from '@/lib/answer-display';
 import {
   ApiError,
+  checkAttemptAnswer,
   getAttempt,
   saveAttemptAnswer,
   submitAttempt,
 } from '@/lib/api-client';
-import type { AttemptDetail, StudentAnswerValue } from '@/types/content';
+import type { AnswerCheckResult, AttemptDetail, StudentAnswerValue } from '@/types/content';
 
 const SAVE_DEBOUNCE_MS = 400;
 
@@ -25,14 +28,6 @@ function formatRemaining(ms: number): string {
     return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   }
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-}
-
-function sameAnswerValue(a: StudentAnswerValue, b: StudentAnswerValue): boolean {
-  if (a === b) return true;
-  if (Array.isArray(a) && Array.isArray(b)) {
-    return a.length === b.length && a.every((v, i) => v === b[i]);
-  }
-  return false;
 }
 
 function AttemptBody() {
@@ -157,6 +152,24 @@ function AttemptBody() {
       debounceTimersRef.current.clear();
     };
   }, []);
+
+  const checkAnswer = useCallback(
+    async (questionId: string, value: StudentAnswerValue): Promise<AnswerCheckResult> => {
+      const pending = debounceTimersRef.current.get(questionId);
+      if (pending) {
+        clearTimeout(pending);
+        debounceTimersRef.current.delete(questionId);
+      }
+      dirtyRef.current.delete(questionId);
+      setAnswers((prev) => {
+        const next = { ...prev, [questionId]: value };
+        answersRef.current = next;
+        return next;
+      });
+      return checkAttemptAnswer(attemptId, { questionId, value });
+    },
+    [attemptId],
+  );
 
   const saveAnswer = useCallback(
     (questionId: string, value: StudentAnswerValue, options?: { immediate?: boolean }) => {
@@ -293,25 +306,43 @@ function AttemptBody() {
         </div>
       )}
 
-      <div className="space-y-4">
-        {questions.map((q, i) => {
-          const isTextLike =
-            q.type === 'fill_blank' ||
-            q.type === 'short_answer' ||
-            q.type === 'numeric' ||
-            q.type === 'essay';
-          return (
-            <AttemptQuestionCard
-              key={q.id}
-              question={q}
-              index={i}
-              value={answers[q.id] ?? null}
-              onChange={(v) => saveAnswer(q.id, v, { immediate: !isTextLike })}
-              disabled={submitting}
-            />
-          );
-        })}
-      </div>
+      {detail.snapshot.exam.type === 'lesson' ? (
+        <LessonPlayer
+          sections={detail.snapshot.sections}
+          questions={questions}
+          answers={answers}
+          disabled={submitting}
+          onChange={(questionId, value) => {
+            const textLike =
+              questions.find((item) => item.id === questionId)?.type === 'fill_blank' ||
+              questions.find((item) => item.id === questionId)?.type === 'short_answer' ||
+              questions.find((item) => item.id === questionId)?.type === 'numeric' ||
+              questions.find((item) => item.id === questionId)?.type === 'essay';
+            saveAnswer(questionId, value, { immediate: !textLike });
+          }}
+          onCheck={checkAnswer}
+        />
+      ) : (
+        <div className="space-y-4">
+          {questions.map((q, i) => {
+            const isTextLike =
+              q.type === 'fill_blank' ||
+              q.type === 'short_answer' ||
+              q.type === 'numeric' ||
+              q.type === 'essay';
+            return (
+              <AttemptQuestionCard
+                key={q.id}
+                question={q}
+                index={i}
+                value={answers[q.id] ?? null}
+                onChange={(v) => saveAnswer(q.id, v, { immediate: !isTextLike })}
+                disabled={submitting}
+              />
+            );
+          })}
+        </div>
+      )}
 
       <div className="sticky bottom-4 flex justify-end">
         <button

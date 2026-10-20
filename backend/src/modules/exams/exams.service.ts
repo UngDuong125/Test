@@ -204,7 +204,7 @@ export async function deleteExamForUser(actor: PublicUser, id: string): Promise<
 export async function addSectionForUser(
   actor: PublicUser,
   examId: string,
-  input: { title: string; description: string; order?: number },
+  input: { title: string; description: string; content?: ExamSection['content']; order?: number },
 ): Promise<ExamSection> {
   const { exam } = await getExamForUser(actor, examId);
   assertCanManageExam(actor, exam);
@@ -214,6 +214,7 @@ export async function addSectionForUser(
     examId,
     title: input.title,
     description: input.description,
+    content: input.content ?? [],
     order,
   });
 }
@@ -222,7 +223,7 @@ export async function updateSectionForUser(
   actor: PublicUser,
   examId: string,
   sectionId: string,
-  patch: Partial<{ title: string; description: string; order: number }>,
+  patch: Partial<{ title: string; description: string; content: ExamSection['content']; order: number }>,
 ): Promise<ExamSection> {
   const { exam } = await getExamForUser(actor, examId);
   assertCanManageExam(actor, exam);
@@ -654,6 +655,7 @@ export async function duplicateExam(actor: PublicUser, examId: string) {
       examId: copy.id,
       title: section.title,
       description: section.description,
+      content: section.content,
       order: section.order,
     });
     sectionIdMap.set(section.id, created.id);
@@ -743,6 +745,7 @@ export async function generateExamForUser(
     examId: exam.id,
     title: input.sectionTitle,
     description: '',
+    content: [],
     order: 1,
   });
 

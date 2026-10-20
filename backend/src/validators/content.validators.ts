@@ -22,6 +22,7 @@ export const examTypeSchema = z.enum([
   'worksheet',
   'midterm',
   'final',
+  'lesson',
 ]);
 export const examStatusSchema = z.enum(['draft', 'published', 'archived']);
 
@@ -72,6 +73,14 @@ export const answerSchema = z.discriminatedUnion('type', [
     type: z.literal('numeric'),
     value: z.number(),
     tolerance: z.number().nonnegative().optional(),
+  }),
+  z.object({
+    type: z.literal('pairs'),
+    value: z.record(z.string().trim().min(1).max(32), z.string().trim().min(1).max(32)),
+  }),
+  z.object({
+    type: z.literal('sequence'),
+    value: z.array(z.string().trim().min(1).max(32)).min(2).max(12),
   }),
   z.object({ type: z.literal('manual') }),
 ]);

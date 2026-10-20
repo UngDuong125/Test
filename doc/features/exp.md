@@ -34,6 +34,7 @@ expEarned = applyTypePolicy(Exam.type, baseExp, percentage)
 | `Exam.type` | `expEarned` (MVP) |
 | :--- | :--- |
 | `practice` | `baseExp` |
+| `lesson` | `baseExp` |
 | `worksheet` | `baseExp` |
 | `homework` | `floor(baseExp * 0.8)` |
 | `quiz` | `percentage ≥ 80` → `floor(baseExp * 1.2)` ; ngược lại `baseExp` |

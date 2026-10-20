@@ -62,13 +62,12 @@ MVP:
 
 Đã bật trên UI tạo/làm bài:
 
-- `multiple_select`
+- `multiple_select` — trình làm bài vẽ thành thẻ chọn
 - `numeric`
+- `matching` — nối cặp, chấm từng cặp
+- `ordering` — sắp xếp, chấm từng vị trí
 
-Chưa có UI làm bài (chỉ mở khi hỗ trợ đầy đủ):
-
-- `matching`
-- `ordering`
+Chi tiết đáp án `pairs` / `sequence`, xáo cột phải và bài học: [interactive-lessons.md](./interactive-lessons.md).
 
 ## 5. Rich Content
 
@@ -128,6 +127,16 @@ Các dạng:
   "value": 3.14,
   "tolerance": 0.01
 }
+```
+
+Nối cặp và sắp xếp:
+
+```json
+{ "type": "pairs", "value": { "L1": "R2", "L2": "R1" } }
+```
+
+```json
+{ "type": "sequence", "value": ["C", "A", "B"] }
 ```
 
 Tự luận:

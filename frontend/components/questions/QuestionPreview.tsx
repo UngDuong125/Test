@@ -208,6 +208,11 @@ export function OptionContentView({
   return <ContentBlocksView blocks={normalizeOptionContent(content)} compact />;
 }
 
+function isPairRecord(value: unknown): value is Record<string, string> {
+  if (value == null || typeof value !== 'object' || Array.isArray(value)) return false;
+  return Object.values(value).every((item) => typeof item === 'string');
+}
+
 export function QuestionPreview({
   content,
   options,
@@ -278,6 +283,18 @@ export function QuestionPreview({
             </p>
           )}
           {answer.type === 'manual' && <p>Chấm thủ công</p>}
+          {answer.type === 'pairs' && isPairRecord(answer.value) && (
+            <ul className="mt-1 space-y-1">
+              {Object.entries(answer.value).map(([left, right]) => (
+                <li key={left}>
+                  {left} → {right}
+                </li>
+              ))}
+            </ul>
+          )}
+          {answer.type === 'sequence' && Array.isArray(answer.value) && (
+            <p>{answer.value.join(' → ')}</p>
+          )}
         </div>
       )}
 

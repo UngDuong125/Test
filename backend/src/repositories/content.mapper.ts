@@ -92,6 +92,7 @@ export interface ExamSectionRow {
   exam_id: string;
   title: string;
   description: string;
+  content?: ContentBlock[] | null;
   order: number;
 }
 
@@ -282,6 +283,7 @@ export function mapExamSection(row: ExamSectionRow): ExamSection {
     examId: row.exam_id,
     title: row.title,
     description: row.description,
+    content: Array.isArray(row.content) ? row.content : [],
     order: row.order,
   };
 }

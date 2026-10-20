@@ -2,14 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ContentBlocksView, OptionContentView } from '@/components/questions/QuestionPreview';
+import { isPairMap } from '@/lib/answer-display';
 import type { SnapshotQuestion, StudentAnswerValue } from '@/types/content';
 
 function textFromValue(value: StudentAnswerValue): string {
-  if (value == null) return '';
+  if (value == null || typeof value === 'object') return '';
   if (typeof value === 'number') return String(value);
-  if (Array.isArray(value)) return value.join(', ');
   return value;
 }
+
+const LEFT_ID = /^L[1-9]\d*$/;
+const RIGHT_ID = /^R[1-9]\d*$/;
 
 export function AttemptQuestionCard({
   question,
@@ -17,12 +20,16 @@ export function AttemptQuestionCard({
   value,
   onChange,
   disabled,
+  pairMarks,
+  positionMarks,
 }: {
   question: SnapshotQuestion;
   index: number;
   value: StudentAnswerValue;
   onChange: (value: StudentAnswerValue) => void;
   disabled?: boolean;
+  pairMarks?: Record<string, boolean>;
+  positionMarks?: boolean[];
 }) {
   const isChoice =
     question.type === 'multiple_choice' ||
@@ -34,16 +41,54 @@ export function AttemptQuestionCard({
     question.type === 'short_answer' ||
     question.type === 'numeric';
 
-  // Local draft + composition handling so Vietnamese IME (Telex/VNI) is not
-  // interrupted by parent re-renders while composing diacritics.
   const [draft, setDraft] = useState(() => textFromValue(value));
   const composingRef = useRef(false);
+  const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
+  const seededFor = useRef<string | null>(null);
 
   useEffect(() => {
     if (!composingRef.current) {
       setDraft(textFromValue(value));
     }
   }, [value]);
+
+  useEffect(() => {
+    if (question.type !== 'ordering' || disabled) return;
+    if (Array.isArray(value) && value.length > 0) {
+      seededFor.current = question.id;
+      return;
+    }
+    if (seededFor.current === question.id) return;
+    seededFor.current = question.id;
+    onChange(question.options.map((opt) => opt.id));
+  }, [disabled, onChange, question.id, question.options, question.type, value]);
+
+  const pairs = isPairMap(value) ? value : {};
+  const leftOptions = question.options.filter((opt) => LEFT_ID.test(opt.id));
+  const rightOptions = question.options.filter((opt) => RIGHT_ID.test(opt.id));
+  const orderIds =
+    Array.isArray(value) && value.length > 0 ? value : question.options.map((opt) => opt.id);
+
+  function move(from: number, direction: -1 | 1) {
+    const nextIndex = from + direction;
+    if (nextIndex < 0 || nextIndex >= orderIds.length) return;
+    const next = [...orderIds];
+    const current = next[from]!;
+    next[from] = next[nextIndex]!;
+    next[nextIndex] = current;
+    onChange(next);
+  }
+
+  function pairWith(rightId: string) {
+    if (!selectedLeft || disabled) return;
+    const next = { ...pairs };
+    for (const [leftId, chosen] of Object.entries(next)) {
+      if (chosen === rightId) delete next[leftId];
+    }
+    next[selectedLeft] = rightId;
+    setSelectedLeft(null);
+    onChange(next);
+  }
 
   return (
     <div className="space-y-4 rounded-xl border border-mist bg-white p-5 shadow-sm">
@@ -59,27 +104,24 @@ export function AttemptQuestionCard({
       <ContentBlocksView blocks={question.content} />
 
       {isChoice && question.options.length > 0 && (
-        <ul className="space-y-2">
-          {question.options.map((opt) => {
-            const multi = question.type === 'multiple_select';
-            const selected = multi
-              ? Array.isArray(value) && value.includes(opt.id)
-              : value === opt.id;
-
-            return (
-              <li key={opt.id}>
-                <label
-                  className={`flex cursor-pointer gap-3 rounded-md border px-3 py-2 text-sm ${
-                    selected ? 'border-accent bg-accent/5' : 'border-mist'
-                  } ${disabled ? 'cursor-not-allowed opacity-70' : ''}`}
-                >
-                  <input
-                    type={multi ? 'checkbox' : 'radio'}
-                    name={`q-${question.id}`}
-                    className="mt-0.5"
-                    checked={selected}
+        <div className="space-y-2">
+          <p className="text-xs text-slate-500">
+            {question.type === 'multiple_select'
+              ? 'Chọn mọi thẻ đúng.'
+              : 'Chọn một thẻ.'}
+          </p>
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {question.options.map((opt) => {
+              const multi = question.type === 'multiple_select';
+              const selected = multi
+                ? Array.isArray(value) && value.includes(opt.id)
+                : value === opt.id;
+              return (
+                <li key={opt.id}>
+                  <button
+                    type="button"
                     disabled={disabled}
-                    onChange={() => {
+                    onClick={() => {
                       if (disabled) return;
                       if (multi) {
                         const current = Array.isArray(value) ? value : [];
@@ -92,18 +134,122 @@ export function AttemptQuestionCard({
                         onChange(opt.id);
                       }
                     }}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="mr-2 font-semibold text-accentDark">{opt.id}.</span>
-                    <span className="inline-block align-top">
+                    className={`flex h-full w-full gap-3 rounded-xl border px-3 py-3 text-left text-sm transition ${
+                      selected
+                        ? 'border-accent bg-accent/10 ring-2 ring-accent/30'
+                        : 'border-mist bg-white hover:border-accent'
+                    } disabled:cursor-not-allowed disabled:opacity-70`}
+                  >
+                    <span className="font-semibold text-accentDark">{opt.id}</span>
+                    <span className="min-w-0 flex-1">
                       <OptionContentView content={opt.content} />
                     </span>
-                  </span>
-                </label>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+
+      {question.type === 'matching' && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Chọn vế trái</p>
+            {leftOptions.map((opt) => {
+              const chosen = pairs[opt.id];
+              const mark = pairMarks?.[opt.id];
+              const active = selectedLeft === opt.id;
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => setSelectedLeft((current) => (current === opt.id ? null : opt.id))}
+                  className={`w-full rounded-xl border px-3 py-3 text-left text-sm ${
+                    mark === true
+                      ? 'border-emerald-500 bg-emerald-50'
+                      : mark === false
+                        ? 'border-red-300 bg-red-50'
+                        : active
+                          ? 'border-accent bg-accent/10 ring-2 ring-accent/30'
+                          : 'border-mist hover:border-accent'
+                  }`}
+                >
+                  <OptionContentView content={opt.content} />
+                  <p className="mt-1 text-xs text-slate-500">
+                    {chosen
+                      ? `Đã nối: ${rightOptions.find((item) => item.id === chosen)?.id ?? chosen}`
+                      : 'Chưa nối'}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Rồi chọn vế phải</p>
+            {rightOptions.map((opt) => {
+              const usedBy = Object.entries(pairs).find(([, rightId]) => rightId === opt.id)?.[0];
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  disabled={disabled || !selectedLeft}
+                  onClick={() => pairWith(opt.id)}
+                  className={`w-full rounded-xl border px-3 py-3 text-left text-sm ${
+                    usedBy ? 'border-accent bg-accent/5' : 'border-mist hover:border-accent'
+                  } disabled:cursor-not-allowed disabled:opacity-70`}
+                >
+                  <OptionContentView content={opt.content} />
+                  {usedBy && <p className="mt-1 text-xs text-slate-500">Nối với {usedBy}</p>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {question.type === 'ordering' && (
+        <ol className="space-y-2">
+          {orderIds.map((id, itemIndex) => {
+            const opt = question.options.find((item) => item.id === id);
+            if (!opt) return null;
+            const mark = positionMarks?.[itemIndex];
+            return (
+              <li
+                key={id}
+                className={`flex items-center gap-2 rounded-xl border px-3 py-2 ${
+                  mark === true
+                    ? 'border-emerald-500 bg-emerald-50'
+                    : mark === false
+                      ? 'border-red-300 bg-red-50'
+                      : 'border-mist'
+                }`}
+              >
+                <span className="w-6 text-sm font-semibold text-slate-500">{itemIndex + 1}</span>
+                <div className="min-w-0 flex-1 text-sm">
+                  <OptionContentView content={opt.content} />
+                </div>
+                <button
+                  type="button"
+                  disabled={disabled || itemIndex === 0}
+                  onClick={() => move(itemIndex, -1)}
+                  className="rounded-md border border-mist px-2 py-1 text-xs disabled:opacity-40"
+                >
+                  Lên
+                </button>
+                <button
+                  type="button"
+                  disabled={disabled || itemIndex === orderIds.length - 1}
+                  onClick={() => move(itemIndex, 1)}
+                  className="rounded-md border border-mist px-2 py-1 text-xs disabled:opacity-40"
+                >
+                  Xuống
+                </button>
               </li>
             );
           })}
-        </ul>
+        </ol>
       )}
 
       {isTextInput && (

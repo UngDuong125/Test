@@ -7,6 +7,7 @@ import { SUBJECT_TAGS } from '@/constants/tags';
 import { BulkQuestionTextImport } from '@/components/exams/BulkQuestionTextImport';
 import { ExamPreviewModal } from '@/components/exams/ExamPreviewModal';
 import { QuestionForm } from '@/components/questions/QuestionForm';
+import { LessonSectionsPanel } from '@/components/exams/LessonSectionsPanel';
 import {
   ApiError,
   addExamQuestions,
@@ -45,6 +46,7 @@ type Props = {
 
 const EXAM_TYPES: ExamType[] = [
   'practice',
+  'lesson',
   'quiz',
   'homework',
   'worksheet',
@@ -59,6 +61,8 @@ const TYPE_LABEL: Record<string, string> = {
   short_answer: 'Ngắn',
   essay: 'TL',
   multiple_select: 'Nhiều ĐA',
+  matching: 'Nối',
+  ordering: 'Xếp',
   numeric: 'Số',
 };
 
@@ -613,7 +617,7 @@ export function ExamComposer({
               >
                 {EXAM_TYPES.map((t) => (
                   <option key={t} value={t}>
-                    {t}
+                    {t === 'lesson' ? 'lesson (bài học)' : t}
                   </option>
                 ))}
               </select>
@@ -672,6 +676,14 @@ export function ExamComposer({
 
         {/* Question list */}
         <div className="space-y-4">
+          {meta.type === 'lesson' && (
+            <LessonSectionsPanel
+              examId={exam.id}
+              editable={editable}
+              sections={sections}
+              onChange={setSections}
+            />
+          )}
           <section className="rounded-xl border border-mist bg-white/90 p-4 shadow-sm">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <div>

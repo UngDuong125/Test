@@ -23,6 +23,8 @@ Trong phạm vi:
 - Lịch ôn theo mốc 1 / 3 / 7 / 14 / 30 ngày; `next_review_at` quyết định từ nào “due”.
 - Student chỉ thấy / ôn assignment thuộc quyền của mình.
 
+Trang ôn có thêm chế độ **Nối từ** (tối đa 5 thẻ due, chấm trên trình duyệt). Chế độ này không ghi review, không đổi lịch SRS và không cộng EXP. Flashcard vẫn là cách ghi nhận thuộc / chưa thuộc. Chi tiết: [interactive-lessons.md](./interactive-lessons.md).
+
 Ngoài phạm vi MVP (có thể mở rộng sau):
 
 - Thuật toán SM-2 / ease factor động.

@@ -114,9 +114,9 @@ function NewExamBody() {
               value={form.type}
               onChange={(e) => setForm({ ...form, type: e.target.value as ExamType })}
             >
-              {['practice', 'quiz', 'homework', 'worksheet', 'midterm', 'final'].map((t) => (
+              {['practice', 'lesson', 'quiz', 'homework', 'worksheet', 'midterm', 'final'].map((t) => (
                 <option key={t} value={t}>
-                  {t}
+                  {t === 'lesson' ? 'lesson (bài học)' : t}
                 </option>
               ))}
             </select>

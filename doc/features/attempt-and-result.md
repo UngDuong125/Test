@@ -68,7 +68,7 @@ Luồng chuyển trạng thái:
 - `fill_blank`
 - Một số `short_answer` nếu exact match hoặc normalization
 
-**Mở rộng** (khi bật trong môi trường): `multiple_select`, `numeric`, …
+**Mở rộng** (đã bật): `multiple_select`, `numeric`, `matching` (điểm theo cặp), `ordering` (điểm theo vị trí). Đề `lesson` được `POST /api/attempts/:id/check` khi đang làm; đề khác không. Chi tiết: [interactive-lessons.md](./interactive-lessons.md).
 
 Không tự động chấm hoàn toàn:
 
@@ -134,6 +134,7 @@ strip answer keys until attempts exhausted
 POST   /api/exam-assignments/:id/attempts
 GET    /api/attempts/:id
 PATCH  /api/attempts/:id/answers
+POST   /api/attempts/:id/check
 POST   /api/attempts/:id/submit
 
 GET    /api/attempts/:id/result

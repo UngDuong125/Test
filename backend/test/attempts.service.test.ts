@@ -282,6 +282,53 @@ describe('attempts: result visibility', () => {
     assert.equal(forTeacher.attempt.score, 1);
   });
 
+  it('lesson check grades one answer and refuses the same call on a practice exam', async () => {
+    const matching = seedQuestion(
+      'matching',
+      { type: 'pairs', value: { L1: 'R2', L2: 'R1' } },
+      ['L1', 'L2', 'R1', 'R2'],
+    );
+    const exam = seedExam({
+      ownerId: teacher.id,
+      type: 'lesson',
+      questions: [{ question: matching, points: 2 }],
+    });
+    const assignment = seedAssignment({
+      examId: exam.id,
+      studentId: student.id,
+      assignedBy: teacher.id,
+    });
+    const started = await attempts.startAttemptForAssignment(student, assignment.id);
+    assert.equal(started.snapshot.questions[0]?.answer, undefined);
+
+    const checked = await attempts.checkAnswerForUser(student, started.attempt.id, {
+      questionId: matching.id,
+      value: { L1: 'R2', L2: 'R2' },
+    });
+    assert.equal(checked.isCorrect, false);
+    assert.equal(checked.pointsEarned, 1);
+    assert.deepEqual(checked.pairs, [
+      { leftId: 'L1', correct: true },
+      { leftId: 'L2', correct: false },
+    ]);
+    assert.equal('answer' in checked, false);
+
+    const submitted = await attempts.submitAttemptForUser(student, started.attempt.id);
+    assert.equal(submitted.score, 1);
+
+    const { assignment: practice } = seedMixedExam();
+    const practiceAttempt = await attempts.startAttemptForAssignment(student, practice.id);
+    assert.equal(
+      await codeOf(
+        attempts.checkAnswerForUser(student, practiceAttempt.attempt.id, {
+          questionId: practiceAttempt.snapshot.questions[0]!.id,
+          value: 'A',
+        }),
+      ),
+      'CHECK_NOT_ALLOWED',
+    );
+  });
+
   it('teachers outside the exam / assignment / class are forbidden', async () => {
     const { assignment } = seedMixedExam();
     const { attempt } = await attempts.startAttemptForAssignment(student, assignment.id);

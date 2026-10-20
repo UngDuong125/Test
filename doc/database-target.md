@@ -137,7 +137,7 @@ Constraint `UNIQUE (subject_id, name, grade)` không chặn trùng khi `grade` l
 | `description` | text | |
 | `subject_id` | text FK | |
 | `grade` | int | |
-| `type` | text | `practice`, `quiz`, … |
+| `type` | text | `practice`, `quiz`, `homework`, `worksheet`, `midterm`, `final`, `lesson` |
 | `difficulty` | text | |
 | `duration` | int | Phút; `0` = không giới hạn thời lượng đề; timer attempt khi `> 0` |
 | `total_points` | numeric | |
@@ -158,6 +158,7 @@ Constraint `UNIQUE (subject_id, name, grade)` không chặn trùng khi `grade` l
 | `exam_id` | uuid FK | |
 | `title` | text | |
 | `description` | text | |
+| `content` | jsonb | Block lý thuyết (text / LaTeX / ảnh). `[]` nếu phần không có lý thuyết |
 | `order` | int | |
 
 ### `exam_questions`

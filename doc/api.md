@@ -74,7 +74,7 @@ Chi tiết: [authentication-and-authorization.md](./features/authentication-and-
 | Exams | `POST/GET/PATCH /api/exams`, `…/questions`, `…/questions/create`, `…/validate`, `…/publish`, `…/generate` | [exam-management.md](./features/exam-management.md) |
 | Assignments | `POST/GET/PATCH /api/exam-assignments`, `POST /api/exams/:id/assign` | [exam-distribution.md](./features/exam-distribution.md) |
 | Classes | `POST/GET/PATCH /api/classes`, `…/members`, `…/analytics` | [class-management.md](./features/class-management.md) |
-| Attempts | `POST /api/exam-assignments/:id/attempts`, `PATCH /api/attempts/:id/answers`, `POST /api/attempts/:id/submit` | [attempt-and-result.md](./features/attempt-and-result.md) |
+| Attempts | `POST /api/exam-assignments/:id/attempts`, `PATCH /api/attempts/:id/answers`, `POST /api/attempts/:id/check` (chỉ đề `lesson`), `POST /api/attempts/:id/submit` | [attempt-and-result.md](./features/attempt-and-result.md) |
 | Grading | `GET /api/grading/queue`, `GET /api/grading/:attemptId`, `POST /api/attempts/:id/grade`, `…/regrade` | [manual-grading.md](./features/manual-grading.md) |
 | Student | `GET /api/students/me/assignments`, `GET /api/students/:id/assignments`, `GET /api/students/:id/results` | [dashboard.md](./features/dashboard.md) |
 | Vocabulary SRS | `POST/GET /api/vocabulary-banks`, `/api/vocabulary-entries`, `/api/vocabulary-assignments` (+ cancel), `GET /api/students/me/vocabulary/due`, `POST /api/vocabulary-cards/:id/review` | [vocabulary-srs.md](./features/vocabulary-srs.md) |

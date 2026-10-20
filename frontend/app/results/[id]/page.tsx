@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { AuthGate } from '@/components/auth/AuthGate';
 import { ContentBlocksView, OptionContentView } from '@/components/questions/QuestionPreview';
+import { formatAnswerValue } from '@/lib/answer-display';
 import { ApiError, getAttempt, getAttemptResult } from '@/lib/api-client';
 import { attemptStatusLabel } from '@/lib/attempt-labels';
 import { useSession } from '@/lib/auth';
@@ -219,7 +220,13 @@ function ResultBody() {
                   <span className="ml-2 font-normal text-slate-500">
                     · {ans.pointsEarned}/{q.points} điểm
                     {ans.isCorrect === true && ' · đúng'}
-                    {ans.isCorrect === false && ' · sai'}
+                    {ans.isCorrect === false &&
+                      ans.pointsEarned != null &&
+                      ans.pointsEarned > 0 &&
+                      ' · đúng một phần'}
+                    {ans.isCorrect === false &&
+                      (ans.pointsEarned == null || ans.pointsEarned <= 0) &&
+                      ' · sai'}
                   </span>
                 )}
               </p>
@@ -227,11 +234,7 @@ function ResultBody() {
               <div className="rounded-md bg-paper px-3 py-2 text-sm">
                 <p className="font-medium text-ink">{answerLabel}</p>
                 <p className="mt-1 text-slate-700">
-                  {!hasAnswer
-                    ? '(trống)'
-                    : Array.isArray(ans?.value)
-                      ? ans.value.join(', ')
-                      : String(ans?.value)}
+                  {!hasAnswer ? '(trống)' : formatAnswerValue(q.options, ans?.value ?? null)}
                 </p>
                 {ans?.feedback && (
                   <p className="mt-2 text-slate-600">Feedback: {ans.feedback}</p>
@@ -244,6 +247,12 @@ function ResultBody() {
                   {q.answer.type === 'multiple' && <p>{q.answer.value.join(', ')}</p>}
                   {q.answer.type === 'text' && <p>{q.answer.value.join(' | ')}</p>}
                   {q.answer.type === 'numeric' && <p>{q.answer.value}</p>}
+                  {q.answer.type === 'pairs' && (
+                    <p>{formatAnswerValue(q.options, q.answer.value)}</p>
+                  )}
+                  {q.answer.type === 'sequence' && (
+                    <p>{formatAnswerValue(q.options, q.answer.value)}</p>
+                  )}
                   {q.answer.type === 'manual' && <p>Chấm thủ công</p>}
                   {q.options.length > 0 && (
                     <ul className="mt-2 space-y-2 text-slate-600">

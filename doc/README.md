@@ -27,6 +27,7 @@ Bộ tài liệu feature cho hệ thống tạo bài học, ngân hàng câu h�
 12. [leaderboard.md](./features/leaderboard.md) — Bảng xếp hạng (all-time + seasonal)
 13. [analytics.md](./features/analytics.md) — Thống kê câu hỏi / đề / lớp
 14. [vocabulary-srs.md](./features/vocabulary-srs.md) — Ôn từ vựng (spaced repetition / flashcard)
+15. [interactive-lessons.md](./features/interactive-lessons.md) — Bài học: thẻ chọn, nối cặp, sắp xếp, lý thuyết từng phần
 
 ## Nguyên tắc kiến trúc
 
