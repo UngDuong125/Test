@@ -555,9 +555,16 @@ function parseFields(block: string): ParsedFields {
     }
 
     const opt = trimmed.match(OPTION_RE);
+    // While still in Q:, lowercase a./b./c. are stem list items (e.g. reorder
+    // sentences), not MC options — only uppercase A) B) C) start the choices.
     if (opt && typeNow !== 'ordering') {
+      const letter = opt[1]!;
+      if (mode === 'q' && letter === letter.toLowerCase()) {
+        result.questionLines.push(trimmed);
+        continue;
+      }
       mode = 'none';
-      const id = opt[1]!.toUpperCase();
+      const id = letter.toUpperCase();
       const { text, correct } = stripCorrectMarker(opt[2]!);
       if (!text) continue;
       result.options.push({ id, text, marked: correct });
@@ -705,6 +712,10 @@ function buildPayload(fields: ParsedFields, type: BulkSupportedType): BulkQuesti
     if (fields.options.length < 2) {
       throw new Error('Chọn thẻ cần ít nhất 2 phương án (A) B) …)');
     }
+    assertUniqueIds(
+      fields.options.map((opt) => opt.id),
+      'Phương án',
+    );
     const marked = fields.options.filter((opt) => opt.marked).map((opt) => opt.id);
     let answerIds = marked;
     if (!answerIds.length && fields.answerRaw) {
@@ -836,6 +847,10 @@ function buildPayload(fields: ParsedFields, type: BulkSupportedType): BulkQuesti
     if (fields.options.length < 2) {
       throw new Error('Trắc nghiệm cần ít nhất 2 phương án (A) B) …)');
     }
+    assertUniqueIds(
+      fields.options.map((o) => o.id),
+      'Phương án',
+    );
     const marked = fields.options.filter((o) => o.marked);
     let answerId: string | undefined;
     if (marked.length === 1) {

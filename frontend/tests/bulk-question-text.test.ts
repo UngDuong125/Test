@@ -213,4 +213,29 @@ Q: Giá trị tuyệt đối của $-3$ viết là ____
 ANSWER: $|-3|$`);
     assert.deepEqual(ok(item).payload.answer, { type: 'text', value: ['|-3|'] });
   });
+
+  it('keeps lowercase a./b./c. list lines inside Q for multiple choice', () => {
+    const [item] = parseBulkQuestionText(`TYPE: multiple_choice
+Q: Playing the piano is my favorite hobby. Choose the correct order of the next sentences.
+a. I started learning how to play the piano two years ago
+b. I often play the piano in my free time.
+c. It helps me relax and makes me happy.
+A) a-b-c*
+B) b-a-c
+C) c-a-b
+D) b-c-a
+POINTS: 1`);
+    const p = ok(item).payload;
+    assert.equal(p.type, 'multiple_choice');
+    assert.deepEqual(p.answer, { type: 'single', value: 'A' });
+    assert.deepEqual(
+      p.options.map((o) => o.id),
+      ['A', 'B', 'C', 'D'],
+    );
+    assert.deepEqual(p.options[0]!.content, [{ type: 'text', value: 'a-b-c' }]);
+    const stem = p.content.map((b) => (b.type === 'text' ? b.value : '')).join('');
+    assert.match(stem, /a\. I started learning/);
+    assert.match(stem, /b\. I often play/);
+    assert.match(stem, /c\. It helps me relax/);
+  });
 });
