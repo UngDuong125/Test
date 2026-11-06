@@ -4,6 +4,8 @@
 
 Quản lý mỗi lần học sinh làm một đề, câu trả lời, trạng thái nộp bài và kết quả.
 
+Đường đọc và ghi khi học sinh đang làm bài (một GET, đồng hồ từ `serverNow`, lưu không refetch, nộp lỗi thì ở lại trang) nằm ở [student-response.md](./student-response.md). File này giữ model, chấm điểm và quyền xem đáp án.
+
 ## 2. Attempt Model
 
 ```json
@@ -128,7 +130,7 @@ store result
 strip answer keys until attempts exhausted
 ```
 
-## 10. API gợi ý
+## 10. API
 
 ```text
 POST   /api/exam-assignments/:id/attempts
@@ -146,12 +148,15 @@ GET    /api/exams/:id/results
 
 Quy ước naming: [\_cross-cutting.md](./_cross-cutting.md).
 
+Với student là chủ attempt, `GET /api/attempts/:id` và body của `POST .../attempts` gồm snapshot đã strip đáp án, các answer đã lưu, `remainingAttempts`, `serverNow` và `expiresAt`. Đọc đó tối đa hai lượt database và không đi qua nhánh kiểm quyền teacher. `PATCH .../answers` không trả lại snapshot. Chi tiết và tiêu chí: [student-response.md](./student-response.md).
+
 ## 11. Acceptance Criteria
 
 - Student có thể bắt đầu attempt hợp lệ.
 - Không vượt quá attempt limit.
-- Có thể lưu answer trong khi làm.
-- Submit được một lần.
+- Có thể lưu answer trong khi làm; lần lưu không refetch attempt và không chặn ô nhập.
+- Submit được một lần. POST lỗi thì học sinh vẫn ở trang làm bài.
+- Mỗi assignment chỉ có một attempt `in_progress` của cùng học sinh. Bắt đầu lại trả attempt đó, không dựng snapshot mới.
 - Backend tự tính điểm.
 - Câu tự luận có thể chờ teacher chấm.
 - Kết quả lịch sử không thay đổi khi đề gốc được sửa.

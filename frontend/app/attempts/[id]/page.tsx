@@ -12,8 +12,10 @@ import {
   checkAttemptAnswer,
   getAttempt,
   saveAttemptAnswer,
+  saveAttemptAnswerKeepalive,
   submitAttempt,
 } from '@/lib/api-client';
+import { takeAttemptDetail } from '@/lib/attempt-handoff';
 import type { AnswerCheckResult, AttemptDetail, StudentAnswerValue } from '@/types/content';
 
 const SAVE_DEBOUNCE_MS = 400;
@@ -41,6 +43,7 @@ function AttemptBody() {
   const [saving, setSaving] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [now, setNow] = useState(Date.now());
+  const [clock, setClock] = useState<{ serverNow: number; receivedAt: number } | null>(null);
 
   const answersRef = useRef(answers);
   const debounceTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -59,10 +62,35 @@ function AttemptBody() {
   }, []);
 
   useEffect(() => {
+    const handed = takeAttemptDetail(attemptId);
+    if (handed) {
+      const data = handed.detail;
+      setDetail(data);
+      setClock({
+        serverNow: new Date(data.serverNow ?? new Date(handed.receivedAt).toISOString()).getTime(),
+        receivedAt: handed.receivedAt,
+      });
+      const map: Record<string, StudentAnswerValue> = {};
+      for (const a of data.answers) map[a.questionId] = a.value;
+      setAnswers(map);
+      answersRef.current = map;
+      if (data.attempt.status !== 'in_progress') {
+        router.replace(`/results/${attemptId}`);
+      }
+      return;
+    }
+
+    let cancelled = false;
     void (async () => {
       try {
+        const receivedAt = Date.now();
         const data = await getAttempt(attemptId);
+        if (cancelled) return;
         setDetail(data);
+        setClock({
+          serverNow: new Date(data.serverNow ?? new Date(receivedAt).toISOString()).getTime(),
+          receivedAt,
+        });
         const map: Record<string, StudentAnswerValue> = {};
         for (const a of data.answers) {
           map[a.questionId] = a.value;
@@ -73,15 +101,24 @@ function AttemptBody() {
           router.replace(`/results/${attemptId}`);
         }
       } catch (err) {
-        setError(err instanceof ApiError ? err.message : 'Không tải được bài làm');
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.message : 'Không tải được bài làm');
+        }
       }
     })();
+    return () => {
+      cancelled = true;
+    };
   }, [attemptId, router]);
 
   const remainingMs = useMemo(() => {
-    if (!detail?.attempt.expiresAt) return null;
-    return new Date(detail.attempt.expiresAt).getTime() - now;
-  }, [detail, now]);
+    if (!detail?.attempt.expiresAt || !clock) return null;
+    return (
+      new Date(detail.attempt.expiresAt).getTime() -
+      clock.serverNow -
+      (now - clock.receivedAt)
+    );
+  }, [detail, clock, now]);
 
   const persistAnswer = useCallback(
     async (questionId: string, value: StudentAnswerValue) => {
@@ -145,13 +182,25 @@ function AttemptBody() {
   flushAllSavesRef.current = flushAllSaves;
 
   useEffect(() => {
-    return () => {
-      for (const timer of debounceTimersRef.current.values()) {
+    function onPageHide() {
+      for (const [questionId, timer] of debounceTimersRef.current) {
         clearTimeout(timer);
+        debounceTimersRef.current.delete(questionId);
+        dirtyRef.current.add(questionId);
       }
-      debounceTimersRef.current.clear();
+      for (const questionId of dirtyRef.current) {
+        saveAttemptAnswerKeepalive(attemptId, {
+          questionId,
+          value: answersRef.current[questionId] ?? null,
+        });
+      }
+    }
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      window.removeEventListener('pagehide', onPageHide);
+      void flushAllSavesRef.current();
     };
-  }, []);
+  }, [attemptId]);
 
   const checkAnswer = useCallback(
     async (questionId: string, value: StudentAnswerValue): Promise<AnswerCheckResult> => {
@@ -214,7 +263,8 @@ function AttemptBody() {
         await submitAttempt(attemptId);
         router.replace(`/results/${attemptId}`);
       } catch {
-        router.replace(`/results/${attemptId}`);
+        setSubmitting(false);
+        setError('Hết giờ nhưng nộp chưa xong. Bấm Nộp bài để thử lại.');
       }
     })();
   }, [remainingMs, detail, attemptId, router]);

@@ -65,6 +65,53 @@ export async function findInProgressAttempt(
   return mapAttempt(data as AttemptRow);
 }
 
+const FINISHED_ATTEMPT_STATUSES = ['graded', 'needs_grading', 'submitted', 'expired'] as const;
+
+export type AttemptListSummary = {
+  id: string;
+  assignmentId: string;
+  status: AttemptStatus;
+  percentage: number | null;
+  startedAt: string;
+};
+
+/** One query for every non-cancelled attempt on the given assignments. */
+export async function listAttemptSummariesForAssignments(
+  assignmentIds: string[],
+): Promise<AttemptListSummary[]> {
+  if (assignmentIds.length === 0) return [];
+  const { data, error } = await getDb()
+    .from('attempts')
+    .select('id, assignment_id, status, percentage, started_at')
+    .in('assignment_id', assignmentIds)
+    .neq('status', 'cancelled');
+  if (error) throw error;
+  return ((data ?? []) as {
+    id: string;
+    assignment_id: string;
+    status: AttemptStatus;
+    percentage: number | null;
+    started_at: string;
+  }[]).map((row) => ({
+    id: row.id,
+    assignmentId: row.assignment_id,
+    status: row.status,
+    percentage: row.percentage,
+    startedAt: row.started_at,
+  }));
+}
+
+export function isFinishedAttemptStatus(
+  status: AttemptStatus,
+): status is (typeof FINISHED_ATTEMPT_STATUSES)[number] {
+  return (FINISHED_ATTEMPT_STATUSES as readonly string[]).includes(status);
+}
+
+export async function deleteAttempt(id: string): Promise<void> {
+  const { error } = await getDb().from('attempts').delete().eq('id', id);
+  if (error) throw error;
+}
+
 export async function countAttemptsForLimit(assignmentId: string): Promise<number> {
   const { count, error } = await getDb()
     .from('attempts')

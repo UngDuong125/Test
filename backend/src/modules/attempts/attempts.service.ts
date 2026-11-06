@@ -11,6 +11,7 @@ import { deriveAssignmentStatus } from '../assignments/assignments.service.js';
 import {
   countAttemptsForLimit,
   createAttempt,
+  deleteAttempt,
   ensureAnswerRow,
   findAttemptById,
   findExpByAttempt,
@@ -330,13 +331,8 @@ export async function startAttemptForAssignment(actor: PublicUser, assignmentId:
     throw new AppError(422, 'Assignment expired', 'ASSIGNMENT_EXPIRED');
   }
 
-  const existing = await findInProgressAttempt(assignmentId, actor.id);
-  if (existing) {
-    const refreshed = await expireIfNeeded(existing, assignment.deadline);
-    if (refreshed.status === 'in_progress') {
-      return getAttemptForUser(actor, refreshed.id);
-    }
-  }
+  const resumed = await resumeInProgress(actor, assignment.id, assignment.deadline);
+  if (resumed) return resumed;
 
   const used = await countAttemptsForLimit(assignmentId);
   if (used >= assignment.attemptLimit) {
@@ -358,37 +354,80 @@ export async function startAttemptForAssignment(actor: PublicUser, assignmentId:
     expiresAt = assignment.deadline;
   }
 
-  const attempt = await createAttempt({
-    assignmentId: assignment.id,
-    userId: actor.id,
-    examId: assignment.examId,
-    examVersion,
-    maxScore,
-    expiresAt,
-  });
-  await saveAttemptSnapshot(attempt.id, payload);
+  let attempt;
+  try {
+    attempt = await createAttempt({
+      assignmentId: assignment.id,
+      userId: actor.id,
+      examId: assignment.examId,
+      examVersion,
+      maxScore,
+      expiresAt,
+    });
+  } catch (err) {
+    if (!isUniqueViolation(err)) throw err;
+    for (let i = 0; i < 8; i += 1) {
+      const winner = await resumeInProgress(actor, assignment.id, assignment.deadline);
+      if (winner) return winner;
+      await delay(40);
+    }
+    throw new AppError(409, 'Attempt is starting', 'ATTEMPT_STARTING');
+  }
+
+  try {
+    await saveAttemptSnapshot(attempt.id, payload);
+  } catch (err) {
+    await deleteAttempt(attempt.id);
+    throw err;
+  }
   await updateAssignment(assignment.id, { status: 'in_progress' });
 
   return getAttemptForUser(actor, attempt.id);
 }
 
+function isUniqueViolation(err: unknown): boolean {
+  return Boolean(err && typeof err === 'object' && (err as { code?: unknown }).code === '23505');
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+/** Existing in-progress attempt with its snapshot already stored. Does not build another snapshot. */
+async function resumeInProgress(actor: PublicUser, assignmentId: string, deadline: string) {
+  const existing = await findInProgressAttempt(assignmentId, actor.id);
+  if (!existing) return null;
+  const refreshed = await expireIfNeeded(existing, deadline);
+  if (refreshed.status !== 'in_progress') return null;
+  const snapshot = await getAttemptSnapshot(refreshed.id);
+  if (!snapshot) return null;
+  return getAttemptForUser(actor, refreshed.id);
+}
+
 export async function getAttemptForUser(actor: PublicUser, attemptId: string) {
   let attempt = await findAttemptById(attemptId);
   if (!attempt) throw new AppError(404, 'Attempt not found', 'NOT_FOUND');
-  await assertCanAccessAttempt(actor, attempt);
+  if (actor.role === 'student') {
+    if (attempt.userId !== actor.id) {
+      throw new AppError(403, 'Forbidden', 'FORBIDDEN');
+    }
+  } else {
+    await assertCanAccessAttempt(actor, attempt);
+  }
 
-  const assignment = await findAssignmentById(attempt.assignmentId);
-  attempt = await expireIfNeeded(attempt, assignment?.deadline);
-
-  const [snapshot, answers] = await Promise.all([
+  const [snapshot, answers, assignment, used] = await Promise.all([
     getAttemptSnapshot(attemptId),
     listAttemptAnswers(attemptId),
+    findAssignmentById(attempt.assignmentId),
+    countAttemptsForLimit(attempt.assignmentId),
   ]);
+  attempt = await expireIfNeeded(attempt, assignment?.deadline);
   if (!snapshot) throw new AppError(500, 'Snapshot missing', 'SNAPSHOT_MISSING');
 
   const forTeacher = actor.role === 'admin' || actor.role === 'teacher';
   const settings = snapshot.effectiveSettings;
-  const used = assignment ? await countAttemptsForLimit(attempt.assignmentId) : 0;
   const remainingAttempts = assignment
     ? Math.max(0, assignment.attemptLimit - used)
     : 0;
@@ -410,6 +449,7 @@ export async function getAttemptForUser(actor: PublicUser, attemptId: string) {
     remainingAttempts,
     showExplanation: forTeacher || revealKeys,
     answerKeysLocked: !forTeacher && settings.showExplanation && !revealKeys && attempt.status !== 'in_progress' && attempt.status !== 'cancelled',
+    serverNow: new Date().toISOString(),
   };
 }
 

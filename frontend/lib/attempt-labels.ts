@@ -1,4 +1,17 @@
-import type { AttemptStatus } from '@/types/content';
+import type { AssignmentStatus, AttemptStatus } from '@/types/content';
+
+const ASSIGNMENT_LABELS: Record<AssignmentStatus, string> = {
+  assigned: 'Chưa mở',
+  available: 'Còn lượt',
+  in_progress: 'Đang làm',
+  completed: 'Đã xong',
+  expired: 'Hết hạn',
+  cancelled: 'Đã hủy',
+};
+
+export function assignmentStatusLabel(status: AssignmentStatus): string {
+  return ASSIGNMENT_LABELS[status] ?? status;
+}
 
 const STATUS_LABELS: Record<AttemptStatus, string> = {
   in_progress: 'Đang làm',

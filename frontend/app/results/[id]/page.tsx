@@ -31,17 +31,19 @@ function ResultBody() {
   useEffect(() => {
     void (async () => {
       try {
-        const live = await getAttempt(attemptId);
-        if (live.attempt.status === 'in_progress') {
-          setAttempt(live.attempt);
-          setSnapshot(live.snapshot);
-          setAnswers(live.answers);
-          setShowResult(isStaff);
-          setAnswerKeysLocked(false);
-          setRemainingAttempts(live.remainingAttempts ?? 0);
-          setExpEarned(null);
-          setExpSubject(null);
-          return;
+        if (isStaff) {
+          const live = await getAttempt(attemptId);
+          if (live.attempt.status === 'in_progress') {
+            setAttempt(live.attempt);
+            setSnapshot(live.snapshot);
+            setAnswers(live.answers);
+            setShowResult(true);
+            setAnswerKeysLocked(false);
+            setRemainingAttempts(live.remainingAttempts ?? 0);
+            setExpEarned(null);
+            setExpSubject(null);
+            return;
+          }
         }
 
         const data = await getAttemptResult(attemptId);

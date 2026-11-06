@@ -6,6 +6,7 @@ import type {
   PublicUser,
 } from '../../types/domain.js';
 import {
+  attachExamTitles,
   createAssignment,
   enrichAssignments,
   findActiveAssignment,
@@ -13,6 +14,10 @@ import {
   listAssignments,
   updateAssignment,
 } from '../../repositories/assignments.repository.js';
+import {
+  isFinishedAttemptStatus,
+  listAttemptSummariesForAssignments,
+} from '../../repositories/attempts.repository.js';
 import {
   findClassById,
   isStudentInTeacherClass,
@@ -284,6 +289,42 @@ export async function listStudentAssignments(
   }
 
   const result = await listAssignments({ targetId: studentId, ...filters });
+  if (actor.role === 'student') {
+    const derived = result.items.map((assignment) => ({
+      ...assignment,
+      status: deriveAssignmentStatus(assignment),
+    }));
+    const [titled, summaries] = await Promise.all([
+      attachExamTitles(derived),
+      listAttemptSummariesForAssignments(derived.map((assignment) => assignment.id)),
+    ]);
+    const byAssignment = new Map<string, typeof summaries>();
+    for (const summary of summaries) {
+      const list = byAssignment.get(summary.assignmentId);
+      if (list) list.push(summary);
+      else byAssignment.set(summary.assignmentId, [summary]);
+    }
+    return {
+      items: titled.map((assignment) => {
+        const rows = byAssignment.get(assignment.id) ?? [];
+        const inProgress = rows.find((row) => row.status === 'in_progress');
+        const finished = rows
+          .filter((row) => isFinishedAttemptStatus(row.status))
+          .sort((a, b) => b.startedAt.localeCompare(a.startedAt));
+        const latest = finished[0];
+        return {
+          ...assignment,
+          remainingAttempts: Math.max(0, assignment.attemptLimit - rows.length),
+          inProgressAttemptId: inProgress?.id ?? null,
+          latestFinishedAttempt: latest
+            ? { id: latest.id, status: latest.status, percentage: latest.percentage }
+            : null,
+        };
+      }),
+      total: result.total,
+    };
+  }
+
   const withStatus = await Promise.all(result.items.map((a) => withDerivedStatus(a)));
   return {
     items: await enrichAssignments(withStatus),

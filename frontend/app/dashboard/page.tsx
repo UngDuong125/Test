@@ -8,53 +8,36 @@ import {
   ApiError,
   getMyExp,
   getMyStats,
-  listAssignmentAttempts,
   listMyAssignments,
   listMyClasses,
   startAttempt,
 } from '@/lib/api-client';
+import { rememberAttemptDetail } from '@/lib/attempt-handoff';
+import { assignmentStatusLabel } from '@/lib/attempt-labels';
 import { displayNameOf, useSession } from '@/lib/auth';
-import type { Attempt, ClassRecord, ExamAssignment } from '@/types/content';
+import type { ClassRecord, ExamAssignment } from '@/types/content';
 import { StatsPanel } from '@/components/analytics/StatsPanel';
 import { SUBJECT_TAGS } from '@/constants/tags';
 
-function canStart(status: string): boolean {
-  return status === 'available' || status === 'in_progress';
-}
-
-function AssignmentRow({
-  assignment,
-}: {
-  assignment: ExamAssignment;
-}) {
+function AssignmentRow({ assignment }: { assignment: ExamAssignment }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [attempts, setAttempts] = useState<Attempt[]>([]);
-  const [remaining, setRemaining] = useState<number | null>(null);
-
-  useEffect(() => {
-    void (async () => {
-      try {
-        const data = await listAssignmentAttempts(assignment.id);
-        setAttempts(data.attempts);
-        setRemaining(data.remaining);
-      } catch {
-        // ignore — summary is optional
-      }
-    })();
-  }, [assignment.id]);
-
-  const inProgress = attempts.find((a) => a.status === 'in_progress');
-  const latestDone = attempts.find((a) =>
-    ['graded', 'needs_grading', 'submitted', 'expired'].includes(a.status),
-  );
+  const remaining = assignment.remainingAttempts ?? 0;
+  const inProgressId = assignment.inProgressAttemptId ?? null;
+  const latestDone = assignment.latestFinishedAttempt ?? null;
+  const canStart =
+    !inProgressId &&
+    remaining > 0 &&
+    (assignment.status === 'available' || assignment.status === 'in_progress');
 
   async function onStart() {
     setBusy(true);
     setError(null);
     try {
+      const receivedAt = Date.now();
       const detail = await startAttempt(assignment.id);
+      rememberAttemptDetail(detail, receivedAt);
       router.push(`/attempts/${detail.attempt.id}`);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Không bắt đầu được');
@@ -68,22 +51,22 @@ function AssignmentRow({
         <div>
           <p className="font-medium text-ink">{assignment.examTitle ?? 'Đề'}</p>
           <p className="text-slate-500">
-            {assignment.status} · hạn {new Date(assignment.deadline).toLocaleString()} · tối đa{' '}
-            {assignment.attemptLimit} lần
-            {remaining != null && ` · còn ${remaining} lượt`}
+            {assignmentStatusLabel(assignment.status)} · hạn{' '}
+            {new Date(assignment.deadline).toLocaleString()} · tối đa {assignment.attemptLimit} lần
+            {` · còn ${remaining} lượt`}
           </p>
           {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
         </div>
         <div className="flex flex-wrap gap-2">
-          {inProgress && (
+          {inProgressId && (
             <Link
-              href={`/attempts/${inProgress.id}`}
+              href={`/attempts/${inProgressId}`}
               className="rounded-md border border-mist px-3 py-1.5 text-sm hover:border-accent"
             >
               Tiếp tục
             </Link>
           )}
-          {!inProgress && canStart(assignment.status) && (remaining == null || remaining > 0) && (
+          {canStart && (
             <button
               type="button"
               disabled={busy}
@@ -112,7 +95,8 @@ function DashboardBody() {
   const [assignments, setAssignments] = useState<ExamAssignment[]>([]);
   const [classes, setClasses] = useState<ClassRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [classesLoaded, setClassesLoaded] = useState(false);
   const [myStats, setMyStats] = useState<{
     attemptCount: number;
     gradedCount: number;
@@ -122,35 +106,64 @@ function DashboardBody() {
   const [myExp, setMyExp] = useState<Record<string, number> | null>(null);
 
   useEffect(() => {
-    if (!user || user.role !== 'student') return;
-    void (async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const [asg, cls, stats, exp] = await Promise.all([
-          listMyAssignments(),
-          listMyClasses(),
-          getMyStats().catch(() => null),
-          getMyExp().catch(() => null),
-        ]);
-        setAssignments(asg.items);
-        setClasses(cls.items);
-        if (stats) {
-          setMyStats({
-            attemptCount: stats.attemptCount,
-            gradedCount: stats.gradedCount,
-            averagePercentage: stats.averagePercentage,
-            expTotal: stats.expTotal,
-          });
+    if (!user) return;
+    if (user.role !== 'student') {
+      setLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    void listMyAssignments()
+      .then((asg) => {
+        if (!cancelled) setAssignments(asg.items);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setError(err instanceof ApiError ? err.message : 'Không tải assignment');
         }
-        if (exp) setMyExp(exp.subjectExp);
-      } catch (err) {
-        setError(err instanceof ApiError ? err.message : 'Không tải assignment');
-      } finally {
-        setLoading(false);
-      }
-    })();
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [user]);
+
+  useEffect(() => {
+    if (!user || user.role !== 'student' || loading) return;
+    let cancelled = false;
+    void listMyClasses()
+      .then((cls) => {
+        if (!cancelled) setClasses(cls.items);
+      })
+      .catch(() => {
+        if (!cancelled) setClasses([]);
+      })
+      .finally(() => {
+        if (!cancelled) setClassesLoaded(true);
+      });
+    void getMyStats()
+      .then((stats) => {
+        if (cancelled) return;
+        setMyStats({
+          attemptCount: stats.attemptCount,
+          gradedCount: stats.gradedCount,
+          averagePercentage: stats.averagePercentage,
+          expTotal: stats.expTotal,
+        });
+      })
+      .catch(() => {});
+    void getMyExp()
+      .then((exp) => {
+        if (!cancelled) setMyExp(exp.subjectExp);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [user, loading]);
 
   if (!user) return null;
 
@@ -176,8 +189,8 @@ function DashboardBody() {
             <Link href="/questions" className="text-accentDark hover:underline">
               Câu hỏi →
             </Link>
-            <Link href="/question-banks" className="text-accentDark hover:underline">
-              Ngân hàng →
+            <Link href="/topics" className="text-accentDark hover:underline">
+              Chủ đề →
             </Link>
             <Link href="/vocabulary" className="text-accentDark hover:underline">
               Từ vựng SRS →
@@ -268,7 +281,9 @@ function DashboardBody() {
 
           <section className="rounded-xl border border-mist bg-white p-6 shadow-sm">
             <p className="font-semibold text-ink">Lớp của tôi</p>
-            {classes.length === 0 ? (
+            {!classesLoaded ? (
+              <p className="mt-2 text-sm text-slate-500">Đang tải lớp…</p>
+            ) : classes.length === 0 ? (
               <p className="mt-2 text-sm text-slate-500">Chưa thuộc lớp nào.</p>
             ) : (
               <ul className="mt-2 text-sm text-slate-700">

@@ -120,6 +120,17 @@ export async function updateAssignment(
   return mapExamAssignment(data as ExamAssignmentRow);
 }
 
+export async function attachExamTitles(items: ExamAssignment[]): Promise<ExamAssignment[]> {
+  if (items.length === 0) return [];
+  const examIds = [...new Set(items.map((a) => a.examId))];
+  const { data: exams, error } = await getDb().from('exams').select('id, title').in('id', examIds);
+  if (error) throw error;
+  const examMap = new Map(
+    ((exams ?? []) as { id: string; title: string }[]).map((e) => [e.id, e.title]),
+  );
+  return items.map((a) => ({ ...a, examTitle: examMap.get(a.examId) }));
+}
+
 export async function enrichAssignments(
   items: ExamAssignment[],
 ): Promise<ExamAssignment[]> {
