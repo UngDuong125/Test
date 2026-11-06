@@ -22,9 +22,14 @@ export function AppHeader() {
                 XH
               </Link>
               {user.role === 'student' && (
-                <Link href="/vocabulary/review" className="hover:text-accentDark">
-                  Ôn từ
-                </Link>
+                <>
+                  <Link href="/vocabulary/review" className="hover:text-accentDark">
+                    Ôn từ
+                  </Link>
+                  <Link href="/history" className="hover:text-accentDark">
+                    Lịch sử
+                  </Link>
+                </>
               )}
               {(user.role === 'admin' || user.role === 'teacher') && (
                 <>

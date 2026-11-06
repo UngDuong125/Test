@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
+import { VocabularyProgressPanel } from '@/components/vocabulary/VocabularyProgressPanel';
 import Link from 'next/link';
 import { AuthGate } from '@/components/auth/AuthGate';
 import { RichText } from '@/components/questions/QuestionPreview';
@@ -497,6 +498,12 @@ function VocabularyBanksBody() {
               </ul>
             )}
           </section>
+
+          <VocabularyProgressPanel
+            key={`${selected.id}:${assignments.length}`}
+            bankId={selected.id}
+            classes={classes}
+          />
         </>
       )}
     </div>

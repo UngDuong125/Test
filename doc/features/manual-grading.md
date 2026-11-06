@@ -95,10 +95,10 @@ UI path gợi ý: `/grading` (queue), `/grading/[attemptId]` (chi tiết).
 
 ### Chấm nhanh (cải tiến)
 
-- **Chấm theo câu:** trong một đề, mở từng câu và chấm câu đó cho cả lớp liên tiếp (câu 5 của mọi học sinh) thay vì từng bài. Chế độ xem: `/grading?examId=&groupBy=question`; API đọc `GET /api/grading/queue?examId=&questionId=` trả các câu trả lời pending của câu đó, phân trang, mỗi item chỉ gồm câu trả lời và `attemptId`.
-- **Mẫu feedback:** teacher lưu và chèn lại các câu nhận xét thường dùng (ví dụ "Thiếu đơn vị"). Mẫu thuộc về teacher, không dùng chung.
+- **Chấm theo câu (đã cài):** `/grading/by-question?examId=` (nút **Chấm theo câu** trên hàng đợi, nhóm theo đề). Trang tải các bài chờ chấm của đề (`GET /api/grading/queue?examId=` rồi `GET /api/grading/:attemptId`, 4 request song song), chấm một câu tự luận cho mọi học sinh rồi sang câu kế. Điểm giữ dạng nháp trong `localStorage` theo đề. **Chốt điểm** chỉ gửi bài đã có điểm cho mọi câu chấm tay, mỗi bài một `POST /api/attempts/:id/grade` chứa đủ các câu — vì lúc nộp, câu chấm tay được lưu `pointsEarned = 0`, nên backend không phân biệt được "chưa chấm" với "0 điểm" nếu gửi từng câu.
+- **Mẫu feedback (đã cài, lưu trên máy):** thêm/xóa mẫu và chèn vào ô nhận xét. Hiện lưu trong `localStorage` của trình duyệt; lưu trên server để dùng trên nhiều máy cần bảng mới.
 - **Chấm nhanh bằng phím:** gợi ý điểm nhanh (0, một nửa, tối đa) và phím tắt chuyển bài kế tiếp để chấm không cần dùng chuột.
-- **Lưu nháp:** lưu điểm đã nhập mà chưa hoàn tất; attempt vẫn `needs_grading` cho tới khi mọi câu pending được chấm.
+- **Lưu nháp:** ở chế độ chấm theo câu, nháp nằm ở trình duyệt (xem trên). Lưu nháp trên server cần đánh dấu "đã chấm" theo câu (đổi schema).
 - **Thông báo cho học sinh:** khi attempt chuyển `needs_grading` → `graded`, dashboard hiện chấm "Có điểm mới" (xem [dashboard.md](./dashboard.md#nhắc-việc-trên-dashboard)); email tùy chọn.
 - **Hàng đợi:** hiện số bài chờ chấm trên nav của teacher, và sắp xếp bài cũ nhất trước để không bỏ sót.
 

@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { AuthGate } from '@/components/auth/AuthGate';
 import { RichText } from '@/components/questions/QuestionPreview';
 import { MatchGame } from '@/components/vocabulary/MatchGame';
+import { ReviewChallenge } from '@/components/vocabulary/ReviewChallenge';
 import {
   ApiError,
   getMyVocabularyStats,
@@ -25,6 +26,14 @@ type VocabStats = {
 };
 
 const DUE_PAGE = 30;
+
+type ReviewMode = 'flashcard' | 'quiz' | 'typing' | 'match';
+const MODES: { id: ReviewMode; label: string }[] = [
+  { id: 'flashcard', label: 'Flashcard' },
+  { id: 'quiz', label: 'Trắc nghiệm' },
+  { id: 'typing', label: 'Gõ từ' },
+  { id: 'match', label: 'Nối từ' },
+];
 
 type DuePage = { items: DueVocabularyCard[]; dueCount: number };
 
@@ -48,7 +57,7 @@ function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<VocabStats | null>(null);
   const [sessionDone, setSessionDone] = useState(0);
-  const [mode, setMode] = useState<'flashcard' | 'match'>('flashcard');
+  const [mode, setMode] = useState<ReviewMode>('flashcard');
   const [pendingSaves, setPendingSaves] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [pullTick, setPullTick] = useState(0);
@@ -142,10 +151,11 @@ function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
     });
   }, []);
 
-  const onReview = useCallback(
+  /** Record a result for the current card (flashcard, quiz and typing all end here). */
+  const submitReview = useCallback(
     (result: 'pass' | 'fail') => {
       const card = queueRef.current[index];
-      if (!card || !flipped) return;
+      if (!card) return;
       if (reviewedIds.current.has(card.card.id)) return;
       reviewedIds.current.add(card.card.id);
 
@@ -172,11 +182,20 @@ function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
           setPendingSaves((n) => n - 1);
         });
     },
-    [applyStats, flipped, index, prefetchMore],
+    [applyStats, index, prefetchMore],
+  );
+
+  const onReview = useCallback(
+    (result: 'pass' | 'fail') => {
+      if (!flipped) return;
+      submitReview(result);
+    },
+    [flipped, submitReview],
   );
 
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
+      if (mode !== 'flashcard') return;
       const target = event.target;
       if (
         target instanceof HTMLInputElement ||
@@ -200,7 +219,7 @@ function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
     }
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [flipped, index, onReview]);
+  }, [flipped, index, mode, onReview]);
 
   const current = queue[index] ?? null;
   const remaining = Math.max(0, queue.length - index);
@@ -220,21 +239,26 @@ function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex rounded-lg bg-slate-100 p-0.5 text-xs font-medium">
-            <button
-              type="button"
-              onClick={() => setMode('flashcard')}
-              className={`rounded-md px-3 py-1.5 ${mode === 'flashcard' ? 'bg-white text-ink shadow-sm' : 'text-slate-600'}`}
-            >
-              Flashcard
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode('match')}
-              className={`rounded-md px-3 py-1.5 ${mode === 'match' ? 'bg-white text-ink shadow-sm' : 'text-slate-600'}`}
-            >
-              Nối từ
-            </button>
+          <div
+            className="flex flex-wrap rounded-lg bg-slate-100 p-0.5 text-xs font-medium"
+            role="tablist"
+            aria-label="Cách ôn"
+          >
+            {MODES.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                role="tab"
+                aria-selected={mode === m.id}
+                onClick={() => {
+                  setMode(m.id);
+                  setFlipped(false);
+                }}
+                className={`rounded-md px-3 py-1.5 ${mode === m.id ? 'bg-white text-ink shadow-sm' : 'text-slate-600'}`}
+              >
+                {m.label}
+              </button>
+            ))}
           </div>
           <Link href="/dashboard" className="text-sm text-accentDark hover:underline">
             ← Dashboard
@@ -278,6 +302,20 @@ function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
           >
             Làm mới
           </button>
+        </div>
+      ) : mode === 'quiz' || mode === 'typing' ? (
+        <div className="flex flex-1 flex-col">
+          <p className="mb-3 text-sm text-slate-500">
+            Còn {remaining} thẻ
+            {current.bankName ? ` · ${current.bankName}` : ''} · kết quả được ghi như Thuộc / Không thuộc
+          </p>
+          <ReviewChallenge
+            key={`${mode}:${current.card.id}`}
+            mode={mode}
+            card={current}
+            pool={queue}
+            onDone={submitReview}
+          />
         </div>
       ) : (
         <div className="flex flex-1 flex-col">

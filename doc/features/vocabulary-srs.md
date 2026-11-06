@@ -410,8 +410,8 @@ Giữ hai nút **Thuộc / Không thuộc** làm mặc định. Tùy chọn bậ
 
 ### 15.2. Hình thức ôn
 
-- **Trắc nghiệm nghĩa:** chọn nghĩa đúng trong 4 lựa chọn (3 nhiễu lấy từ entry khác cùng bank). Kết quả ghi review như flashcard.
-- **Gõ chính tả:** nhập `term` từ `definition`; so khớp bỏ khoảng trắng thừa, không phân biệt hoa thường. Ghi review `pass`/`fail`.
+- **Trắc nghiệm nghĩa (đã cài):** chọn nghĩa đúng trong tối đa 4 lựa chọn; phương án nhiễu lấy từ các thẻ due khác đang có trên trang (không gọi thêm API), bỏ nghĩa trùng. Ít hơn 2 nghĩa khác nhau thì đề nghị dùng Flashcard/Gõ từ. Kết quả ghi qua `POST .../review` như flashcard.
+- **Gõ chính tả (đã cài):** nhập `term` từ `definition`; so khớp bỏ định dạng `**`/`*`/`__`, dấu câu, khoảng trắng thừa, không phân biệt hoa thường, giữ dấu tiếng Việt; `term` dạng `colour / color` chấp nhận từng biến thể. Ghi review `pass`/`fail`.
 - **Nghe:** nếu entry có `mediaId` audio thì có nút phát; chế độ nghe-chọn từ.
 - **Nối từ** vẫn không ghi review (mục 2). Tùy chọn: nối đúng cả 5 thẻ thì gợi ý "Ôn tiếp bằng flashcard", không tự đổi lịch.
 
@@ -431,9 +431,10 @@ Giữ hai nút **Thuộc / Không thuộc** làm mặc định. Tùy chọn bậ
 ### 16.2. Tiến độ cho teacher
 
 ```text
-GET /api/vocabulary-assignments/:id/progress
-GET /api/classes/:id/vocabulary-progress?bankId=
+GET /api/vocabulary-banks/:id/progress?classId=   # đã cài
 ```
+
+Đã cài trong panel **Tiến độ ôn của học sinh** ở `/vocabulary` khi chọn một bộ từ. Thẻ của assignment đã hủy không tính; thẻ của assignment hết hạn/chưa mở không tính là "đến hạn". "Từ khó" cần ít nhất 3 lượt ôn. Chưa có streak (cần lưu ngày ôn).
 
 Mỗi học sinh: số thẻ `learning` / `mastered` / `suspended`, số thẻ đang due, `passCount`/`failCount`, `lastReviewedAt`, streak. Tổng hợp theo lớp: tỷ lệ học sinh đã ôn trong 7 ngày, danh sách học sinh **chưa ôn quá 3 ngày**, và các từ có tỷ lệ fail cao nhất (từ khó). Quyền: owner bank / giáo viên của lớp / admin; không lộ dữ liệu học sinh ngoài phạm vi.
 

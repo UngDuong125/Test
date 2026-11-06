@@ -672,3 +672,47 @@ export async function createReviewEvent(input: {
   if (error) throw error;
   return mapVocabularyReviewEvent(data as VocabularyReviewEventRow);
 }
+
+/** Every non-cancelled assignment of a bank (optionally one class group). */
+export async function listLiveVocabularyAssignmentsForBank(
+  bankId: string,
+  sourceClassId?: string,
+): Promise<VocabularyAssignment[]> {
+  const out: VocabularyAssignment[] = [];
+  for (let from = 0; ; from += 1000) {
+    let query = getDb()
+      .from('vocabulary_assignments')
+      .select(ASSIGNMENT_COLUMNS)
+      .eq('bank_id', bankId)
+      .neq('status', 'cancelled');
+    if (sourceClassId) query = query.eq('source_class_id', sourceClassId);
+    const { data, error } = await query.order('id').range(from, from + 999);
+    if (error) throw error;
+    const rows = (data ?? []) as VocabularyAssignmentRow[];
+    out.push(...rows.map(mapVocabularyAssignment));
+    if (rows.length < 1000) return out;
+  }
+}
+
+/** All cards of the given assignments, paged past PostgREST's 1000-row cap. */
+export async function listCardsForAssignments(
+  assignmentIds: string[],
+): Promise<StudentVocabularyCard[]> {
+  const out: StudentVocabularyCard[] = [];
+  for (let i = 0; i < assignmentIds.length; i += 200) {
+    const chunk = assignmentIds.slice(i, i + 200);
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await getDb()
+        .from('student_vocabulary_cards')
+        .select(CARD_COLUMNS)
+        .in('assignment_id', chunk)
+        .order('id')
+        .range(from, from + 999);
+      if (error) throw error;
+      const rows = (data ?? []) as StudentVocabularyCardRow[];
+      out.push(...rows.map(mapStudentVocabularyCard));
+      if (rows.length < 1000) break;
+    }
+  }
+  return out;
+}

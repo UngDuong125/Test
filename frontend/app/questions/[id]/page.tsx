@@ -10,6 +10,7 @@ import { QuestionLifecycleActions } from '@/components/questions/QuestionLifecyc
 import { QuestionPreview } from '@/components/questions/QuestionPreview';
 import { STATUS_LABELS } from '@/constants/questions';
 import { ApiError, getQuestion, getQuestionStats, updateQuestion } from '@/lib/api-client';
+import { OptionStatsChart } from '@/components/analytics/OptionStatsChart';
 import { useTopicMap } from '@/lib/topics';
 import type { Question } from '@/types/content';
 
@@ -22,13 +23,7 @@ function QuestionDetailBody() {
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
   const topicMap = useTopicMap(question?.updatedAt);
-  const [stats, setStats] = useState<{
-    usageCount: number;
-    correctRate: number | null;
-    averagePointsEarned: number | null;
-    averageTimeSeconds: number | null;
-    difficultyObserved: string | null;
-  } | null>(null);
+  const [stats, setStats] = useState<Awaited<ReturnType<typeof getQuestionStats>> | null>(null);
 
   async function load() {
     setLoading(true);
@@ -130,6 +125,14 @@ function QuestionDetailBody() {
             },
             { label: 'Độ khó quan sát', value: stats.difficultyObserved },
           ]}
+        />
+      )}
+
+      {stats?.optionStats && (
+        <OptionStatsChart
+          stats={stats.optionStats}
+          answer={question.answer}
+          multiple={question.type === 'multiple_select'}
         />
       )}
 

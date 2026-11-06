@@ -7,6 +7,7 @@ export interface QuestionAnswerStatRow {
   answeredAt: string;
   attemptStartedAt: string;
   attemptId: string;
+  value: unknown;
 }
 
 export async function listGradedAnswerStatsForQuestion(
@@ -16,7 +17,7 @@ export async function listGradedAnswerStatsForQuestion(
   let query = getDb()
     .from('attempt_answers')
     .select(
-      'is_correct, points_earned, answered_at, attempt_id, attempts!inner(status, started_at, submitted_at)',
+      'is_correct, points_earned, answered_at, attempt_id, value, attempts!inner(status, started_at, submitted_at)',
     )
     .eq('question_id', questionId)
     .eq('attempts.status', 'graded');
@@ -32,6 +33,7 @@ export async function listGradedAnswerStatsForQuestion(
       points_earned: number | string | null;
       answered_at: string;
       attempt_id: string;
+      value: unknown;
       attempts:
         | { status: string; started_at: string; submitted_at: string | null }
         | Array<{ status: string; started_at: string; submitted_at: string | null }>;
@@ -47,6 +49,7 @@ export async function listGradedAnswerStatsForQuestion(
       answeredAt: r.answered_at,
       attemptStartedAt: attempt.started_at,
       attemptId: r.attempt_id,
+      value: r.value,
     });
   }
   return rows;

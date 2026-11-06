@@ -16,7 +16,7 @@ import {
   isStudentInTeacherClass,
   listMemberUserIds,
 } from '../../repositories/classes.repository.js';
-import { findUserById } from '../../repositories/users.repository.js';
+import { findUserById, findUserSummariesByIds } from '../../repositories/users.repository.js';
 import { subjectExists } from '../../repositories/taxonomy.repository.js';
 import {
   addEntriesToBank,
@@ -45,8 +45,11 @@ import {
   updateVocabularyBank,
   updateVocabularyCard,
   updateVocabularyEntry,
+  listCardsForAssignments,
+  listLiveVocabularyAssignmentsForBank,
 } from '../../repositories/vocabulary.repository.js';
 import { initialCardSchedule, nextIntervalAfterReview } from './srs.logic.js';
+import { computeVocabularyProgress } from './progress.logic.js';
 
 function assertTeacherOrAdmin(actor: PublicUser) {
   if (actor.role !== 'admin' && actor.role !== 'teacher') {
@@ -712,4 +715,65 @@ export async function reviewCardForStudent(
   });
 
   return { card: updated };
+}
+
+/**
+ * Review progress of a bank for the teacher: per-student counters, who has not reviewed
+ * for a while, and the words students fail most. Optional class filter.
+ */
+export async function getBankProgressForUser(
+  actor: PublicUser,
+  bankId: string,
+  query: { classId?: string },
+) {
+  const bank = await getBankForUser(actor, bankId);
+  if (query.classId) {
+    const cls = await findClassById(query.classId);
+    if (!cls) throw new AppError(404, 'Class not found', 'NOT_FOUND');
+    if (actor.role === 'teacher' && cls.ownerId !== actor.id) {
+      throw new AppError(403, 'Forbidden', 'FORBIDDEN');
+    }
+  }
+
+  const assignments = await listLiveVocabularyAssignmentsForBank(bankId, query.classId);
+  const cards = await listCardsForAssignments(assignments.map((a) => a.id));
+  const now = new Date();
+  const openAssignments = new Set(
+    assignments
+      .filter(
+        (a) =>
+          a.status === 'active' &&
+          new Date(a.availableFrom) <= now &&
+          (!a.deadline || now <= new Date(a.deadline)),
+      )
+      .map((a) => a.id),
+  );
+  const summary = computeVocabularyProgress(cards, now, {
+    isDueEligible: (c) => openAssignments.has(c.assignmentId),
+  });
+
+  const userIds = summary.students.map((s) => s.userId);
+  const [users, entries] = await Promise.all([
+    findUserSummariesByIds(userIds),
+    findVocabularyEntriesByIds(summary.hardWords.map((w) => w.entryId)),
+  ]);
+  const userMap = new Map(users.map((u) => [u.id, u]));
+  const entryMap = new Map(entries.map((e) => [e.id, e]));
+
+  return {
+    bank: { id: bank.id, name: bank.name },
+    classId: query.classId ?? null,
+    studentCount: summary.studentCount,
+    activeLast7Days: summary.activeLast7Days,
+    students: summary.students.map((s) => ({
+      ...s,
+      displayName: userMap.get(s.userId)?.displayName ?? null,
+      username: userMap.get(s.userId)?.username ?? null,
+    })),
+    hardWords: summary.hardWords.map((w) => ({
+      ...w,
+      term: entryMap.get(w.entryId)?.term ?? null,
+      definition: entryMap.get(w.entryId)?.definition ?? null,
+    })),
+  };
 }

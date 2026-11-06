@@ -23,6 +23,8 @@ export const addMembersSchema = z
   .object({
     userIds: z.array(z.string().uuid()).max(100).optional(),
     emails: z.array(z.string().email()).max(100).optional(),
+    /** Also give new members the class's exams that are still open. */
+    syncAssignments: z.boolean().optional(),
   })
   .refine(
     (data) =>

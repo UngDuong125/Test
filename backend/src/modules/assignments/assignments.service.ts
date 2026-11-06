@@ -495,3 +495,64 @@ export async function deleteAssignmentForUser(actor: PublicUser, id: string) {
   // Soft-delete via cancel — keep history per doc
   return cancelAssignmentForUser(actor, id);
 }
+
+/**
+ * One template per exam among a class's assignments that a newly added student could
+ * still use: not cancelled, deadline in the future, latest assignment wins.
+ */
+export function pickOpenClassTemplates(
+  assignments: ExamAssignment[],
+  now = new Date(),
+): ExamAssignment[] {
+  const byExam = new Map<string, ExamAssignment>();
+  for (const a of assignments) {
+    if (a.status === 'cancelled') continue;
+    if (new Date(a.deadline) <= now) continue;
+    const cur = byExam.get(a.examId);
+    if (!cur || a.assignedAt > cur.assignedAt) byExam.set(a.examId, a);
+  }
+  return [...byExam.values()];
+}
+
+/**
+ * Give students who just joined a class the exams that are still open for that class,
+ * with the same window, attempt limit and settings. Existing assignments are skipped.
+ */
+export async function syncOpenClassAssignments(
+  actor: PublicUser,
+  classId: string,
+  studentIds: string[],
+): Promise<{ created: number; warnings: string[] }> {
+  assertTeacherOrAdmin(actor);
+  if (studentIds.length === 0) return { created: 0, warnings: [] };
+
+  const { items } = await listAssignments({ sourceClassId: classId, limit: 1000 });
+  const templates = pickOpenClassTemplates(items);
+  let created = 0;
+  const warnings: string[] = [];
+
+  for (const t of templates) {
+    try {
+      await assertCanAssignExam(actor, t.examId);
+    } catch (err) {
+      warnings.push(
+        `Bỏ qua đề ${t.examTitle ?? t.examId}: ${err instanceof AppError ? err.message : 'không giao được'}`,
+      );
+      continue;
+    }
+    for (const studentId of studentIds) {
+      const result = await createOneAssignment({
+        actor,
+        examId: t.examId,
+        targetId: studentId,
+        sourceClassId: classId,
+        availableFrom: t.availableFrom,
+        deadline: t.deadline,
+        attemptLimit: t.attemptLimit,
+        settings: t.settings,
+      });
+      if (result.assignment) created += 1;
+    }
+  }
+  return { created, warnings };
+}

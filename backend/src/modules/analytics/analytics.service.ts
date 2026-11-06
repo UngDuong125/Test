@@ -22,6 +22,41 @@ function assertTeacherOrAdmin(actor: PublicUser) {
   }
 }
 
+const CHOICE_TYPES = new Set(['multiple_choice', 'true_false', 'multiple_select']);
+
+/**
+ * Share of answered attempts that picked each option. For single-choice questions the
+ * rates sum to 1; for multiple_select a student can pick several, so they may exceed 1.
+ * Aggregate only — never which student picked what.
+ */
+export function computeOptionStats(
+  optionIds: string[],
+  values: unknown[],
+): { optionId: string; selectedCount: number; selectedRate: number }[] {
+  const counts = new Map(optionIds.map((id) => [id, 0]));
+  let answered = 0;
+  for (const v of values) {
+    const picked = Array.isArray(v)
+      ? v.filter((x): x is string => typeof x === 'string')
+      : typeof v === 'string' && v !== ''
+        ? [v]
+        : [];
+    if (picked.length === 0) continue;
+    answered += 1;
+    for (const id of new Set(picked)) {
+      if (counts.has(id)) counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+  }
+  return optionIds.map((optionId) => {
+    const selectedCount = counts.get(optionId) ?? 0;
+    return {
+      optionId,
+      selectedCount,
+      selectedRate: answered > 0 ? Math.round((selectedCount / answered) * 1000) / 1000 : 0,
+    };
+  });
+}
+
 export async function getQuestionStats(
   actor: PublicUser,
   questionId: string,
@@ -80,10 +115,18 @@ export async function getQuestionStats(
     // ignore cache write failures
   }
 
+  const optionStats = CHOICE_TYPES.has(question.type)
+    ? computeOptionStats(
+        [...question.options].sort((a, b) => a.order - b.order).map((o) => o.id),
+        rows.map((r) => r.value),
+      )
+    : null;
+
   return {
     questionId,
     usageCount,
     attemptCount: usageCount,
+    optionStats,
     correctRate,
     averagePointsEarned,
     averageTimeSeconds,

@@ -21,7 +21,9 @@ import {
   listAttemptsByAssignment,
   listAttemptsByExam,
   listAttemptsByUser,
+  listStudentHistoryRows,
   saveAttemptSnapshot,
+  type StudentHistoryRow,
   updateAnswerGrading,
   updateAttempt,
   upsertAttemptAnswer,
@@ -617,6 +619,15 @@ export async function listStudentResults(actor: PublicUser, studentId: string) {
     throw new AppError(403, 'Forbidden', 'FORBIDDEN');
   }
 
+  if (actor.role === 'student') {
+    // Same masking as the result page: no score where the assignment hides results.
+    const rows = await listStudentHistoryRows(studentId, 100);
+    const items = rows.map(({ attempt, showResult }) =>
+      showResult ? attempt : { ...attempt, score: null, percentage: null },
+    );
+    return { items, total: items.length };
+  }
+
   const result = await listAttemptsByUser(studentId, { limit: 100 });
   return {
     items: result.items.filter((a) => a.status !== 'in_progress' && a.status !== 'cancelled'),
@@ -664,4 +675,45 @@ export async function listAssignmentAttemptsSummary(
     attempts,
     remaining: Math.max(0, assignment.attemptLimit - used),
   };
+}
+
+export interface StudentHistoryItem {
+  attemptId: string;
+  examId: string;
+  examTitle: string | null;
+  subjectId: string | null;
+  examType: string | null;
+  status: Attempt['status'];
+  submittedAt: string | null;
+  /** Hidden (null) when the assignment did not allow showing results. */
+  score: number | null;
+  maxScore: number;
+  percentage: number | null;
+  wrongCount: number | null;
+  showResult: boolean;
+}
+
+/** Shape history rows for the student; scores stay hidden where showResult was off. */
+export function toStudentHistoryItems(rows: StudentHistoryRow[]): StudentHistoryItem[] {
+  return rows.map(({ attempt, examTitle, subjectId, examType, showResult, wrongCount }) => ({
+    attemptId: attempt.id,
+    examId: attempt.examId,
+    examTitle,
+    subjectId,
+    examType,
+    status: attempt.status,
+    submittedAt: attempt.submittedAt,
+    score: showResult ? attempt.score : null,
+    maxScore: attempt.maxScore,
+    percentage: showResult ? attempt.percentage : null,
+    wrongCount: showResult && attempt.status === 'graded' ? wrongCount : null,
+    showResult,
+  }));
+}
+
+export async function getMyHistory(actor: PublicUser, query: { subjectId?: string }) {
+  if (actor.role !== 'student') throw new AppError(403, 'Forbidden', 'FORBIDDEN');
+  const items = toStudentHistoryItems(await listStudentHistoryRows(actor.id));
+  const filtered = query.subjectId ? items.filter((i) => i.subjectId === query.subjectId) : items;
+  return { items: filtered, total: filtered.length };
 }

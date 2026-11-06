@@ -343,9 +343,14 @@ function DashboardBody() {
           <section className="rounded-xl border border-mist bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <p className="font-semibold text-ink">Bài được giao</p>
-              <Link href="/leaderboard" className="text-sm text-accentDark hover:underline">
-                Bảng xếp hạng →
-              </Link>
+              <span className="flex gap-4 text-sm">
+                <Link href="/history" className="text-accentDark hover:underline">
+                  Lịch sử & tiến bộ →
+                </Link>
+                <Link href="/leaderboard" className="text-accentDark hover:underline">
+                  Bảng xếp hạng →
+                </Link>
+              </span>
             </div>
             {loading ? (
               <p className="mt-2 text-sm text-slate-500">Đang tải…</p>

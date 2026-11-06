@@ -243,3 +243,22 @@ export async function adjustSubjectExp(
     .eq('id', userId);
   if (updateError) throw updateError;
 }
+
+/** Display fields only (no hashes, no email) for a set of users. */
+export async function findUserSummariesByIds(
+  ids: string[],
+): Promise<{ id: string; username: string | null; displayName: string | null }[]> {
+  if (ids.length === 0) return [];
+  const out: { id: string; username: string | null; displayName: string | null }[] = [];
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error } = await getDb()
+      .from('users')
+      .select('id, username, display_name')
+      .in('id', ids.slice(i, i + 200));
+    if (error) throw error;
+    for (const r of (data ?? []) as { id: string; username: string | null; display_name: string | null }[]) {
+      out.push({ id: r.id, username: r.username, displayName: r.display_name });
+    }
+  }
+  return out;
+}

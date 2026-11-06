@@ -425,3 +425,79 @@ export async function updateExpLedger(
   if (error) throw error;
   return mapExpLedger(data as ExpLedgerRow);
 }
+
+/** One finished attempt with the display fields a student history needs. */
+export interface StudentHistoryRow {
+  attempt: Attempt;
+  examTitle: string | null;
+  subjectId: string | null;
+  examType: string | null;
+  /** From the attempt snapshot, i.e. the settings in force when the student took it. */
+  showResult: boolean;
+  wrongCount: number;
+}
+
+/**
+ * Finished attempts of a student (newest first) with title/subject/settings read from
+ * each snapshot by JSON path, plus the number of wrong answers. Three queries in total.
+ */
+export async function listStudentHistoryRows(
+  userId: string,
+  limit = 200,
+): Promise<StudentHistoryRow[]> {
+  const { data, error } = await getDb()
+    .from('attempts')
+    .select(ATTEMPT_COLUMNS)
+    .eq('user_id', userId)
+    .not('status', 'in', '(in_progress,cancelled)')
+    .order('started_at', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  const attempts = ((data ?? []) as AttemptRow[]).map(mapAttempt);
+  if (attempts.length === 0) return [];
+  const ids = attempts.map((a) => a.id);
+
+  const [snapRes, wrongRes] = await Promise.all([
+    getDb()
+      .from('attempt_snapshots')
+      .select(
+        'attempt_id, title:payload->exam->>title, subject_id:payload->exam->>subjectId, exam_type:payload->exam->>type, show_result:payload->effectiveSettings->>showResult',
+      )
+      .in('attempt_id', ids),
+    getDb()
+      .from('attempt_answers')
+      .select('attempt_id')
+      .in('attempt_id', ids)
+      .eq('is_correct', false),
+  ]);
+  if (snapRes.error) throw snapRes.error;
+  if (wrongRes.error) throw wrongRes.error;
+
+  type SnapMeta = {
+    attempt_id: string;
+    title: string | null;
+    subject_id: string | null;
+    exam_type: string | null;
+    show_result: string | null;
+  };
+  const meta = new Map(
+    ((snapRes.data ?? []) as unknown as SnapMeta[]).map((m) => [m.attempt_id, m]),
+  );
+  const wrong = new Map<string, number>();
+  for (const row of (wrongRes.data ?? []) as { attempt_id: string }[]) {
+    wrong.set(row.attempt_id, (wrong.get(row.attempt_id) ?? 0) + 1);
+  }
+
+  return attempts.map((attempt) => {
+    const m = meta.get(attempt.id);
+    return {
+      attempt,
+      examTitle: m?.title ?? null,
+      subjectId: m?.subject_id ?? null,
+      examType: m?.exam_type ?? null,
+      // Missing snapshot or setting: fail closed and hide the score.
+      showResult: m?.show_result === 'true',
+      wrongCount: wrong.get(attempt.id) ?? 0,
+    };
+  });
+}

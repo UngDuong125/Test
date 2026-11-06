@@ -23,6 +23,8 @@ function ClassesBody() {
   const [members, setMembers] = useState<ClassMember[]>([]);
   const [form, setForm] = useState({ name: '', grade: 7 });
   const [emails, setEmails] = useState('');
+  const [syncAssignments, setSyncAssignments] = useState(true);
+  const [notice, setNotice] = useState<string | null>(null);
   const [analytics, setAnalytics] = useState<{
     assignedCount: number;
     completedCount: number;
@@ -86,10 +88,17 @@ function ClassesBody() {
       .map((s) => s.trim())
       .filter(Boolean);
     try {
-      const res = await addClassMembers(selectedId, { emails: list });
-      if (res.errors.length) {
-        setError(res.errors.map((x) => `${x.identifier}: ${x.message}`).join('; '));
-      }
+      setNotice(null);
+      const res = await addClassMembers(selectedId, { emails: list, syncAssignments });
+      const problems = [
+        ...res.errors.map((x) => `${x.identifier}: ${x.message}`),
+        ...(res.syncWarnings ?? []),
+      ];
+      if (problems.length) setError(problems.join('; '));
+      setNotice(
+        `Đã thêm ${res.added.length} học sinh` +
+          (syncAssignments ? ` · giao thêm ${res.syncedAssignments ?? 0} bài đang mở của lớp.` : '.'),
+      );
       setEmails('');
       await openClass(selectedId);
       await refresh();
@@ -233,6 +242,15 @@ function ClassesBody() {
                   placeholder="student1@testarchive.local"
                   required
                 />
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={syncAssignments}
+                    onChange={(e) => setSyncAssignments(e.target.checked)}
+                  />
+                  Giao luôn các đề lớp đang làm (còn hạn) cho học sinh mới
+                </label>
+                {notice && <p className="text-sm text-emerald-700">{notice}</p>}
                 <button
                   type="submit"
                   className="rounded-md border border-mist px-3 py-1.5 text-sm hover:border-accent"

@@ -80,6 +80,16 @@ studentsRouter.get('/me/results', requireRole('student'), async (req, res, next)
   }
 });
 
+studentsRouter.get('/me/history', requireRole('student'), async (req, res, next) => {
+  try {
+    const query = z.object({ subjectId: z.string().min(1).optional() }).parse(req.query);
+    const result = await attemptsService.getMyHistory(req.auth!.user, query);
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
 studentsRouter.get('/me/stats', requireRole('student'), async (req, res, next) => {
   try {
     const stats = await analyticsService.getMyStats(req.auth!.user);

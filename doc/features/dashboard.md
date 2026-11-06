@@ -137,7 +137,8 @@ Trang `/history` (link từ dashboard), dành cho `student` xem dữ liệu củ
 - Danh sách mọi attempt đã nộp: tên đề, môn, ngày, điểm/phần trăm, trạng thái chấm; phân trang, lọc theo môn.
 - Biểu đồ phần trăm theo thời gian, theo từng môn.
 - **Câu đã sai:** danh sách câu sai ở các attempt đã được phép xem đáp án (tuân quy tắc `showExplanation` + hết lượt trong [attempt-and-result.md](./attempt-and-result.md#9-security)). Chưa được phép xem đáp án thì chỉ hiện đề và đề bài, không hiện đáp án đúng.
-- API: `GET /api/students/me/results?subjectId=&page=` (một query phân trang), `GET /api/students/me/wrong-questions?subjectId=&page=`. Không nằm trong ngân sách dashboard vì không chặn lần vẽ đầu.
+- API (đã cài): `GET /api/students/me/history?subjectId=` — tối đa 200 lượt gần nhất, ba query (attempts, meta snapshot đọc bằng JSON path, đếm câu sai); phân trang và lọc "chỉ bài có câu sai" làm ở client. Tiêu đề, môn và `showResult` lấy từ **snapshot** của từng attempt; `showResult` tắt thì `score`/`percentage`/`wrongCount` là `null`. Không có endpoint câu sai riêng: hàng lịch sử ghi "Sai N câu" và mở trang kết quả, nơi quy tắc lộ đáp án vẫn áp dụng.
+- `GET /api/students/me/results` (và `/:id/results` khi người gọi là chính học sinh) giờ cũng ẩn điểm theo `showResult` của snapshot.
 - Không hiển thị dữ liệu của học sinh khác.
 
 ## 9. File liên quan

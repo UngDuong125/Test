@@ -9,11 +9,25 @@ import {
   ApiError,
   getExam,
   getExamAnalytics,
+  listClasses,
   listExamAssignments,
   listExamResults,
 } from '@/lib/api-client';
+import { downloadCsv, fileSlug, toCsv } from '@/lib/csv';
+import { EXAM_RESULTS_CSV_HEADER, examResultsCsvRows } from '@/lib/exam-results-export';
 import { attemptStatusLabel, formatAttemptScore } from '@/lib/attempt-labels';
-import type { Attempt, Exam } from '@/types/content';
+import type { Attempt, Exam, ExamAssignment } from '@/types/content';
+
+/** Every assignment of the exam (the list API pages at 100). */
+async function listAllExamAssignments(examId: string) {
+  const items: ExamAssignment[] = [];
+  for (let offset = 0; offset < 5_000; offset += 100) {
+    const page = await listExamAssignments({ examId, limit: 100, offset });
+    items.push(...page.items);
+    if (page.items.length < 100 || items.length >= page.total) break;
+  }
+  return { items };
+}
 
 function ExamResultsBody() {
   const params = useParams();
@@ -23,6 +37,8 @@ function ExamResultsBody() {
   const [items, setItems] = useState<Attempt[]>([]);
   const [total, setTotal] = useState(0);
   const [nameByUser, setNameByUser] = useState<Record<string, string>>({});
+  const [assignments, setAssignments] = useState<ExamAssignment[]>([]);
+  const [classNames, setClassNames] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<'all' | 'in_progress' | 'done'>('all');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,11 +57,12 @@ function ExamResultsBody() {
       setLoading(true);
       setError(null);
       try {
-        const [examDetail, results, asg, stats] = await Promise.all([
+        const [examDetail, results, asg, stats, cls] = await Promise.all([
           getExam(examId),
           listExamResults(examId),
-          listExamAssignments({ examId }),
+          listAllExamAssignments(examId),
           getExamAnalytics(examId).catch(() => null),
+          listClasses({ limit: 100 }).catch(() => ({ items: [] as { id: string; name: string }[] })),
         ]);
         if (cancelled) return;
         setExam(examDetail.exam);
@@ -57,6 +74,8 @@ function ExamResultsBody() {
           names[a.targetId] = a.targetUsername || a.targetEmail || a.targetId.slice(0, 8);
         }
         setNameByUser(names);
+        setAssignments(asg.items);
+        setClassNames(Object.fromEntries(cls.items.map((c) => [c.id, c.name])));
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof ApiError ? err.message : 'Không tải được kết quả');
@@ -79,6 +98,17 @@ function ExamResultsBody() {
     }
     return items;
   }, [items, filter]);
+
+  function exportCsv() {
+    const rows = examResultsCsvRows(items, assignments, {
+      nameOf: (id) => nameByUser[id] ?? id.slice(0, 8),
+      classNameOf: (id) => (id ? (classNames[id] ?? id.slice(0, 8)) : 'Giao lẻ'),
+    });
+    downloadCsv(
+      `ket-qua-${fileSlug(exam?.title ?? examId)}.csv`,
+      toCsv(EXAM_RESULTS_CSV_HEADER, rows),
+    );
+  }
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
@@ -135,6 +165,14 @@ function ExamResultsBody() {
       )}
 
       <div className="flex flex-wrap gap-2 text-sm">
+        <button
+          type="button"
+          onClick={exportCsv}
+          disabled={loading || (items.length === 0 && assignments.length === 0)}
+          className="order-last ml-auto rounded-md border border-accent px-3 py-1.5 text-accentDark hover:bg-accent hover:text-white disabled:opacity-50"
+        >
+          Xuất CSV (Excel)
+        </button>
         {(
           [
             ['all', 'Tất cả'],

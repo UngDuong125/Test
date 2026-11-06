@@ -368,11 +368,13 @@ export function listClassMembers(classId: string) {
 
 export function addClassMembers(
   classId: string,
-  body: { userIds?: string[]; emails?: string[] },
+  body: { userIds?: string[]; emails?: string[]; syncAssignments?: boolean },
 ) {
   return api<{
     added: ClassMember[];
     errors: { identifier: string; code: string; message: string }[];
+    syncedAssignments?: number;
+    syncWarnings?: string[];
   }>(`/api/classes/${classId}/members`, { method: 'POST', body });
 }
 
@@ -625,6 +627,26 @@ export function getMyExp() {
   }>('/api/students/me/exp');
 }
 
+export interface StudentHistoryItem {
+  attemptId: string;
+  examId: string;
+  examTitle: string | null;
+  subjectId: string | null;
+  examType: string | null;
+  status: string;
+  submittedAt: string | null;
+  score: number | null;
+  maxScore: number;
+  percentage: number | null;
+  wrongCount: number | null;
+  showResult: boolean;
+}
+
+export function getMyHistory(subjectId?: string) {
+  const suffix = subjectId ? `?subjectId=${encodeURIComponent(subjectId)}` : '';
+  return api<{ items: StudentHistoryItem[]; total: number }>(`/api/students/me/history${suffix}`);
+}
+
 export function getMyStats() {
   return api<{
     attemptCount: number;
@@ -645,6 +667,8 @@ export function getQuestionStats(id: string) {
     averagePointsEarned: number | null;
     averageTimeSeconds: number | null;
     difficultyObserved: string | null;
+    /** Choice questions only: share of answered attempts that picked each option. */
+    optionStats: { optionId: string; selectedCount: number; selectedRate: number }[] | null;
   }>(`/api/questions/${id}/stats`);
 }
 
@@ -825,6 +849,41 @@ export function saveAttemptAnswerKeepalive(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+}
+
+export interface VocabularyBankProgress {
+  bank: { id: string; name: string };
+  classId: string | null;
+  studentCount: number;
+  activeLast7Days: number;
+  students: Array<{
+    userId: string;
+    displayName: string | null;
+    username: string | null;
+    total: number;
+    learning: number;
+    mastered: number;
+    suspended: number;
+    due: number;
+    passCount: number;
+    failCount: number;
+    lastReviewedAt: string | null;
+    daysSinceReview: number | null;
+    inactive: boolean;
+  }>;
+  hardWords: Array<{
+    entryId: string;
+    term: string | null;
+    definition: string | null;
+    reviews: number;
+    failCount: number;
+    failRate: number;
+  }>;
+}
+
+export function getVocabularyBankProgress(bankId: string, classId?: string) {
+  const suffix = classId ? `?classId=${encodeURIComponent(classId)}` : '';
+  return api<VocabularyBankProgress>(`/api/vocabulary-banks/${bankId}/progress${suffix}`);
 }
 
 export function getMyVocabularyStats() {

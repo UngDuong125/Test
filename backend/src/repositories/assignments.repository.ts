@@ -40,6 +40,7 @@ export async function listAssignments(filters: {
   examId?: string;
   targetId?: string;
   assignedBy?: string;
+  sourceClassId?: string;
   status?: AssignmentStatus;
   limit?: number;
   offset?: number;
@@ -48,6 +49,7 @@ export async function listAssignments(filters: {
   if (filters.examId) query = query.eq('exam_id', filters.examId);
   if (filters.targetId) query = query.eq('target_id', filters.targetId);
   if (filters.assignedBy) query = query.eq('assigned_by', filters.assignedBy);
+  if (filters.sourceClassId) query = query.eq('source_class_id', filters.sourceClassId);
   if (filters.status) query = query.eq('status', filters.status);
 
   const limit = filters.limit ?? 50;

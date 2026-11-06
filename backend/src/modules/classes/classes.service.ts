@@ -7,10 +7,12 @@ import {
   findClassById,
   listClasses,
   listClassesForStudent,
+  listMemberUserIds,
   listMembers,
   removeMember,
   updateClass,
 } from '../../repositories/classes.repository.js';
+import { syncOpenClassAssignments } from '../assignments/assignments.service.js';
 import {
   findUserByEmail,
   findUserById,
@@ -95,10 +97,12 @@ export async function listMembersForUser(actor: PublicUser, classId: string) {
 export async function addMembersForUser(
   actor: PublicUser,
   classId: string,
-  input: { userIds?: string[]; emails?: string[] },
+  input: { userIds?: string[]; emails?: string[]; syncAssignments?: boolean },
 ): Promise<{
   added: ClassMember[];
   errors: { identifier: string; code: string; message: string }[];
+  syncedAssignments: number;
+  syncWarnings: string[];
 }> {
   await getManagedClass(actor, classId);
 
@@ -159,11 +163,19 @@ export async function addMembersForUser(
     throw new AppError(422, 'No valid students to add', 'NO_VALID_MEMBERS', { errors });
   }
 
+  const before = new Set(await listMemberUserIds(classId));
   await addMembers(classId, [...resolvedIds]);
   const members = await listMembers(classId);
   const added = members.filter((m) => resolvedIds.has(m.userId));
 
-  return { added, errors };
+  // Only students who were not in the class yet get the class's open exams.
+  const newcomers = [...resolvedIds].filter((id) => !before.has(id));
+  const sync =
+    input.syncAssignments && newcomers.length > 0
+      ? await syncOpenClassAssignments(actor, classId, newcomers)
+      : { created: 0, warnings: [] };
+
+  return { added, errors, syncedAssignments: sync.created, syncWarnings: sync.warnings };
 }
 
 export async function removeMemberForUser(

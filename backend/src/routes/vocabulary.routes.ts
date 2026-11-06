@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
 import * as vocabularyService from '../modules/vocabulary/vocabulary.service.js';
@@ -51,6 +52,20 @@ vocabularyBanksRouter.get('/:id', async (req, res, next) => {
   try {
     const bank = await vocabularyService.getBankForUser(req.auth!.user, req.params.id);
     res.json({ bank });
+  } catch (err) {
+    next(err);
+  }
+});
+
+vocabularyBanksRouter.get('/:id/progress', async (req, res, next) => {
+  try {
+    const query = z.object({ classId: z.string().uuid().optional() }).parse(req.query);
+    const result = await vocabularyService.getBankProgressForUser(
+      req.auth!.user,
+      req.params.id,
+      query,
+    );
+    res.json(result);
   } catch (err) {
     next(err);
   }
