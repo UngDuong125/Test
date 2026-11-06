@@ -5,6 +5,7 @@ import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ApiError, login } from '@/lib/api-client';
 import { useSession } from '@/lib/auth';
+import { StartupHint } from '@/components/ui/StartupNotice';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -74,6 +75,7 @@ export default function LoginPage() {
         >
           {submitting ? 'Đang đăng nhập…' : 'Đăng nhập'}
         </button>
+        <StartupHint active={submitting} />
       </form>
       <p className="text-center text-sm text-slate-600">
         <Link href="/forgot-password" className="text-accentDark hover:underline">

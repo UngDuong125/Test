@@ -7,6 +7,7 @@ export const leaderboardQuerySchema = z.object({
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
   subjectId: z.enum(TAG_KEYS as [string, ...string[]]).optional(),
+  classId: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(100).optional(),
 });
 

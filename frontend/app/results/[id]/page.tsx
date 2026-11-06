@@ -25,6 +25,12 @@ function ResultBody() {
   const [answerKeysLocked, setAnswerKeysLocked] = useState(false);
   const [remainingAttempts, setRemainingAttempts] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [autoSubmitted, setAutoSubmitted] = useState(false);
+
+  useEffect(() => {
+    // Set by the attempt page when the timer ran out (read here to avoid a Suspense boundary).
+    setAutoSubmitted(new URLSearchParams(window.location.search).get('auto') === '1');
+  }, []);
 
   const isStaff = user?.role === 'admin' || user?.role === 'teacher';
 
@@ -125,6 +131,15 @@ function ResultBody() {
           )}
         </p>
       </div>
+
+      {autoSubmitted && (
+        <p
+          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900"
+          role="status"
+        >
+          Đã hết giờ, bài đã được nộp tự động với các câu trả lời đã lưu.
+        </p>
+      )}
 
       <div className="rounded-xl border border-mist bg-white p-6 shadow-sm">
         {isLive && (

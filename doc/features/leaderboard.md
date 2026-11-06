@@ -168,4 +168,6 @@ Người dùng là học sinh THCS (trẻ vị thành niên), nên bảng công 
 - **Hạng của tôi:** response luôn kèm `me: { rank, totalExp }` kể cả khi ngoài top 20, để học sinh biết mình đang ở đâu.
 - Tùy chọn gamification (làm sau): streak ngày, huy hiệu mốc EXP; tính từ `exp_ledger`, không ghi trực tiếp.
 
+Trạng thái code: đã có bỏ `email` cho student, `classId`, `me`; chưa có biệt danh riêng / ẩn khỏi bảng (cần thêm cột trên `users`).
+
 Tiêu chí xong: payload cho student không có field `email`; học sinh ngoài top vẫn thấy `me`; bảng lớp chỉ chứa thành viên lớp.

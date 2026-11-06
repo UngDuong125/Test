@@ -202,6 +202,8 @@ Assign
 - **Học sinh thêm vào lớp sau khi giao:** khi `POST /api/classes/:id/members` thêm học sinh, hệ thống hỏi (hoặc theo cờ `syncAssignments`) có giao các bài đang mở của lớp (assignment `available`, còn `deadline`) cho học sinh mới hay không. Assignment tạo thêm giữ `sourceClassId` và cùng `deadline`/`settings` với nhóm. Không tạo lại cho bài đã hết hạn.
 - **Giao lớp bị bỏ qua:** response bulk phải liệt kê rõ học sinh bị bỏ qua (đã có assignment còn hiệu lực) và hiện trên UI, không chỉ nằm trong warning. Teacher có thể bấm "Giao lại" ngay trong danh sách đó.
 
+Trạng thái code: đã có PATCH (kiểm tra hạn ở tương lai, số lượt ≥ số lượt đã dùng, mở lại assignment `completed`/`expired`) với form ở `/assignments/[id]/attempts`, và `POST /api/exams/:id/extend` với nút **Gia hạn nhóm** ở tổng hợp tuần. Chưa có đồng bộ cho học sinh vào lớp sau.
+
 Tiêu chí xong: gia hạn một học sinh không đổi assignment của người khác; học sinh mới vào lớp nhận bài đang mở khi bật đồng bộ; danh sách bị bỏ qua hiện rõ.
 
 ## 11. Student Workflow

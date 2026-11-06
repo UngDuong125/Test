@@ -425,6 +425,26 @@ export function listAssignmentsForExam(examId: string) {
   return api<{ items: ExamAssignment[]; total: number }>(`/api/exams/${examId}/assignments`);
 }
 
+export function updateAssignment(
+  id: string,
+  body: { deadline?: string; attemptLimit?: number; availableFrom?: string },
+) {
+  return api<{ assignment: ExamAssignment }>(`/api/exam-assignments/${id}`, {
+    method: 'PATCH',
+    body,
+  });
+}
+
+export function extendExamAssignments(
+  examId: string,
+  body: { deadline: string; sourceClassId?: string | null },
+) {
+  return api<{
+    updated: ExamAssignment[];
+    skipped: { assignmentId: string; targetId: string; reason: string }[];
+  }>(`/api/exams/${examId}/extend`, { method: 'POST', body });
+}
+
 export function cancelAssignment(id: string) {
   return api<{ assignment: ExamAssignment }>(`/api/exam-assignments/${id}/cancel`, {
     method: 'POST',
@@ -559,6 +579,17 @@ export function gradeAttempt(
 
 // --- Leaderboard / Analytics / EXP ---
 
+export interface LeaderboardEntry {
+  rank: number;
+  userId: string;
+  displayName: string | null;
+  username: string;
+  /** Only returned to teacher/admin. */
+  email?: string;
+  totalExp: number;
+  subjectExp: Record<string, number>;
+}
+
 export function getLeaderboard(params?: Record<string, string | number | undefined>) {
   const qs = new URLSearchParams();
   if (params) {
@@ -573,15 +604,10 @@ export function getLeaderboard(params?: Record<string, string | number | undefin
     from: string | null;
     to: string | null;
     subjectId: string | null;
-    entries: Array<{
-      rank: number;
-      userId: string;
-      displayName: string | null;
-      username: string;
-      email: string;
-      totalExp: number;
-      subjectExp: Record<string, number>;
-    }>;
+    classId?: string | null;
+    entries: LeaderboardEntry[];
+    /** Present for students: own rank even outside the top N (rank null = no EXP yet). */
+    me?: { rank: number | null; totalExp: number } | null;
   }>(`/api/leaderboard${suffix}`);
 }
 

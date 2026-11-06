@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { StartupSkeleton } from '@/components/ui/StartupNotice';
 import { useSession } from '@/lib/auth';
 import type { UserRole } from '@/types/auth';
 
@@ -14,11 +15,13 @@ export function AuthGate({
   roles?: UserRole[];
   allowMustChange?: boolean;
 }) {
-  const { user, loading } = useSession();
+  const { user, loading, error, refresh } = useSession();
   const router = useRouter();
 
   useEffect(() => {
     if (loading) return;
+    // Network / server error is not "logged out": stay and offer a retry.
+    if (!user && error) return;
     if (!user) {
       router.replace('/login');
       return;
@@ -30,13 +33,14 @@ export function AuthGate({
     if (roles && !roles.includes(user.role)) {
       router.replace('/dashboard');
     }
-  }, [user, loading, router, roles, allowMustChange]);
+  }, [user, loading, error, router, roles, allowMustChange]);
 
   if (loading || !user) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center text-slate-500">
-        Đang kiểm tra phiên…
-      </div>
+      <StartupSkeleton
+        error={!loading && !user ? error : null}
+        onRetry={() => void refresh()}
+      />
     );
   }
 

@@ -126,8 +126,8 @@ Request lưu answer chỉ chứa giá trị student chọn/nhập, ví dụ:
 Không thêm request trước lần vẽ danh sách; mọi thứ dưới đây suy ra từ payload `GET /api/students/me/assignments` và dữ liệu tải sau.
 
 - **Sắp hết hạn:** hàng bài còn lượt và `deadline` trong 48 giờ hiện nhãn "Còn X giờ/ngày"; dưới 6 giờ đổi sang màu cảnh báo. Sắp xếp mặc định: đang làm, rồi sắp hết hạn, rồi còn lại.
-- **Thẻ từ đến hạn:** mục cố định "Ôn từ vựng" trên nav và dashboard hiện badge số thẻ đến hạn (`dueCount`). Badge tải sau lần vẽ đầu (cùng nhóm với stats), lỗi thì ẩn badge, không chặn gì.
-- **Bài đã chấm xong:** khi `latestFinishedAttempt` chuyển từ `needs_grading` sang `graded` kể từ lần xem trước, hàng bài hiện chấm "Có điểm mới". Trạng thái "đã xem" lưu phía client.
+- **Thẻ từ đến hạn:** mục "Ôn từ vựng" trên dashboard hiện badge số thẻ đến hạn (`due` từ `GET /api/students/me/vocabulary/stats`). Badge trên thanh nav: chưa làm (sẽ thêm một request trên mọi trang). Badge tải sau lần vẽ đầu (cùng nhóm với stats), lỗi thì ẩn badge, không chặn gì.
+- **Bài đã chấm xong:** khi `latestFinishedAttempt` chuyển từ `needs_grading` sang `graded` kể từ lần xem trước, hàng bài hiện chấm "Có điểm mới". Trạng thái "đã xem" lưu phía client (`localStorage`, khóa `testarchive:seen-grades`); chấm mất khi học sinh bấm **Xem kết quả**.
 - Thông báo email nhắc hạn/ôn từ: xem [vocabulary-srs.md](./vocabulary-srs.md#16-nhắc-ôn-và-theo-dõi-tiến-độ-ngoài-mvp-ban-đầu), mặc định tắt.
 
 ### Lịch sử và tiến bộ của học sinh

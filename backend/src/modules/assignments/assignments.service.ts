@@ -15,6 +15,7 @@ import {
   updateAssignment,
 } from '../../repositories/assignments.repository.js';
 import {
+  countAttemptsForLimit,
   isFinishedAttemptStatus,
   listAttemptSummariesForAssignments,
 } from '../../repositories/attempts.repository.js';
@@ -47,6 +48,23 @@ export function deriveAssignmentStatus(
   if (now > deadline) return 'expired';
   if (now < from) return 'assigned';
   return 'available';
+}
+
+/**
+ * Status after a teacher changes deadline or attempt limit. An assignment that was
+ * `completed` because every attempt was used becomes open again when the limit grows;
+ * an `expired` one becomes open again when the deadline moves into the future.
+ */
+export function deriveStatusAfterUpdate(
+  assignment: ExamAssignment,
+  usedAttempts: number,
+  now = new Date(),
+): AssignmentStatus {
+  const reopened =
+    assignment.status === 'completed' && usedAttempts < assignment.attemptLimit
+      ? { ...assignment, status: 'available' as AssignmentStatus }
+      : assignment;
+  return deriveAssignmentStatus(reopened, now);
 }
 
 async function withDerivedStatus(assignment: ExamAssignment): Promise<ExamAssignment> {
@@ -386,20 +404,75 @@ export async function updateAssignmentForUser(
 
   const availableFrom = patch.availableFrom ?? assignment.availableFrom;
   const deadline = patch.deadline ?? assignment.deadline;
+  const attemptLimit = patch.attemptLimit ?? assignment.attemptLimit;
   if (new Date(availableFrom) >= new Date(deadline)) {
     throw new AppError(422, 'availableFrom must be before deadline', 'INVALID_WINDOW');
+  }
+  if (patch.deadline && new Date(patch.deadline) <= new Date()) {
+    throw new AppError(422, 'New deadline must be in the future', 'DEADLINE_IN_PAST');
+  }
+
+  const used = await countAttemptsForLimit(id);
+  if (attemptLimit < used) {
+    throw new AppError(
+      422,
+      `attemptLimit cannot be below attempts already used (${used})`,
+      'ATTEMPT_LIMIT_BELOW_USED',
+    );
   }
 
   const updated = await updateAssignment(id, {
     ...patch,
-    status: deriveAssignmentStatus({
-      ...assignment,
-      availableFrom,
-      deadline,
-    }),
+    status: deriveStatusAfterUpdate(
+      { ...assignment, availableFrom, deadline, attemptLimit },
+      used,
+    ),
   });
   const [enriched] = await enrichAssignments([updated]);
   return enriched;
+}
+
+/**
+ * Move the deadline of every live assignment of an exam (optionally one class group).
+ * Each row goes through the same checks as a single PATCH; failures are reported, not thrown.
+ */
+export async function extendExamAssignments(
+  actor: PublicUser,
+  examId: string,
+  input: { deadline: string; sourceClassId?: string | null },
+) {
+  assertTeacherOrAdmin(actor);
+  const exam = await findExamById(examId);
+  if (!exam) throw new AppError(404, 'Exam not found', 'NOT_FOUND');
+  if (new Date(input.deadline) <= new Date()) {
+    throw new AppError(422, 'New deadline must be in the future', 'DEADLINE_IN_PAST');
+  }
+
+  const { items } = await listAssignments({
+    examId,
+    assignedBy: actor.role === 'teacher' ? actor.id : undefined,
+    limit: 1000,
+  });
+  const targets = items.filter(
+    (a) =>
+      a.status !== 'cancelled' &&
+      (input.sourceClassId === undefined || a.sourceClassId === input.sourceClassId),
+  );
+
+  const updated: ExamAssignment[] = [];
+  const skipped: { assignmentId: string; targetId: string; reason: string }[] = [];
+  for (const a of targets) {
+    try {
+      updated.push(await updateAssignmentForUser(actor, a.id, { deadline: input.deadline }));
+    } catch (err) {
+      skipped.push({
+        assignmentId: a.id,
+        targetId: a.targetId,
+        reason: err instanceof AppError ? err.message : 'Update failed',
+      });
+    }
+  }
+  return { updated, skipped };
 }
 
 export async function cancelAssignmentForUser(actor: PublicUser, id: string) {

@@ -58,6 +58,12 @@ export const updateAssignmentSchema = z
     }
   });
 
+export const extendAssignmentsSchema = z.object({
+  deadline: z.string().datetime(),
+  /** Omit for every group; null for students assigned individually. */
+  sourceClassId: z.string().uuid().nullable().optional(),
+});
+
 export const listAssignmentsQuerySchema = z.object({
   examId: z.string().uuid().optional(),
   targetId: z.string().uuid().optional(),

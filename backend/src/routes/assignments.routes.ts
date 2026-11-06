@@ -8,6 +8,7 @@ import {
   createAssignmentSchema,
   listAssignmentsQuerySchema,
   updateAssignmentSchema,
+  extendAssignmentsSchema,
 } from '../validators/assignment.validators.js';
 
 export const assignmentsRouter = Router();
@@ -122,6 +123,24 @@ export async function assignExamHandler(req: import('express').Request, res: imp
       body,
     );
     res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function extendExamAssignmentsHandler(
+  req: import('express').Request,
+  res: import('express').Response,
+  next: import('express').NextFunction,
+) {
+  try {
+    const body = extendAssignmentsSchema.parse(req.body);
+    const result = await assignmentsService.extendExamAssignments(
+      req.auth!.user,
+      req.params.id,
+      body,
+    );
+    res.json(result);
   } catch (err) {
     next(err);
   }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AuthGate } from '@/components/auth/AuthGate';
@@ -8,19 +8,40 @@ import {
   ApiError,
   getMyExp,
   getMyStats,
+  getMyVocabularyStats,
   listMyAssignments,
   listMyClasses,
   startAttempt,
 } from '@/lib/api-client';
 import { rememberAttemptDetail } from '@/lib/attempt-handoff';
 import { assignmentStatusLabel } from '@/lib/attempt-labels';
+import {
+  deadlineUrgency,
+  hasNewGrade,
+  nextSeenGrades,
+  readSeenGrades,
+  sortAssignmentsForStudent,
+  writeSeenGrades,
+  type SeenGrades,
+} from '@/lib/dashboard-reminders';
 import { displayNameOf, useSession } from '@/lib/auth';
 import type { ClassRecord, ExamAssignment } from '@/types/content';
 import { StatsPanel } from '@/components/analytics/StatsPanel';
 import { SUBJECT_TAGS } from '@/constants/tags';
 
-function AssignmentRow({ assignment }: { assignment: ExamAssignment }) {
+function AssignmentRow({
+  assignment,
+  now,
+  newGrade,
+  onViewResult,
+}: {
+  assignment: ExamAssignment;
+  now: number;
+  newGrade: boolean;
+  onViewResult: (attemptId: string, status: string) => void;
+}) {
   const router = useRouter();
+  const urgency = deadlineUrgency(assignment, now);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const remaining = assignment.remainingAttempts ?? 0;
@@ -49,7 +70,25 @@ function AssignmentRow({ assignment }: { assignment: ExamAssignment }) {
     <li className="py-3">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-medium text-ink">{assignment.examTitle ?? 'Đề'}</p>
+          <p className="flex flex-wrap items-center gap-2 font-medium text-ink">
+            {assignment.examTitle ?? 'Đề'}
+            {urgency && (
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                  urgency.level === 'urgent'
+                    ? 'bg-red-100 text-red-800'
+                    : 'bg-amber-100 text-amber-900'
+                }`}
+              >
+                ⏰ {urgency.label}
+              </span>
+            )}
+            {newGrade && (
+              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                ● Có điểm mới
+              </span>
+            )}
+          </p>
           <p className="text-slate-500">
             {assignmentStatusLabel(assignment.status)} · hạn{' '}
             {new Date(assignment.deadline).toLocaleString()} · tối đa {assignment.attemptLimit} lần
@@ -79,6 +118,7 @@ function AssignmentRow({ assignment }: { assignment: ExamAssignment }) {
           {latestDone && (
             <Link
               href={`/results/${latestDone.id}`}
+              onClick={() => onViewResult(latestDone.id, latestDone.status)}
               className="rounded-md border border-mist px-3 py-1.5 text-sm hover:border-accent"
             >
               Xem kết quả
@@ -104,6 +144,30 @@ function DashboardBody() {
     expTotal: number;
   } | null>(null);
   const [myExp, setMyExp] = useState<Record<string, number> | null>(null);
+  const [dueCount, setDueCount] = useState<number | null>(null);
+  const [seenGrades, setSeenGrades] = useState<SeenGrades>({});
+  const [now] = useState(() => Date.now());
+
+  const sortedAssignments = useMemo(
+    () => sortAssignmentsForStudent(assignments, now),
+    [assignments, now],
+  );
+
+  // Compare with what the student saw last time, then remember the current statuses.
+  useEffect(() => {
+    if (assignments.length === 0) return;
+    const before = readSeenGrades();
+    setSeenGrades(before);
+    writeSeenGrades(nextSeenGrades(assignments, before));
+  }, [assignments]);
+
+  const markResultSeen = useCallback((attemptId: string, status: string) => {
+    setSeenGrades((prev) => {
+      const next = { ...prev, [attemptId]: status };
+      writeSeenGrades({ ...readSeenGrades(), [attemptId]: status });
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -158,6 +222,11 @@ function DashboardBody() {
     void getMyExp()
       .then((exp) => {
         if (!cancelled) setMyExp(exp.subjectExp);
+      })
+      .catch(() => {});
+    void getMyVocabularyStats()
+      .then((stats) => {
+        if (!cancelled) setDueCount(stats.due);
       })
       .catch(() => {});
     return () => {
@@ -247,13 +316,27 @@ function DashboardBody() {
 
           <section className="rounded-xl border border-mist bg-white p-6 shadow-sm">
             <div className="flex items-center justify-between gap-3">
-              <p className="font-semibold text-ink">Ôn từ vựng</p>
+              <p className="flex items-center gap-2 font-semibold text-ink">
+                Ôn từ vựng
+                {dueCount != null && dueCount > 0 && (
+                  <span
+                    className="rounded-full bg-accent px-2 py-0.5 text-xs font-medium text-white"
+                    aria-label={`${dueCount} thẻ đến hạn`}
+                  >
+                    {dueCount}
+                  </span>
+                )}
+              </p>
               <Link href="/vocabulary/review" className="text-sm text-accentDark hover:underline">
                 Vào ôn →
               </Link>
             </div>
             <p className="mt-2 text-sm text-slate-600">
-              Flashcard theo lịch lặp lại ngắt quãng (1 → 3 → 7 → 14 → 30 ngày).
+              {dueCount != null && dueCount > 0
+                ? `Hôm nay có ${dueCount} thẻ đến hạn ôn.`
+                : dueCount === 0
+                  ? 'Không còn thẻ đến hạn hôm nay.'
+                  : 'Flashcard theo lịch lặp lại ngắt quãng (1 → 3 → 7 → 14 → 30 ngày).'}
             </p>
           </section>
 
@@ -272,8 +355,14 @@ function DashboardBody() {
               </p>
             ) : (
               <ul className="mt-3 divide-y divide-mist text-sm">
-                {assignments.map((a) => (
-                  <AssignmentRow key={a.id} assignment={a} />
+                {sortedAssignments.map((a) => (
+                  <AssignmentRow
+                    key={a.id}
+                    assignment={a}
+                    now={now}
+                    newGrade={hasNewGrade(a, seenGrades)}
+                    onViewResult={markResultSeen}
+                  />
                 ))}
               </ul>
             )}

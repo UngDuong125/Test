@@ -13,7 +13,11 @@ import {
   type StudentExpRow,
 } from '../../repositories/leaderboard.repository.js';
 import { findUserById } from '../../repositories/users.repository.js';
-import { isStudentInTeacherClass } from '../../repositories/classes.repository.js';
+import {
+  findClassById,
+  isStudentInTeacherClass,
+  listMemberUserIds,
+} from '../../repositories/classes.repository.js';
 import { adjustSubjectExp } from '../../repositories/users.repository.js';
 
 export interface LeaderboardEntry {
@@ -21,9 +25,49 @@ export interface LeaderboardEntry {
   userId: string;
   displayName: string | null;
   username: string;
-  email: string;
+  /** Only sent to teacher/admin: students on a public board must not see each other's email. */
+  email?: string;
   totalExp: number;
   subjectExp: Record<TagKey, number>;
+}
+
+export interface LeaderboardMe {
+  /** null when the student has no EXP in this window. */
+  rank: number | null;
+  totalExp: number;
+}
+
+/** Remove fields a viewer may not see. Students never receive email addresses. */
+export function presentEntriesForViewer(
+  entries: LeaderboardEntry[],
+  actor: PublicUser | null,
+): LeaderboardEntry[] {
+  if (actor && (actor.role === 'admin' || actor.role === 'teacher')) return entries;
+  return entries.map(({ email: _email, ...rest }) => rest);
+}
+
+/** The viewing student's own position, even when outside the returned top N. */
+export function findMe(ranked: LeaderboardEntry[], actor: PublicUser | null): LeaderboardMe | null {
+  if (!actor || actor.role !== 'student') return null;
+  const mine = ranked.find((e) => e.userId === actor.id);
+  return mine ? { rank: mine.rank, totalExp: mine.totalExp } : { rank: null, totalExp: 0 };
+}
+
+/** Members of a class, after checking the viewer may see that class's board. */
+async function resolveClassMemberIds(
+  actor: PublicUser | null,
+  classId: string,
+): Promise<Set<string>> {
+  if (!actor) throw new AppError(401, 'Unauthorized', 'UNAUTHORIZED');
+  const cls = await findClassById(classId);
+  if (!cls) throw new AppError(404, 'Class not found', 'NOT_FOUND');
+  const memberIds = new Set(await listMemberUserIds(classId));
+  const allowed =
+    actor.role === 'admin' ||
+    (actor.role === 'teacher' && cls.ownerId === actor.id) ||
+    (actor.role === 'student' && memberIds.has(actor.id));
+  if (!allowed) throw new AppError(403, 'Forbidden', 'FORBIDDEN');
+  return memberIds;
 }
 
 function emptySubjectExp(): Record<TagKey, number> {
@@ -137,13 +181,14 @@ export async function resolvePeriodWindow(input: {
 }
 
 export async function getLeaderboard(
-  _actor: PublicUser | null,
+  actor: PublicUser | null,
   query: {
     period?: string;
     periodId?: string;
     from?: string;
     to?: string;
     subjectId?: TagKey;
+    classId?: string;
     limit?: number;
   },
 ) {
@@ -154,9 +199,14 @@ export async function getLeaderboard(
     throw new AppError(422, 'Invalid subjectId', 'INVALID_SUBJECT');
   }
 
+  const classMembers = query.classId
+    ? await resolveClassMemberIds(actor, query.classId)
+    : null;
+  const inScope = (userId: string) => !classMembers || classMembers.has(userId);
+
   if (window.period === 'all' && !window.from) {
     const students = await listActiveStudentExpRows();
-    const raw = students.map((s) => ({
+    const raw = students.filter((s) => inScope(s.id)).map((s) => ({
       userId: s.id,
       displayName: s.displayName,
       username: s.username,
@@ -170,7 +220,9 @@ export async function getLeaderboard(
       from: null,
       to: null,
       subjectId: query.subjectId ?? null,
-      entries: ranked.slice(0, limit),
+      classId: query.classId ?? null,
+      entries: presentEntriesForViewer(ranked.slice(0, limit), actor),
+      me: findMe(ranked, actor),
     };
   }
 
@@ -193,7 +245,7 @@ export async function getLeaderboard(
   const raw = [...byUser.entries()]
     .map(([userId, subjectExp]) => {
       const s = studentMap.get(userId);
-      if (!s) return null;
+      if (!s || !inScope(userId)) return null;
       return {
         userId,
         displayName: s.displayName,
@@ -213,7 +265,9 @@ export async function getLeaderboard(
     from: window.from,
     to: window.to,
     subjectId: query.subjectId ?? null,
-    entries: ranked.slice(0, limit),
+    classId: query.classId ?? null,
+    entries: presentEntriesForViewer(ranked.slice(0, limit), actor),
+    me: findMe(ranked, actor),
   };
 }
 

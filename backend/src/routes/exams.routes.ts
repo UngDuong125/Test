@@ -6,6 +6,7 @@ import * as attemptsService from '../modules/attempts/attempts.service.js';
 import * as examsService from '../modules/exams/exams.service.js';
 import {
   assignExamHandler,
+  extendExamAssignmentsHandler,
   listExamAssignmentsHandler,
 } from './assignments.routes.js';
 import { analyticsWindowSchema } from '../validators/leaderboard.validators.js';
@@ -218,6 +219,7 @@ examsRouter.post('/:id/duplicate', async (req, res, next) => {
 
 examsRouter.post('/:id/assign', assignExamHandler);
 examsRouter.get('/:id/assignments', listExamAssignmentsHandler);
+examsRouter.post('/:id/extend', extendExamAssignmentsHandler);
 
 examsRouter.get('/:id/results', async (req, res, next) => {
   try {

@@ -3,36 +3,37 @@
 import { useEffect, useState } from 'react';
 import { AuthGate } from '@/components/auth/AuthGate';
 import { SUBJECT_TAGS } from '@/constants/tags';
-import { ApiError, getLeaderboard, listLeaderboardPeriods } from '@/lib/api-client';
+import {
+  ApiError,
+  getLeaderboard,
+  listClasses,
+  listLeaderboardPeriods,
+  listMyClasses,
+  type LeaderboardEntry,
+} from '@/lib/api-client';
+import { useSession } from '@/lib/auth';
+import type { ClassRecord } from '@/types/content';
 
 type PeriodTab = 'all' | 'week' | 'month' | 'term';
 
-function displayName(entry: {
-  displayName: string | null;
-  username: string;
-  email: string;
-}): string {
-  return entry.displayName || entry.username || entry.email.split('@')[0];
+function displayName(entry: LeaderboardEntry): string {
+  return entry.displayName?.trim() || entry.username || entry.email?.split('@')[0] || '—';
 }
 
 function LeaderboardBody() {
+  const { user } = useSession();
+  const isStudent = user?.role === 'student';
+  const [classes, setClasses] = useState<ClassRecord[]>([]);
+  const [classId, setClassId] = useState<string>('');
+  const [classesReady, setClassesReady] = useState(false);
+  const [me, setMe] = useState<{ rank: number | null; totalExp: number } | null>(null);
   const [period, setPeriod] = useState<PeriodTab>('all');
   const [periodId, setPeriodId] = useState<string>('');
   const [subjectId, setSubjectId] = useState<string>('');
   const [periods, setPeriods] = useState<
     Array<{ id: string; label: string; startsAt: string; endsAt: string }>
   >([]);
-  const [entries, setEntries] = useState<
-    Array<{
-      rank: number;
-      userId: string;
-      displayName: string | null;
-      username: string;
-      email: string;
-      totalExp: number;
-      subjectExp: Record<string, number>;
-    }>
-  >([]);
+  const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [meta, setMeta] = useState<{ from: string | null; to: string | null }>({
     from: null,
     to: null,
@@ -51,7 +52,21 @@ function LeaderboardBody() {
       });
   }, []);
 
+  // Students see their own class board first so they compare with classmates.
   useEffect(() => {
+    if (!user) return;
+    const load = user.role === 'student' ? listMyClasses() : listClasses({ limit: 100 });
+    void load
+      .then((res) => {
+        setClasses(res.items);
+        if (user.role === 'student' && res.items[0]) setClassId(res.items[0].id);
+      })
+      .catch(() => setClasses([]))
+      .finally(() => setClassesReady(true));
+  }, [user]);
+
+  useEffect(() => {
+    if (!classesReady) return;
     void (async () => {
       setLoading(true);
       setError(null);
@@ -60,19 +75,22 @@ function LeaderboardBody() {
           period,
           limit: 20,
           subjectId: subjectId || undefined,
+          classId: classId || undefined,
         };
         if (period === 'term') params.periodId = periodId || undefined;
         const data = await getLeaderboard(params);
         setEntries(data.entries);
+        setMe(data.me ?? null);
         setMeta({ from: data.from, to: data.to });
       } catch (err) {
         setError(err instanceof ApiError ? err.message : 'Không tải bảng xếp hạng');
         setEntries([]);
+        setMe(null);
       } finally {
         setLoading(false);
       }
     })();
-  }, [period, periodId, subjectId]);
+  }, [period, periodId, subjectId, classId, classesReady]);
 
   const tabs: { id: PeriodTab; label: string }[] = [
     { id: 'all', label: 'Tất cả' },
@@ -119,6 +137,22 @@ function LeaderboardBody() {
           </select>
         )}
 
+        {classes.length > 0 && (
+          <select
+            className="rounded-md border border-mist bg-white px-3 py-1.5 text-sm"
+            value={classId}
+            onChange={(e) => setClassId(e.target.value)}
+            aria-label="Phạm vi xếp hạng"
+          >
+            <option value="">Toàn trường</option>
+            {classes.map((c) => (
+              <option key={c.id} value={c.id}>
+                Lớp {c.name}
+              </option>
+            ))}
+          </select>
+        )}
+
         <select
           className="rounded-md border border-mist bg-white px-3 py-1.5 text-sm"
           value={subjectId}
@@ -136,6 +170,18 @@ function LeaderboardBody() {
       {meta.from && meta.to && (
         <p className="text-xs text-slate-500">
           Cửa sổ: {new Date(meta.from).toLocaleString()} → {new Date(meta.to).toLocaleString()}
+        </p>
+      )}
+
+      {isStudent && me && !loading && (
+        <p className="rounded-lg border border-accent/30 bg-accent/5 px-4 py-3 text-sm text-ink">
+          {me.rank != null ? (
+            <>
+              Hạng của bạn: <strong>#{me.rank}</strong> · {me.totalExp} EXP
+            </>
+          ) : (
+            'Bạn chưa có EXP trong bảng này. Làm bài được giao để bắt đầu tích EXP!'
+          )}
         </p>
       )}
 
@@ -162,11 +208,16 @@ function LeaderboardBody() {
             </thead>
             <tbody className="divide-y divide-mist">
               {entries.map((e) => (
-                <tr key={e.userId}>
+                <tr key={e.userId} className={e.userId === user?.id ? 'bg-accent/5' : undefined}>
                   <td className="px-4 py-3 font-semibold text-ink">{e.rank}</td>
                   <td className="px-4 py-3">
-                    <p className="font-medium text-ink">{displayName(e)}</p>
-                    <p className="text-xs text-slate-500">{e.email}</p>
+                    <p className="font-medium text-ink">
+                      {displayName(e)}
+                      {e.userId === user?.id && (
+                        <span className="ml-2 text-xs text-accentDark">(bạn)</span>
+                      )}
+                    </p>
+                    {e.email && <p className="text-xs text-slate-500">{e.email}</p>}
                   </td>
                   <td className="px-4 py-3 font-semibold text-accentDark">{e.totalExp}</td>
                   <td className="hidden px-4 py-3 text-xs text-slate-600 md:table-cell">

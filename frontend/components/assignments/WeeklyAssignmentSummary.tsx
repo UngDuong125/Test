@@ -6,6 +6,7 @@ import {
   ApiError,
   assignExam,
   cancelAssignment,
+  extendExamAssignments,
   listAssignmentAttempts,
   listExamAssignments,
   listExamResults,
@@ -239,6 +240,40 @@ export function WeeklyAssignmentSummary({
     onChanged?.();
   }
 
+  async function extendGroup(g: Group) {
+    const deadline = new Date(newDeadline);
+    if (Number.isNaN(deadline.getTime()) || deadline <= new Date()) {
+      setError('Deadline mới phải sau thời điểm hiện tại');
+      return;
+    }
+    const key = `extend:${g.key}`;
+    setBusyKey(key);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await extendExamAssignments(g.examId, {
+        deadline: deadline.toISOString(),
+        sourceClassId: g.sourceClassId ?? null,
+      });
+      setNotice(
+        `Đã gia hạn ${res.updated.length} assignment của "${g.examTitle}" tới ${deadline.toLocaleString()}.`,
+      );
+      if (res.skipped.length > 0) {
+        setError(
+          `Bỏ qua ${res.skipped.length}: ${res.skipped
+            .map((x) => `${x.targetId.slice(0, 8)} (${x.reason})`)
+            .join('; ')}`,
+        );
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Gia hạn thất bại');
+    } finally {
+      setBusyKey(null);
+    }
+    await load();
+    onChanged?.();
+  }
+
   const isCurrentWeek = weekOffset === 0;
   const weekLabel = `${weekStart.toLocaleDateString()} – ${new Date(weekEnd.getTime() - 1).toLocaleDateString()}`;
 
@@ -310,7 +345,7 @@ export function WeeklyAssignmentSummary({
 
           <div className="flex flex-wrap items-end gap-3 rounded-md border border-mist px-3 py-2 text-sm">
             <label className="text-sm">
-              Deadline khi giao lại
+              Deadline mới (giao lại / gia hạn)
               <input
                 type="datetime-local"
                 className="mt-1 block rounded-md border border-mist px-3 py-1.5"
@@ -375,6 +410,15 @@ export function WeeklyAssignmentSummary({
                       >
                         Kết quả
                       </Link>
+                      <button
+                        type="button"
+                        disabled={busyKey !== null}
+                        onClick={() => void extendGroup(g)}
+                        title="Dời hạn mọi assignment còn hiệu lực của đề này trong nhóm, không cần hủy và giao lại"
+                        className="rounded-md border border-mist px-3 py-1.5 hover:border-accent disabled:opacity-50"
+                      >
+                        {busyKey === `extend:${g.key}` ? 'Đang gia hạn…' : 'Gia hạn nhóm'}
+                      </button>
                       {g.reassignable.length > 0 && (
                         <button
                           type="button"
