@@ -11,7 +11,7 @@ Types TypeScript: `backend/src/types/domain.ts`. Migration: [`supabase/migration
 | Cột | Kiểu | Mô tả |
 | :--- | :--- | :--- |
 | `id` | uuid PK | |
-| `email` | citext unique | Định danh đăng nhập (khi identifier chứa `@`) |
+| `email` | citext unique, **nullable** | Định danh đăng nhập (khi identifier chứa `@`); NULL với học sinh tạo không cần email |
 | `username` | citext unique | Tên đăng nhập (3–32 ký tự `[A-Za-z0-9._-]`); đăng nhập song song với email |
 | `display_name` | text nullable | Tên hiển thị (leaderboard, UI); fallback UI → `username` rồi local-part của email |
 | `password_hash` | text | |
@@ -29,6 +29,7 @@ Types TypeScript: `backend/src/types/domain.ts`. Migration: [`supabase/migration
 | `sci_exp` | int | Projection |
 | `hist_geo_exp` | int | Projection |
 | `civic_exp` | int | Projection |
+| `leaderboard_hidden` | boolean | Học sinh tự ẩn khỏi bảng xếp hạng công khai; default false |
 | `created_at` | timestamptz | |
 | `updated_at` | timestamptz | |
 
@@ -385,3 +386,12 @@ student_vocabulary_cards → vocabulary_review_events
 ```
 
 Chi tiết nghiệp vụ: [features/_cross-cutting.md](./features/_cross-cutting.md). Migrate: [migration-legacy.md](./migration-legacy.md).
+
+## Bổ sung bởi `20261107000000_ux_improvements_schema.sql`
+
+- `attempt_answers.manual_graded_at timestamptz` — giáo viên đã chấm tay câu này (lúc nộp, câu tự luận lưu `points_earned = 0` nên cần dấu riêng).
+- `vocabulary_review_events.result` nhận thêm `hard` (giữ nguyên mốc).
+- `student_review_days (user_id, day date, reviews int, PK (user_id, day))` — một dòng mỗi ngày có ôn, dùng cho streak và mục tiêu ngày.
+- `feedback_templates (id, owner_id → users, text 1–300 ký tự, created_at, UNIQUE (owner_id, text))` — mẫu nhận xét riêng của từng giáo viên.
+- `account_audit_events (id, actor_id, target_user_id, action ∈ {temporary_password_reset, account_imported}, created_at)` — không lưu mật khẩu.
+

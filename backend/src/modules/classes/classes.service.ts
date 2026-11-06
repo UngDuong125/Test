@@ -1,4 +1,5 @@
 import { AppError } from '../../domain/errors.js';
+import { isEnrollableStatus } from '../../domain/students.js';
 import type { ClassMember, ClassRecord, PublicUser } from '../../types/domain.js';
 import {
   addMembers,
@@ -15,6 +16,7 @@ import {
 import { syncOpenClassAssignments } from '../assignments/assignments.service.js';
 import {
   findUserByEmail,
+  findUserByUsername,
   findUserById,
 } from '../../repositories/users.repository.js';
 
@@ -97,7 +99,7 @@ export async function listMembersForUser(actor: PublicUser, classId: string) {
 export async function addMembersForUser(
   actor: PublicUser,
   classId: string,
-  input: { userIds?: string[]; emails?: string[]; syncAssignments?: boolean },
+  input: { userIds?: string[]; emails?: string[]; usernames?: string[]; syncAssignments?: boolean },
 ): Promise<{
   added: ClassMember[];
   errors: { identifier: string; code: string; message: string }[];
@@ -123,11 +125,11 @@ export async function addMembersForUser(
       });
       continue;
     }
-    if (user.status !== 'active') {
+    if (!isEnrollableStatus(user.status)) {
       errors.push({
         identifier: userId,
         code: 'STUDENT_NOT_ACTIVE',
-        message: 'Student must be active',
+        message: 'Student account is locked or disabled',
       });
       continue;
     }
@@ -148,11 +150,32 @@ export async function addMembersForUser(
       });
       continue;
     }
-    if (user.status !== 'active') {
+    if (!isEnrollableStatus(user.status)) {
       errors.push({
         identifier: email,
         code: 'STUDENT_NOT_ACTIVE',
-        message: 'Student must be active',
+        message: 'Student account is locked or disabled',
+      });
+      continue;
+    }
+    resolvedIds.add(user.id);
+  }
+
+  for (const username of input.usernames ?? []) {
+    const user = await findUserByUsername(username.trim());
+    if (!user) {
+      errors.push({ identifier: username, code: 'USER_NOT_FOUND', message: 'Username not found' });
+      continue;
+    }
+    if (user.role !== 'student') {
+      errors.push({ identifier: username, code: 'NOT_STUDENT', message: 'Only students can join a class' });
+      continue;
+    }
+    if (!isEnrollableStatus(user.status)) {
+      errors.push({
+        identifier: username,
+        code: 'STUDENT_NOT_ACTIVE',
+        message: 'Student account is locked or disabled',
       });
       continue;
     }

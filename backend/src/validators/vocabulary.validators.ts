@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { gradeSchema, tagKeySchema } from './content.validators.js';
 
 export const vocabularyEntryStatusSchema = z.enum(['draft', 'published', 'archived']);
-export const vocabularyReviewResultSchema = z.enum(['pass', 'fail']);
+export const vocabularyReviewResultSchema = z.enum(['pass', 'fail', 'hard']);
 
 export const createVocabularyEntrySchema = z.object({
   subjectId: tagKeySchema,

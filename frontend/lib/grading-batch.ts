@@ -30,38 +30,70 @@ export function batchQuestions(details: AttemptDetail[]): BatchQuestion[] {
 /** draft[attemptId][questionId] = { points, feedback } as typed by the teacher. */
 export type GradeDraft = Record<string, Record<string, { points: string; feedback: string }>>;
 
-export type AttemptPayload =
-  | {
-      ready: true;
-      answers: { questionId: string; pointsEarned: number; feedback: string | null }[];
-    }
-  | { ready: false; missing: number; invalid: string | null };
+export type AttemptPayload = {
+  /** Every manual question has a score (in the draft or already graded on the server). */
+  ready: boolean;
+  /** Scores typed in the draft, valid ones only — safe to send as a partial grade. */
+  answers: { questionId: string; pointsEarned: number; feedback: string | null }[];
+  missing: number;
+  invalid: string | null;
+};
 
 /**
- * The grade request for one attempt. The API only finalises an attempt when every
- * manual question is in the same request, so an attempt is "ready" only when all of
- * its manual questions have a valid score in the draft.
+ * The grade request for one attempt. The server finalises the attempt once every manual
+ * question is graded, across requests (answers carry `manualGradedAt`), so partial saves
+ * are fine; `ready` tells the UI whether this save will finalise it.
  */
 export function attemptPayload(detail: AttemptDetail, draft: GradeDraft): AttemptPayload {
   const manual = detail.snapshot.questions.filter(requiresManual);
   const mine = draft[detail.attempt.id] ?? {};
   const answers: { questionId: string; pointsEarned: number; feedback: string | null }[] = [];
   let missing = 0;
+  let invalid: string | null = null;
+  const gradedOnServer = new Set(
+    detail.answers.filter((a) => a.manualGradedAt).map((a) => a.questionId),
+  );
   for (const q of manual) {
     const entry = mine[q.id];
     const raw = entry?.points?.trim() ?? '';
     if (raw === '') {
-      missing += 1;
+      if (!gradedOnServer.has(q.id)) missing += 1;
       continue;
     }
     const pts = Number(raw.replace(',', '.'));
     if (!Number.isFinite(pts) || pts < 0 || pts > q.points) {
-      return { ready: false, missing, invalid: `Điểm phải từ 0 đến ${q.points}` };
+      invalid = `Điểm phải từ 0 đến ${q.points}`;
+      missing += gradedOnServer.has(q.id) ? 0 : 1;
+      continue;
     }
     answers.push({ questionId: q.id, pointsEarned: pts, feedback: entry.feedback.trim() || null });
   }
-  if (missing > 0) return { ready: false, missing, invalid: null };
-  return { ready: true, answers };
+  return { ready: missing === 0 && invalid == null, answers, missing, invalid };
+}
+
+/** Scores already graded on the server, as draft cells (so the teacher sees them). */
+export function draftFromServer(details: AttemptDetail[]): GradeDraft {
+  const out: GradeDraft = {};
+  for (const d of details) {
+    const manual = new Set(d.snapshot.questions.filter(requiresManual).map((q) => q.id));
+    for (const a of d.answers) {
+      if (!manual.has(a.questionId) || !a.manualGradedAt) continue;
+      out[d.attempt.id] = {
+        ...out[d.attempt.id],
+        [a.questionId]: { points: String(a.pointsEarned ?? 0), feedback: a.feedback ?? '' },
+      };
+    }
+  }
+  return out;
+}
+
+/** Local draft wins over server values cell by cell (unsaved edits are kept). */
+export function mergeDrafts(server: GradeDraft, local: GradeDraft): GradeDraft {
+  const out: GradeDraft = { ...server };
+  for (const [attemptId, cells] of Object.entries(local)) {
+    out[attemptId] = { ...out[attemptId], ...cells };
+  }
+  return out;
 }
 
 export function answerText(value: StudentAnswerValue | undefined): string {
@@ -71,6 +103,7 @@ export function answerText(value: StudentAnswerValue | undefined): string {
   return JSON.stringify(value);
 }
 
+/** Pre-server templates kept in the browser; moved to the server once, then cleared. */
 const TEMPLATES_KEY = 'testarchive:feedback-templates';
 
 export function readFeedbackTemplates(): string[] {
@@ -82,10 +115,10 @@ export function readFeedbackTemplates(): string[] {
   }
 }
 
-export function writeFeedbackTemplates(templates: string[]): void {
+export function clearLocalFeedbackTemplates(): void {
   try {
-    window.localStorage.setItem(TEMPLATES_KEY, JSON.stringify(templates.slice(0, 30)));
+    window.localStorage.removeItem(TEMPLATES_KEY);
   } catch {
-    // Storage blocked: templates last for this page only.
+    // ignore
   }
 }

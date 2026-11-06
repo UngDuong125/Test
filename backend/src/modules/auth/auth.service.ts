@@ -138,7 +138,7 @@ export async function changePassword(
 export async function forgotPassword(email: string): Promise<{ ok: true }> {
   const user = await findUserByEmail(email);
   // Always return ok to avoid email enumeration
-  if (!user || user.status === 'disabled') return { ok: true };
+  if (!user || user.status === 'disabled' || !user.email) return { ok: true };
 
   await invalidateUnusedTokens(user.id, 'password_reset');
   const rawToken = await createAuthToken(user.id, 'password_reset', hoursFromNow(env.RESET_TOKEN_TTL_HOURS));
@@ -206,7 +206,7 @@ export async function inviteUser(input: {
   await createAuthToken(user.id, 'invite', hoursFromNow(env.INVITE_TOKEN_TTL_HOURS));
 
   const { delivered } = await sendInviteEmail({
-    to: user.email,
+    to: input.email,
     username: user.username,
     temporaryPassword,
     loginUrl: `${env.FRONTEND_ORIGIN}/login`,
@@ -221,6 +221,14 @@ export async function resendInvite(userId: string): Promise<{ emailDelivered: bo
   if (user.status !== 'invited' && !user.mustChangePassword) {
     throw new AppError(422, 'User is already activated', 'ALREADY_ACTIVE');
   }
+  if (!user.email) {
+    throw new AppError(
+      422,
+      'Account has no email; issue a new temporary password instead',
+      'NO_EMAIL',
+    );
+  }
+  const email = user.email;
 
   const temporaryPassword = generateTemporaryPassword();
   const passwordHash = await hashPassword(temporaryPassword);
@@ -233,7 +241,7 @@ export async function resendInvite(userId: string): Promise<{ emailDelivered: bo
   await destroyAllUserSessions(user.id);
 
   const { delivered } = await sendInviteEmail({
-    to: user.email,
+    to: email,
     username: user.username,
     temporaryPassword,
     loginUrl: `${env.FRONTEND_ORIGIN}/login`,

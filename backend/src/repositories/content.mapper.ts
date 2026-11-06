@@ -169,6 +169,7 @@ export interface AttemptAnswerRow {
   points_earned: number | string | null;
   feedback: string | null;
   answered_at: string;
+  manual_graded_at?: string | null;
 }
 
 export interface AttemptSnapshotRow {
@@ -355,6 +356,7 @@ export function mapAttemptAnswer(row: AttemptAnswerRow): AttemptAnswer {
     pointsEarned: row.points_earned == null ? null : Number(row.points_earned),
     feedback: row.feedback,
     answeredAt: row.answered_at,
+    manualGradedAt: row.manual_graded_at ?? null,
   };
 }
 

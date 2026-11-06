@@ -716,3 +716,34 @@ export async function listCardsForAssignments(
   }
   return out;
 }
+
+/** Count one review on the student's local day (read-then-upsert; a lost race only undercounts). */
+export async function recordReviewDay(userId: string, day: string): Promise<void> {
+  const { data, error } = await getDb()
+    .from('student_review_days')
+    .select('reviews')
+    .eq('user_id', userId)
+    .eq('day', day)
+    .maybeSingle();
+  if (error) throw error;
+  const reviews = ((data as { reviews: number } | null)?.reviews ?? 0) + 1;
+  const { error: upsertError } = await getDb()
+    .from('student_review_days')
+    .upsert({ user_id: userId, day, reviews }, { onConflict: 'user_id,day' });
+  if (upsertError) throw upsertError;
+}
+
+/** The student's most recent review days (newest first), enough for a streak. */
+export async function listRecentReviewDays(
+  userId: string,
+  limit = 400,
+): Promise<{ day: string; reviews: number }[]> {
+  const { data, error } = await getDb()
+    .from('student_review_days')
+    .select('day, reviews')
+    .eq('user_id', userId)
+    .order('day', { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as { day: string; reviews: number }[];
+}

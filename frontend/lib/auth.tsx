@@ -101,5 +101,5 @@ export function useSession(): SessionValue {
 }
 
 export function displayNameOf(user: PublicUser): string {
-  return user.displayName?.trim() || user.username || user.email.split('@')[0] || user.email;
+  return user.displayName?.trim() || user.username || user.email?.split('@')[0] || '—';
 }

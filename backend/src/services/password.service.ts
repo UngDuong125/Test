@@ -1,3 +1,4 @@
+import { randomInt } from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { env } from '../config/env.js';
 import { AppError } from '../domain/errors.js';
@@ -17,6 +18,19 @@ export async function verifyPassword(plain: string, hash: string): Promise<boole
 
 export function generateTemporaryPassword(): string {
   return FIXED_TEMPORARY_PASSWORD;
+}
+
+const READABLE_LETTERS = 'abcdefghjkmnpqrstuvwxyz'; // no i, l, o
+const READABLE_DIGITS = '23456789'; // no 0, 1
+
+/**
+ * Random temporary password that is easy to copy from a printed slip, e.g. "kbtm-4827".
+ * Used for imported accounts and teacher/admin resets; shown once, never stored.
+ */
+export function generateRandomTemporaryPassword(): string {
+  const pick = (alphabet: string, n: number) =>
+    Array.from({ length: n }, () => alphabet[randomInt(alphabet.length)]).join('');
+  return `${pick(READABLE_LETTERS, 4)}-${pick(READABLE_DIGITS, 4)}`;
 }
 
 export function assertPasswordPolicy(password: string): void {

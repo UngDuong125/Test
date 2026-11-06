@@ -6,17 +6,23 @@ import { AuthGate } from '@/components/auth/AuthGate';
 import { ContentBlocksView } from '@/components/questions/QuestionPreview';
 import {
   ApiError,
+  addFeedbackTemplate,
+  deleteFeedbackTemplate,
   getGradingDetail,
   gradeAttempt,
   listExamAssignments,
+  listFeedbackTemplates,
   listGradingQueue,
+  type FeedbackTemplate,
 } from '@/lib/api-client';
 import {
   answerText,
   attemptPayload,
   batchQuestions,
+  clearLocalFeedbackTemplates,
+  draftFromServer,
+  mergeDrafts,
   readFeedbackTemplates,
-  writeFeedbackTemplates,
   type GradeDraft,
 } from '@/lib/grading-batch';
 import type { AttemptDetail } from '@/types/content';
@@ -51,14 +57,24 @@ function ByQuestionBody() {
   const [notice, setNotice] = useState<string | null>(null);
   const [activeQ, setActiveQ] = useState(0);
   const [draft, setDraft] = useState<GradeDraft>({});
-  const [templates, setTemplates] = useState<string[]>([]);
+  const [templates, setTemplates] = useState<FeedbackTemplate[]>([]);
   const [newTemplate, setNewTemplate] = useState('');
   const [saving, setSaving] = useState(false);
   const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
   useEffect(() => {
     setExamId(new URLSearchParams(window.location.search).get('examId'));
-    setTemplates(readFeedbackTemplates());
+    void (async () => {
+      try {
+        // One-time move of templates saved in this browser before they lived on the server.
+        const local = readFeedbackTemplates();
+        for (const text of local) await addFeedbackTemplate(text).catch(() => undefined);
+        if (local.length) clearLocalFeedbackTemplates();
+        setTemplates((await listFeedbackTemplates()).items);
+      } catch {
+        setTemplates([]);
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -84,12 +100,14 @@ function ByQuestionBody() {
             asg.items.map((a) => [a.targetId, a.targetUsername || a.targetEmail || a.targetId.slice(0, 8)]),
           ),
         );
+        let local: GradeDraft = {};
         try {
           const saved = window.localStorage.getItem(draftKey(examId));
-          if (saved) setDraft(JSON.parse(saved) as GradeDraft);
+          if (saved) local = JSON.parse(saved) as GradeDraft;
         } catch {
-          // Draft unavailable; start empty.
+          // Draft unavailable; start from the server.
         }
+        setDraft(mergeDrafts(draftFromServer(loaded), local));
         setDraftLoaded(true);
       } catch (err) {
         if (!cancelled) setError(err instanceof ApiError ? err.message : 'Không tải được bài chờ chấm');
@@ -140,6 +158,7 @@ function ByQuestionBody() {
     [details, draft],
   );
   const readyCount = payloads.filter((p) => p.payload.ready).length;
+  const sendCount = payloads.filter((p) => p.payload.answers.length > 0).length;
   const gradedForQuestion = question
     ? rows.filter((d) => (draft[d.attempt.id]?.[question.id]?.points ?? '').trim() !== '').length
     : 0;
@@ -153,35 +172,51 @@ function ByQuestionBody() {
     }
   }
 
-  function addTemplate() {
+  async function addTemplate() {
     const t = newTemplate.trim();
-    if (!t || templates.includes(t)) return;
-    const next = [...templates, t];
-    setTemplates(next);
-    writeFeedbackTemplates(next);
-    setNewTemplate('');
+    if (!t || templates.some((x) => x.text === t)) return;
+    try {
+      const { template } = await addFeedbackTemplate(t);
+      setTemplates((prev) => [...prev, template]);
+      setNewTemplate('');
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Không lưu được mẫu');
+    }
   }
 
-  function removeTemplate(t: string) {
-    const next = templates.filter((x) => x !== t);
-    setTemplates(next);
-    writeFeedbackTemplates(next);
+  async function removeTemplate(t: FeedbackTemplate) {
+    try {
+      await deleteFeedbackTemplate(t.id);
+      setTemplates((prev) => prev.filter((x) => x.id !== t.id));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Không xóa được mẫu');
+    }
   }
 
-  async function submitReady() {
-    const ready = payloads.filter((p) => p.payload.ready);
-    if (ready.length === 0) return;
-    if (!window.confirm(`Chốt điểm cho ${ready.length} bài đã chấm đủ mọi câu tự luận?`)) return;
+  /** Save every typed score; attempts with all manual questions graded are finalised. */
+  async function saveAll() {
+    const toSend = payloads.filter((p) => p.payload.answers.length > 0);
+    if (toSend.length === 0) return;
+    const finishing = toSend.filter((p) => p.payload.ready).length;
+    if (
+      finishing > 0 &&
+      !window.confirm(
+        `Lưu điểm ${toSend.length} bài, trong đó chốt ${finishing} bài đã chấm đủ mọi câu tự luận?`,
+      )
+    ) {
+      return;
+    }
     setSaving(true);
     setError(null);
     setNotice(null);
     const failures: string[] = [];
     const done = new Set<string>();
-    for (const { detail, payload } of ready) {
-      if (!payload.ready) continue;
+    let partial = 0;
+    for (const { detail, payload } of toSend) {
       try {
-        await gradeAttempt(detail.attempt.id, { answers: payload.answers });
-        done.add(detail.attempt.id);
+        const res = await gradeAttempt(detail.attempt.id, { answers: payload.answers });
+        if (res.status === 'graded') done.add(detail.attempt.id);
+        else partial += 1;
       } catch (err) {
         failures.push(
           `${names[detail.attempt.userId] ?? detail.attempt.userId.slice(0, 8)}: ${
@@ -197,7 +232,15 @@ function ByQuestionBody() {
       return next;
     });
     setSaving(false);
-    setNotice(`Đã chốt điểm ${done.size} bài. Học sinh sẽ thấy điểm mới trên dashboard.`);
+    setNotice(
+      `Đã chốt ${done.size} bài${partial ? `, lưu tạm ${partial} bài còn câu chưa chấm` : ''}.` +
+        (done.size ? ' Học sinh sẽ thấy điểm mới trên dashboard.' : ''),
+    );
+    try {
+      window.localStorage.removeItem(draftKey(examId ?? ''));
+    } catch {
+      // ignore
+    }
     if (failures.length) setError(failures.join('; '));
   }
 
@@ -223,7 +266,7 @@ function ByQuestionBody() {
         </p>
         <h1 className="font-display text-2xl font-bold text-ink">{title}</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Chấm một câu cho cả lớp rồi sang câu tiếp. Điểm được giữ dạng nháp trên máy này cho tới khi bạn chốt.
+          Chấm một câu cho cả lớp rồi sang câu tiếp. Bấm Lưu bất cứ lúc nào: bài chấm đủ mọi câu tự luận được chốt, bài còn thiếu được lưu tạm trên server.
         </p>
       </div>
 
@@ -275,12 +318,12 @@ function ByQuestionBody() {
                     <span className="text-xs text-slate-500">Chưa có mẫu. Thêm câu nhận xét hay dùng ở dưới.</span>
                   )}
                   {templates.map((t) => (
-                    <span key={t} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs">
-                      {t}
+                    <span key={t.id} className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs">
+                      {t.text}
                       <button
                         type="button"
-                        onClick={() => removeTemplate(t)}
-                        aria-label={`Xóa mẫu ${t}`}
+                        onClick={() => void removeTemplate(t)}
+                        aria-label={`Xóa mẫu ${t.text}`}
                         className="text-slate-400 hover:text-red-600"
                       >
                         ✕
@@ -295,7 +338,7 @@ function ByQuestionBody() {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        addTemplate();
+                        void addTemplate();
                       }
                     }}
                     placeholder="Ví dụ: Thiếu đơn vị"
@@ -303,7 +346,7 @@ function ByQuestionBody() {
                   />
                   <button
                     type="button"
-                    onClick={addTemplate}
+                    onClick={() => void addTemplate()}
                     className="rounded-md border border-mist px-3 py-1.5 text-sm hover:border-accent"
                   >
                     Thêm mẫu
@@ -373,16 +416,16 @@ function ByQuestionBody() {
                         <div className="flex flex-wrap gap-1">
                           {templates.map((t) => (
                             <button
-                              key={t}
+                              key={t.id}
                               type="button"
                               onClick={() =>
                                 setCell(d.attempt.id, question.id, {
-                                  feedback: cell.feedback ? `${cell.feedback} ${t}` : t,
+                                  feedback: cell.feedback ? `${cell.feedback} ${t.text}` : t.text,
                                 })
                               }
                               className="rounded-full border border-mist px-2 py-0.5 text-xs hover:border-accent"
                             >
-                              + {t}
+                              + {t.text}
                             </button>
                           ))}
                         </div>
@@ -411,11 +454,11 @@ function ByQuestionBody() {
                 )}
                 <button
                   type="button"
-                  disabled={saving || readyCount === 0}
-                  onClick={() => void submitReady()}
+                  disabled={saving || sendCount === 0}
+                  onClick={() => void saveAll()}
                   className="min-h-[44px] rounded-md bg-accent px-4 font-medium text-white hover:bg-accentDark disabled:opacity-50"
                 >
-                  {saving ? 'Đang chốt…' : `Chốt điểm ${readyCount} bài`}
+                  {saving ? 'Đang lưu…' : `Lưu điểm (chốt ${readyCount} bài)`}
                 </button>
               </div>
             </div>

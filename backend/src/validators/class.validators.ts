@@ -23,11 +23,12 @@ export const addMembersSchema = z
   .object({
     userIds: z.array(z.string().uuid()).max(100).optional(),
     emails: z.array(z.string().email()).max(100).optional(),
+    usernames: z.array(z.string().min(1).max(64)).max(100).optional(),
     /** Also give new members the class's exams that are still open. */
     syncAssignments: z.boolean().optional(),
   })
   .refine(
     (data) =>
-      (data.userIds && data.userIds.length > 0) || (data.emails && data.emails.length > 0),
-    { message: 'Provide userIds or emails' },
+      (data.userIds?.length ?? 0) + (data.emails?.length ?? 0) + (data.usernames?.length ?? 0) > 0,
+    { message: 'Provide userIds, emails or usernames' },
   );

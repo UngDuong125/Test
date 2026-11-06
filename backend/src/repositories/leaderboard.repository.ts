@@ -11,7 +11,9 @@ export interface LeaderboardPeriod {
 
 export interface StudentExpRow {
   id: string;
-  email: string;
+  email: string | null;
+  /** Student chose not to appear on the public board. */
+  leaderboardHidden: boolean;
   username: string;
   displayName: string | null;
   updatedAt: string;
@@ -30,7 +32,7 @@ export interface LedgerAggRow {
 }
 
 const STUDENT_EXP_COLUMNS =
-  'id, email, username, display_name, updated_at, math_exp, lang_exp, flang_exp, sci_exp, hist_geo_exp, civic_exp';
+  'id, email, username, display_name, leaderboard_hidden, updated_at, math_exp, lang_exp, flang_exp, sci_exp, hist_geo_exp, civic_exp';
 
 export async function listLeaderboardPeriods(): Promise<LeaderboardPeriod[]> {
   const { data, error } = await getDb()
@@ -69,7 +71,8 @@ export async function listActiveStudentExpRows(): Promise<StudentExpRow[]> {
   if (error) throw error;
   return ((data ?? []) as Record<string, unknown>[]).map((r) => ({
     id: String(r.id),
-    email: String(r.email),
+    email: (r.email as string | null) ?? null,
+    leaderboardHidden: Boolean(r.leaderboard_hidden),
     username: String(r.username),
     displayName: (r.display_name as string | null) ?? null,
     updatedAt: String(r.updated_at),
@@ -93,7 +96,8 @@ export async function findStudentExpRow(userId: string): Promise<StudentExpRow |
   const r = data as Record<string, unknown>;
   return {
     id: String(r.id),
-    email: String(r.email),
+    email: (r.email as string | null) ?? null,
+    leaderboardHidden: Boolean(r.leaderboard_hidden),
     username: String(r.username),
     displayName: (r.display_name as string | null) ?? null,
     updatedAt: String(r.updated_at),

@@ -52,6 +52,8 @@ const envSchema = z.object({
   MAX_FAILED_LOGINS: z.coerce.number().int().positive().default(5),
   LOCKOUT_MINUTES: z.coerce.number().int().positive().default(15),
   TEMP_PASSWORD_TTL_HOURS: z.coerce.number().positive().default(72),
+  /** Imported / teacher-reset accounts: printed slips may be handed out days later. */
+  PRINTED_TEMP_PASSWORD_TTL_DAYS: z.coerce.number().positive().default(14),
   RESET_TOKEN_TTL_HOURS: z.coerce.number().positive().default(2),
   INVITE_TOKEN_TTL_HOURS: z.coerce.number().positive().default(72),
   VOCABULARY_TIME_ZONE: z

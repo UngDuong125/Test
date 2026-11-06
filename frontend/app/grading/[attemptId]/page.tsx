@@ -34,8 +34,11 @@ function GradingDetailBody() {
         setDetail(data);
         const p: Record<string, string> = {};
         const f: Record<string, string> = {};
+        const manual = new Set(data.snapshot.questions.filter(requiresManual).map((q) => q.id));
         for (const a of data.answers) {
-          if (a.pointsEarned != null) p[a.questionId] = String(a.pointsEarned);
+          // Submit stores 0 for manual questions; only show scores a teacher gave.
+          const graded = !manual.has(a.questionId) || Boolean(a.manualGradedAt);
+          if (a.pointsEarned != null && graded) p[a.questionId] = String(a.pointsEarned);
           if (a.feedback) f[a.questionId] = a.feedback;
         }
         setPoints(p);

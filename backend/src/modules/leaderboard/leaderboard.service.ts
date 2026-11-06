@@ -46,11 +46,28 @@ export function presentEntriesForViewer(
   return entries.map(({ email: _email, ...rest }) => rest);
 }
 
-/** The viewing student's own position, even when outside the returned top N. */
-export function findMe(ranked: LeaderboardEntry[], actor: PublicUser | null): LeaderboardMe | null {
-  if (!actor || actor.role !== 'student') return null;
-  const mine = ranked.find((e) => e.userId === actor.id);
-  return mine ? { rank: mine.rank, totalExp: mine.totalExp } : { rank: null, totalExp: 0 };
+/**
+ * Drop students who hid themselves and renumber the rest. A hidden student still learns
+ * their own position: one place behind every visible student ranked ahead of them.
+ */
+export function applyVisibility(
+  ranked: LeaderboardEntry[],
+  hidden: Set<string>,
+  actor: PublicUser | null,
+): { visible: LeaderboardEntry[]; me: LeaderboardMe | null } {
+  const visible: LeaderboardEntry[] = [];
+  let me: LeaderboardMe | null = actor?.role === 'student' ? { rank: null, totalExp: 0 } : null;
+  for (const e of ranked) {
+    const isMe = actor?.role === 'student' && e.userId === actor.id;
+    if (hidden.has(e.userId)) {
+      if (isMe) me = { rank: visible.length + 1, totalExp: e.totalExp };
+      continue;
+    }
+    const entry = { ...e, rank: visible.length + 1 };
+    visible.push(entry);
+    if (isMe) me = { rank: entry.rank, totalExp: entry.totalExp };
+  }
+  return { visible, me };
 }
 
 /** Members of a class, after checking the viewer may see that class's board. */
@@ -95,7 +112,7 @@ function sortEntries(
     userId: string;
     displayName: string | null;
     username: string;
-    email: string;
+    email: string | null;
     subjectExp: Record<TagKey, number>;
     updatedAt: string;
   }>,
@@ -115,7 +132,7 @@ function sortEntries(
     userId: e.userId,
     displayName: e.displayName,
     username: e.username,
-    email: e.email,
+    email: e.email ?? undefined,
     totalExp: totalOf(e.subjectExp, subjectId),
     subjectExp: e.subjectExp,
   }));
@@ -215,14 +232,16 @@ export async function getLeaderboard(
       updatedAt: s.updatedAt,
     }));
     const ranked = sortEntries(raw, query.subjectId).filter((e) => e.totalExp > 0);
+    const hidden = new Set(students.filter((st) => st.leaderboardHidden).map((st) => st.id));
+    const { visible, me } = applyVisibility(ranked, hidden, actor);
     return {
       period: window.period,
       from: null,
       to: null,
       subjectId: query.subjectId ?? null,
       classId: query.classId ?? null,
-      entries: presentEntriesForViewer(ranked.slice(0, limit), actor),
-      me: findMe(ranked, actor),
+      entries: presentEntriesForViewer(visible.slice(0, limit), actor),
+      me,
     };
   }
 
@@ -258,6 +277,8 @@ export async function getLeaderboard(
     .filter((x): x is NonNullable<typeof x> => x != null);
 
   const ranked = sortEntries(raw, query.subjectId).filter((e) => e.totalExp > 0);
+  const hidden = new Set(students.filter((st) => st.leaderboardHidden).map((st) => st.id));
+  const { visible, me } = applyVisibility(ranked, hidden, actor);
 
   return {
     period: window.period,
@@ -266,8 +287,8 @@ export async function getLeaderboard(
     to: window.to,
     subjectId: query.subjectId ?? null,
     classId: query.classId ?? null,
-    entries: presentEntriesForViewer(ranked.slice(0, limit), actor),
-    me: findMe(ranked, actor),
+    entries: presentEntriesForViewer(visible.slice(0, limit), actor),
+    me,
   };
 }
 

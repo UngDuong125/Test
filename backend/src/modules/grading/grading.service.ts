@@ -1,6 +1,21 @@
 import { AppError } from '../../domain/errors.js';
 import { awardExpForGradedAttempt } from '../exp/exp.service.js';
 import { questionRequiresManualGrade } from './grading.logic.js';
+import type { AttemptAnswer } from '../../types/domain.js';
+
+/**
+ * Every manual question is graded: either in this request, or by an earlier partial
+ * grade (manual_graded_at set). Stored points alone do not count — submit writes 0.
+ */
+export function isManualGradingComplete(
+  manualQuestionIds: string[],
+  answers: Pick<AttemptAnswer, 'questionId' | 'manualGradedAt'>[],
+  gradedNowIds: string[],
+): boolean {
+  const now = new Set(gradedNowIds);
+  const before = new Set(answers.filter((a) => a.manualGradedAt).map((a) => a.questionId));
+  return manualQuestionIds.every((id) => now.has(id) || before.has(id));
+}
 import { getAttemptForUser } from '../attempts/attempts.service.js';
 import {
   createGradingRecord,
@@ -133,6 +148,7 @@ export async function gradeAttemptForUser(
   const existing = await listAttemptAnswers(attemptId);
   const existingMap = new Map(existing.map((a) => [a.questionId, a]));
 
+  const gradedAt = new Date().toISOString();
   for (const item of body.answers) {
     const q = qMap.get(item.questionId);
     if (!q) {
@@ -153,55 +169,21 @@ export async function gradeAttemptForUser(
       pointsEarned: item.pointsEarned,
       isCorrect: item.isCorrect ?? null,
       feedback: item.feedback ?? null,
+      ...(questionRequiresManualGrade(q) ? { manualGradedAt: gradedAt } : {}),
     });
   }
 
-  // Recompute total from all answers
-  const allAnswers = await listAttemptAnswers(attemptId);
-  const answerMap = new Map(allAnswers.map((a) => [a.questionId, a]));
-
-  let score = 0;
-  let stillPending = false;
-
-  for (const q of snapshot.questions) {
-    const ans = answerMap.get(q.id);
-    if (questionRequiresManualGrade(q)) {
-      if (ans?.pointsEarned == null && !opts.regrade) {
-        // If teacher didn't include this question in the payload, keep pending
-        const gradedNow = body.answers.some((a) => a.questionId === q.id);
-        if (!gradedNow) {
-          stillPending = true;
-          continue;
-        }
-      }
-      // After regrade or if graded in this request, use stored points
-      score += ans?.pointsEarned ?? 0;
-    } else {
-      score += ans?.pointsEarned ?? 0;
-    }
-  }
-
-  // If all manual questions were in the request, clear pending
-  if (!stillPending) {
-    for (const q of snapshot.questions) {
-      if (!questionRequiresManualGrade(q)) continue;
-      const included = body.answers.some((a) => a.questionId === q.id);
-      const ans = answerMap.get(q.id);
-      if (!included && ans?.pointsEarned == null) {
-        stillPending = true;
-        break;
-      }
-    }
-  }
-
-  // Simpler rule: if every manual question appears in body.answers, finalize
-  const manualQuestions = snapshot.questions.filter(questionRequiresManualGrade);
-  const allManualGraded = manualQuestions.every((q) =>
-    body.answers.some((a) => a.questionId === q.id),
+  const afterWrite = await listAttemptAnswers(attemptId);
+  const manualIds = snapshot.questions.filter(questionRequiresManualGrade).map((q) => q.id);
+  const complete = isManualGradingComplete(
+    manualIds,
+    afterWrite,
+    body.answers.map((a) => a.questionId),
   );
 
-  if (!allManualGraded && !opts.regrade) {
-    // Partial grade — keep needs_grading but update partial score
+  if (!complete && !opts.regrade) {
+    // Partial grade — keep needs_grading, store the provisional score.
+    const score = afterWrite.reduce((sum, a) => sum + (a.pointsEarned ?? 0), 0);
     const percentage =
       attempt.maxScore > 0 ? Math.round((score / attempt.maxScore) * 10000) / 100 : 0;
     const updated = await updateAttempt(attemptId, { score, percentage });
@@ -221,9 +203,7 @@ export async function gradeAttemptForUser(
     };
   }
 
-  // Recalculate score with updated answers after write
-  const freshAnswers = await listAttemptAnswers(attemptId);
-  score = freshAnswers.reduce((sum, a) => sum + (a.pointsEarned ?? 0), 0);
+  const score = afterWrite.reduce((sum, a) => sum + (a.pointsEarned ?? 0), 0);
   const percentage =
     attempt.maxScore > 0 ? Math.round((score / attempt.maxScore) * 10000) / 100 : 0;
 

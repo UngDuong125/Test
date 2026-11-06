@@ -26,7 +26,7 @@ const ATTEMPT_COLUMNS =
   'id, assignment_id, user_id, exam_id, exam_version, status, started_at, submitted_at, expires_at, score, max_score, percentage';
 
 const ANSWER_COLUMNS =
-  'id, attempt_id, question_id, value, is_correct, points_earned, feedback, answered_at';
+  'id, attempt_id, question_id, value, is_correct, points_earned, feedback, answered_at, manual_graded_at';
 
 export async function findAttemptById(id: string): Promise<Attempt | null> {
   const { data, error } = await getDb()
@@ -241,9 +241,11 @@ export async function updateAnswerGrading(
     isCorrect?: boolean | null;
     pointsEarned?: number | null;
     feedback?: string | null;
+    manualGradedAt?: string | null;
   },
 ): Promise<AttemptAnswer> {
   const row: Record<string, unknown> = {};
+  if (patch.manualGradedAt !== undefined) row.manual_graded_at = patch.manualGradedAt;
   if (patch.isCorrect !== undefined) row.is_correct = patch.isCorrect;
   if (patch.pointsEarned !== undefined) row.points_earned = patch.pointsEarned;
   if (patch.feedback !== undefined) row.feedback = patch.feedback;

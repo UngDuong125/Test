@@ -2,6 +2,8 @@
 
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { AuthGate } from '@/components/auth/AuthGate';
+import { AccountImport } from '@/components/accounts/AccountImport';
+import { TemporaryPasswordButton } from '@/components/accounts/TemporaryPasswordButton';
 import {
   ApiError,
   inviteUser,
@@ -126,6 +128,8 @@ function UsersAdmin() {
         </button>
       </form>
 
+      <AccountImport onCreated={() => void refresh()} />
+
       {message && <p className="text-sm text-teal-700">{message}</p>}
       {error && <p className="text-sm text-red-600">{error}</p>}
 
@@ -152,7 +156,7 @@ function UsersAdmin() {
                   <td className="px-4 py-3">
                     <div className="font-medium text-ink">{u.displayName || u.username}</div>
                     <div className="text-xs text-slate-500">
-                      @{u.username} · {u.email}
+                      @{u.username} · {u.email ?? <span className="italic">không có email</span>}
                     </div>
                   </td>
                   <td className="px-4 py-3">
@@ -190,8 +194,9 @@ function UsersAdmin() {
                       <option value="disabled">disabled</option>
                     </select>
                   </td>
-                  <td className="px-4 py-3">
-                    {(u.status === 'invited' || u.mustChangePassword) && (
+                  <td className="space-x-3 px-4 py-3">
+                    <TemporaryPasswordButton userId={u.id} label={u.displayName || u.username} />
+                    {u.email && (u.status === 'invited' || u.mustChangePassword) && (
                       <button
                         type="button"
                         className="text-accentDark hover:underline"

@@ -78,6 +78,23 @@ describe('manual grading', () => {
     assert.equal(db.expLedger.size, 0);
   });
 
+  it('grading one question per request finalizes once every manual question is graded', async () => {
+    const { attempt, essay1, essay2 } = await submittedEssayAttempt();
+    const first = await grading.gradeAttemptForUser(teacher, attempt.id, {
+      answers: [{ questionId: essay1.id, pointsEarned: 0 }],
+    });
+    // A real 0 is a grade, but essay2 is still pending.
+    assert.equal(first.status, 'needs_grading');
+
+    const second = await grading.gradeAttemptForUser(teacher, attempt.id, {
+      answers: [{ questionId: essay2.id, pointsEarned: 3 }],
+    });
+    assert.equal(second.status, 'graded');
+    // MC 1 + essay1 0 + essay2 3.
+    assert.equal(second.score, 4);
+    assert.equal(db.expLedger.size, 1);
+  });
+
   it('regrade adjusts EXP by the difference only', async () => {
     const { attempt, essay1, essay2 } = await submittedEssayAttempt('final');
     await grading.gradeAttemptForUser(teacher, attempt.id, {

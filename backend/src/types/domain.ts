@@ -28,7 +28,8 @@ export type ExamStatus = 'draft' | 'published' | 'archived';
 
 export interface User {
   id: string;
-  email: string;
+  /** null for students created without an email (import / teacher-made accounts). */
+  email: string | null;
   username: string;
   displayName: string | null;
   role: UserRole;
@@ -39,18 +40,20 @@ export interface User {
   lockedUntil: string | null;
   emailVerifiedAt: string | null;
   lastLoginAt: string | null;
+  leaderboardHidden: boolean;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface PublicUser {
   id: string;
-  email: string;
+  email: string | null;
   username: string;
   displayName: string | null;
   role: UserRole;
   status: UserStatus;
   mustChangePassword: boolean;
+  leaderboardHidden: boolean;
 }
 
 export interface SessionRecord {
@@ -266,6 +269,8 @@ export interface AttemptAnswer {
   pointsEarned: number | null;
   feedback: string | null;
   answeredAt: string;
+  /** Set when a teacher scored this answer by hand; null = not graded manually yet. */
+  manualGradedAt?: string | null;
 }
 
 export interface SnapshotQuestion {
@@ -393,7 +398,8 @@ export const VOCABULARY_INTERVAL_DAYS = [1, 3, 7, 14, 30] as const;
 export type VocabularyEntryStatus = 'draft' | 'published' | 'archived';
 export type VocabularyAssignmentStatus = 'active' | 'completed' | 'cancelled';
 export type VocabularyCardStatus = 'learning' | 'mastered' | 'suspended';
-export type VocabularyReviewResult = 'pass' | 'fail';
+/** `hard`: remembered with effort — keep the current interval, neither advance nor reset. */
+export type VocabularyReviewResult = 'pass' | 'fail' | 'hard';
 
 export interface VocabularyEntry {
   id: string;

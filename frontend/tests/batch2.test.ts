@@ -2,7 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { csvField, toCsv } from '@/lib/csv';
 import { examResultsCsvRows } from '@/lib/exam-results-export';
-import { attemptPayload, batchQuestions } from '@/lib/grading-batch';
+import { attemptPayload, batchQuestions, draftFromServer, mergeDrafts } from '@/lib/grading-batch';
 import { averagePercentage, progressBySubject, trend } from '@/lib/history';
 import { buildQuizOptions, isTypedAnswerCorrect, normalizeAnswer } from '@/lib/vocab-modes';
 import type { StudentHistoryItem } from '@/lib/api-client';
@@ -139,24 +139,51 @@ describe('grading batch', () => {
   });
 
   it('is ready only when every manual question has a valid score', () => {
-    assert.deepEqual(attemptPayload(d1, { t1: { e1: { points: '1', feedback: '' } } }), {
-      ready: false,
-      missing: 1,
-      invalid: null,
-    });
+    const one = attemptPayload(d1, { t1: { e1: { points: '1', feedback: '' } } });
+    assert.equal(one.ready, false);
+    assert.equal(one.missing, 1);
+    // The typed score can still be saved as a partial grade.
+    assert.deepEqual(one.answers, [{ questionId: 'e1', pointsEarned: 1, feedback: null }]);
+
     const ready = attemptPayload(d1, {
       t1: { e1: { points: '1,5', feedback: ' Tốt ' }, e2: { points: '0', feedback: '' } },
     });
-    assert.deepEqual(ready, {
-      ready: true,
-      answers: [
-        { questionId: 'e2', pointsEarned: 0, feedback: null },
-        { questionId: 'e1', pointsEarned: 1.5, feedback: 'Tốt' },
-      ],
-    });
+    assert.equal(ready.ready, true);
+    assert.deepEqual(ready.answers, [
+      { questionId: 'e2', pointsEarned: 0, feedback: null },
+      { questionId: 'e1', pointsEarned: 1.5, feedback: 'Tốt' },
+    ]);
+
     const bad = attemptPayload(d1, {
       t1: { e1: { points: '9', feedback: '' }, e2: { points: '1', feedback: '' } },
     });
     assert.equal(bad.ready, false);
+    assert.ok(bad.invalid);
+  });
+
+  it('counts questions graded earlier on the server as done', () => {
+    const withServer = {
+      ...d1,
+      answers: [
+        { questionId: 'e2', pointsEarned: 2, feedback: 'ok', manualGradedAt: '2026-11-06T00:00:00Z' },
+      ],
+    } as unknown as AttemptDetail;
+    assert.equal(attemptPayload(withServer, { t1: { e1: { points: '1', feedback: '' } } }).ready, true);
+
+    // Submit-time zeros (no manualGradedAt) are not treated as graded.
+    const zeros = {
+      ...d1,
+      answers: [{ questionId: 'e2', pointsEarned: 0, feedback: null, manualGradedAt: null }],
+    } as unknown as AttemptDetail;
+    assert.equal(attemptPayload(zeros, { t1: { e1: { points: '1', feedback: '' } } }).ready, false);
+
+    assert.deepEqual(draftFromServer([withServer]), { t1: { e2: { points: '2', feedback: 'ok' } } });
+    assert.deepEqual(
+      mergeDrafts(
+        { t1: { e2: { points: '2', feedback: '' } } },
+        { t1: { e2: { points: '1', feedback: 'x' } } },
+      ),
+      { t1: { e2: { points: '1', feedback: 'x' } } },
+    );
   });
 });

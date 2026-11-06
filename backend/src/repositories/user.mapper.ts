@@ -3,7 +3,7 @@ import type { User, UserRole, UserStatus } from '../types/domain.js';
 /** Row shape from public.users (snake_case). */
 export interface UserRow {
   id: string;
-  email: string;
+  email: string | null;
   username: string;
   display_name: string | null;
   password_hash: string;
@@ -15,6 +15,8 @@ export interface UserRow {
   locked_until: string | null;
   email_verified_at: string | null;
   last_login_at: string | null;
+  /** Older rows / partial selects may omit it. */
+  leaderboard_hidden?: boolean | null;
   created_at: string;
   updated_at: string;
 }
@@ -33,6 +35,7 @@ export function mapUser(row: UserRow): User {
     lockedUntil: row.locked_until,
     emailVerifiedAt: row.email_verified_at,
     lastLoginAt: row.last_login_at,
+    leaderboardHidden: row.leaderboard_hidden ?? false,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -47,5 +50,6 @@ export function toPublicUser(user: User) {
     role: user.role,
     status: user.status,
     mustChangePassword: user.mustChangePassword,
+    leaderboardHidden: user.leaderboardHidden,
   };
 }

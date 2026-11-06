@@ -368,7 +368,7 @@ export function listClassMembers(classId: string) {
 
 export function addClassMembers(
   classId: string,
-  body: { userIds?: string[]; emails?: string[]; syncAssignments?: boolean },
+  body: { userIds?: string[]; emails?: string[]; usernames?: string[]; syncAssignments?: boolean },
 ) {
   return api<{
     added: ClassMember[];
@@ -887,14 +887,93 @@ export function getVocabularyBankProgress(bankId: string, classId?: string) {
 }
 
 export function getMyVocabularyStats() {
-  return api<{ total: number; learning: number; mastered: number; due: number }>(
+  return api<{
+    total: number;
+    learning: number;
+    mastered: number;
+    due: number;
+    /** Consecutive days with at least one review (alive until today ends). */
+    streak?: number;
+    reviewedToday?: number;
+  }>(
     '/api/students/me/vocabulary/stats',
   );
 }
 
-export function reviewVocabularyCard(cardId: string, result: 'pass' | 'fail') {
+export function reviewVocabularyCard(cardId: string, result: 'pass' | 'fail' | 'hard') {
   return api<{ card: StudentVocabularyCard }>(`/api/vocabulary-cards/${cardId}/review`, {
     method: 'POST',
     body: { result },
   });
+}
+
+// --- Accounts (import, temporary passwords, profile) ---
+
+export interface ImportAccountRow {
+  username: string;
+  displayName?: string | null;
+  role?: string | null;
+  email?: string | null;
+  className?: string | null;
+}
+
+export interface ImportAccountsResult {
+  dryRun: boolean;
+  valid: Array<{
+    line: number;
+    username: string;
+    displayName: string | null;
+    role: string;
+    email: string | null;
+    className: string | null;
+  }>;
+  errors: Array<{ line: number; username: string; message: string }>;
+  created: Array<{
+    line: number;
+    userId: string;
+    username: string;
+    displayName: string | null;
+    className: string | null;
+    temporaryPassword: string;
+    emailDelivered: boolean | null;
+  }>;
+  expiresAt?: string;
+}
+
+export function importAccounts(body: { rows: ImportAccountRow[]; dryRun: boolean; sendEmail: boolean }) {
+  return api<ImportAccountsResult>('/api/admin/users/import', { method: 'POST', body });
+}
+
+export function issueTemporaryPassword(userId: string) {
+  return api<{ user: PublicUser; temporaryPassword: string; expiresAt: string }>(
+    `/api/users/${userId}/temporary-password`,
+    { method: 'POST' },
+  );
+}
+
+export function updateMyProfile(body: { displayName?: string | null; leaderboardHidden?: boolean }) {
+  return api<{ user: PublicUser }>('/api/auth/me', { method: 'PATCH', body });
+}
+
+// --- Feedback templates (grading) ---
+
+export interface FeedbackTemplate {
+  id: string;
+  text: string;
+  createdAt: string;
+}
+
+export function listFeedbackTemplates() {
+  return api<{ items: FeedbackTemplate[] }>('/api/feedback-templates');
+}
+
+export function addFeedbackTemplate(text: string) {
+  return api<{ template: FeedbackTemplate }>('/api/feedback-templates', {
+    method: 'POST',
+    body: { text },
+  });
+}
+
+export function deleteFeedbackTemplate(id: string) {
+  return api<void>(`/api/feedback-templates/${id}`, { method: 'DELETE' });
 }

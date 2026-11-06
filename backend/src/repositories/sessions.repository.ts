@@ -4,7 +4,7 @@ import { mapUser, type UserRow } from './user.mapper.js';
 import type { AuthTokenType, SessionRecord, User } from '../types/domain.js';
 
 const AUTH_USER_COLUMNS =
-  'id, email, username, display_name, role, status, must_change_password, temporary_password_expires_at, failed_login_attempts, locked_until, email_verified_at, last_login_at, created_at, updated_at';
+  'id, email, username, display_name, role, status, must_change_password, temporary_password_expires_at, failed_login_attempts, locked_until, email_verified_at, last_login_at, leaderboard_hidden, created_at, updated_at';
 
 export function hashToken(raw: string): string {
   return createHash('sha256').update(raw).digest('hex');

@@ -135,7 +135,7 @@ export interface ClassMember {
   classId: string;
   userId: string;
   joinedAt: string;
-  email?: string;
+  email?: string | null;
   username?: string;
   displayName?: string | null;
 }
@@ -209,6 +209,8 @@ export interface AttemptAnswer {
   pointsEarned: number | null;
   feedback: string | null;
   answeredAt: string;
+  /** Set once a teacher scored this answer by hand. */
+  manualGradedAt?: string | null;
 }
 
 export interface SnapshotQuestion {

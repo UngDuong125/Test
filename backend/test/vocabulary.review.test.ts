@@ -6,6 +6,7 @@ import { user } from './helpers/fake-exam-db.js';
 
 let card: StudentVocabularyCard;
 let assignment: VocabularyAssignment;
+const reviewDays: { userId: string; day: string }[] = [];
 const events: { cardId: string; result: string; intervalStepBefore: number; intervalStepAfter: number }[] = [];
 
 await mockModule(src('repositories/vocabulary.repository.js'), {
@@ -26,6 +27,9 @@ await mockModule(src('repositories/vocabulary.repository.js'), {
   createReviewEvent: async (e: (typeof events)[number]) => {
     events.push(e);
   },
+  recordReviewDay: async (userId: string, day: string) => {
+    reviewDays.push({ userId, day });
+  },
 });
 
 const { reviewCardForStudent } = await import('../src/modules/vocabulary/vocabulary.service.js');
@@ -45,6 +49,7 @@ async function codeOf(promise: Promise<unknown>): Promise<string | undefined> {
 describe('reviewCardForStudent', () => {
   beforeEach(() => {
     events.length = 0;
+    reviewDays.length = 0;
     assignment = {
       id: 'va1',
       bankId: 'b1',
@@ -82,6 +87,19 @@ describe('reviewCardForStudent', () => {
     assert.equal(updated.passCount, 1);
     assert.ok(new Date(updated.nextReviewAt).getTime() > Date.now() + 86_400_000);
     assert.deepEqual(events, [{ cardId: 'c1', result: 'pass', intervalStepBefore: 0, intervalStepAfter: 1 }]);
+  });
+
+  it('hard keeps the step, counts neither pass nor fail, and records the review day', async () => {
+    card = { ...card, intervalStep: 2 };
+    const { card: updated } = await reviewCardForStudent(student, 'c1', 'hard');
+    assert.equal(updated.intervalStep, 2);
+    assert.equal(updated.reviewCount, 1);
+    assert.equal(updated.passCount, 0);
+    assert.equal(updated.failCount, 0);
+    // Step 2 = 7 days.
+    assert.ok(new Date(updated.nextReviewAt).getTime() > Date.now() + 6 * 86_400_000);
+    assert.equal(reviewDays.length, 1);
+    assert.match(reviewDays[0].day, /^\d{4}-\d{2}-\d{2}$/);
   });
 
   it('fail resets the step and counts the failure', async () => {

@@ -3,7 +3,7 @@ import { mapUser, type UserRow } from './user.mapper.js';
 import type { User, UserRole, UserStatus } from '../types/domain.js';
 
 const USER_COLUMNS =
-  'id, email, username, display_name, password_hash, role, status, must_change_password, temporary_password_expires_at, failed_login_attempts, locked_until, email_verified_at, last_login_at, created_at, updated_at';
+  'id, email, username, display_name, password_hash, role, status, must_change_password, temporary_password_expires_at, failed_login_attempts, locked_until, email_verified_at, last_login_at, leaderboard_hidden, created_at, updated_at';
 
 type UserWithHash = User & { passwordHash: string };
 
@@ -66,7 +66,7 @@ export async function usernameExists(username: string, excludeUserId?: string): 
 }
 
 export async function createInvitedUser(input: {
-  email: string;
+  email: string | null;
   username: string;
   role: UserRole;
   passwordHash: string;
@@ -76,7 +76,7 @@ export async function createInvitedUser(input: {
   const { data, error } = await getDb()
     .from('users')
     .insert({
-      email: input.email.toLowerCase(),
+      email: input.email ? input.email.toLowerCase() : null,
       username: input.username.toLowerCase(),
       display_name: input.displayName ?? null,
       password_hash: input.passwordHash,
@@ -261,4 +261,89 @@ export async function findUserSummariesByIds(
     }
   }
   return out;
+}
+
+/** Which of these usernames / emails already exist (lower-cased). */
+export async function findExistingIdentifiers(input: {
+  usernames: string[];
+  emails: string[];
+}): Promise<{ usernames: Set<string>; emails: Set<string> }> {
+  const usernames = new Set<string>();
+  const emails = new Set<string>();
+  for (let i = 0; i < input.usernames.length; i += 200) {
+    const { data, error } = await getDb()
+      .from('users')
+      .select('username')
+      .in('username', input.usernames.slice(i, i + 200).map((u) => u.toLowerCase()));
+    if (error) throw error;
+    for (const r of (data ?? []) as { username: string }[]) usernames.add(r.username.toLowerCase());
+  }
+  for (let i = 0; i < input.emails.length; i += 200) {
+    const { data, error } = await getDb()
+      .from('users')
+      .select('email')
+      .in('email', input.emails.slice(i, i + 200).map((e) => e.toLowerCase()));
+    if (error) throw error;
+    for (const r of (data ?? []) as { email: string | null }[]) {
+      if (r.email) emails.add(r.email.toLowerCase());
+    }
+  }
+  return { usernames, emails };
+}
+
+/**
+ * New temporary password without touching the account status: an active student stays
+ * active (keeps classes and assignments) but must change the password at next login.
+ */
+export async function setTemporaryPassword(
+  userId: string,
+  passwordHash: string,
+  temporaryPasswordExpiresAt: string,
+): Promise<User> {
+  const { data, error } = await getDb()
+    .from('users')
+    .update({
+      password_hash: passwordHash,
+      must_change_password: true,
+      temporary_password_expires_at: temporaryPasswordExpiresAt,
+      failed_login_attempts: 0,
+      locked_until: null,
+    })
+    .eq('id', userId)
+    .select(USER_COLUMNS)
+    .single();
+  if (error) throw error;
+  return mapUser(data as UserRow);
+}
+
+export async function setLeaderboardHidden(userId: string, hidden: boolean): Promise<User> {
+  const { data, error } = await getDb()
+    .from('users')
+    .update({ leaderboard_hidden: hidden })
+    .eq('id', userId)
+    .select(USER_COLUMNS)
+    .single();
+  if (error) throw error;
+  return mapUser(data as UserRow);
+}
+
+export async function updateDisplayName(userId: string, displayName: string | null): Promise<User> {
+  const { data, error } = await getDb()
+    .from('users')
+    .update({ display_name: displayName })
+    .eq('id', userId)
+    .select(USER_COLUMNS)
+    .single();
+  if (error) throw error;
+  return mapUser(data as UserRow);
+}
+
+export async function insertAccountAuditEvents(
+  rows: { actorId: string; targetUserId: string; action: 'temporary_password_reset' | 'account_imported' }[],
+): Promise<void> {
+  if (rows.length === 0) return;
+  const { error } = await getDb()
+    .from('account_audit_events')
+    .insert(rows.map((r) => ({ actor_id: r.actorId, target_user_id: r.targetUserId, action: r.action })));
+  if (error) throw error;
 }

@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AuthGate } from '@/components/auth/AuthGate';
 import { StatsPanel } from '@/components/analytics/StatsPanel';
+import { TemporaryPasswordButton } from '@/components/accounts/TemporaryPasswordButton';
 import {
   ApiError,
   addClassMembers,
@@ -87,9 +88,16 @@ function ClassesBody() {
       .split(/[\s,;]+/)
       .map((s) => s.trim())
       .filter(Boolean);
+    // Students without an email are added by username.
+    const emailList = list.filter((s) => s.includes('@'));
+    const usernameList = list.filter((s) => !s.includes('@'));
     try {
       setNotice(null);
-      const res = await addClassMembers(selectedId, { emails: list, syncAssignments });
+      const res = await addClassMembers(selectedId, {
+        emails: emailList.length ? emailList : undefined,
+        usernames: usernameList.length ? usernameList : undefined,
+        syncAssignments,
+      });
       const problems = [
         ...res.errors.map((x) => `${x.identifier}: ${x.message}`),
         ...(res.syncWarnings ?? []),
@@ -232,7 +240,7 @@ function ClassesBody() {
 
               <form onSubmit={onAddMembers} className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">
-                  Thêm học sinh (email, cách nhau bằng dấu phẩy)
+                  Thêm học sinh (email hoặc tên đăng nhập, cách nhau bằng dấu phẩy)
                 </label>
                 <textarea
                   className="w-full rounded-md border border-mist px-3 py-2 text-sm"
@@ -264,9 +272,13 @@ function ClassesBody() {
                   <li key={m.userId} className="flex items-center justify-between gap-2 py-2">
                     <span>
                       {m.displayName || m.username || m.email}{' '}
-                      <span className="text-slate-400">{m.email}</span>
+                      <span className="text-slate-400">{m.email ?? `@${m.username ?? ''}`}</span>
                     </span>
                     <div className="flex shrink-0 items-center gap-3">
+                      <TemporaryPasswordButton
+                        userId={m.userId}
+                        label={m.displayName || m.username || 'học sinh'}
+                      />
                       <Link
                         href={`/students/${m.userId}/results`}
                         className="text-accentDark hover:underline"

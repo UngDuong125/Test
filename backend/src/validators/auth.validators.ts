@@ -59,3 +59,29 @@ export const updateStatusSchema = z.object({
 export const updateRoleSchema = z.object({
   role: z.enum(['admin', 'teacher', 'student']),
 });
+
+export const importAccountsSchema = z.object({
+  rows: z
+    .array(
+      z.object({
+        username: z.string().max(64),
+        displayName: z.string().max(120).nullish(),
+        role: z.string().max(20).nullish(),
+        email: z.string().max(254).nullish(),
+        className: z.string().max(120).nullish(),
+      }),
+    )
+    .min(1)
+    .max(50),
+  dryRun: z.boolean().default(true),
+  sendEmail: z.boolean().default(false),
+});
+
+export const updateProfileSchema = z
+  .object({
+    displayName: z.string().trim().max(60).nullish(),
+    leaderboardHidden: z.boolean().optional(),
+  })
+  .refine((d) => d.displayName !== undefined || d.leaderboardHidden !== undefined, {
+    message: 'No fields to update',
+  });

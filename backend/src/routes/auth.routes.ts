@@ -4,7 +4,9 @@ import { env } from '../config/env.js';
 import { requireAuth } from '../middleware/auth.js';
 import { forgotPasswordRateLimit, loginRateLimit } from '../middleware/rateLimit.js';
 import * as authService from '../modules/auth/auth.service.js';
+import * as accountsService from '../modules/accounts/accounts.service.js';
 import {
+  updateProfileSchema,
   changePasswordSchema,
   forgotPasswordSchema,
   loginSchema,
@@ -88,6 +90,16 @@ authRouter.post('/reset-password', async (req, res, next) => {
     const user = await authService.resetPassword(body.token, body.newPassword);
     clearSessionCookie(res);
     res.json({ user, requireLogin: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+authRouter.patch('/me', requireAuth, async (req, res, next) => {
+  try {
+    const body = updateProfileSchema.parse(req.body);
+    const user = await accountsService.updateMyProfile(req.auth!.user, body);
+    res.json({ user });
   } catch (err) {
     next(err);
   }

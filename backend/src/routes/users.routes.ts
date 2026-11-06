@@ -8,7 +8,9 @@ import {
   updateUserStatus,
 } from '../repositories/users.repository.js';
 import { toPublicUser } from '../repositories/user.mapper.js';
+import * as accountsService from '../modules/accounts/accounts.service.js';
 import {
+  importAccountsSchema,
   inviteUserSchema,
   updateRoleSchema,
   updateStatusSchema,
@@ -40,6 +42,18 @@ usersRouter.post('/invite', async (req, res, next) => {
       displayName: body.displayName,
     });
     res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+usersRouter.post('/import', async (req, res, next) => {
+  try {
+    const body = importAccountsSchema.parse(req.body);
+    const result = await accountsService.importAccounts(req.auth!.user, body);
+    // Temporary passwords are in this body once; do not let proxies or the browser keep it.
+    res.set('Cache-Control', 'no-store');
+    res.json(result);
   } catch (err) {
     next(err);
   }

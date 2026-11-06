@@ -29,7 +29,7 @@ $$;
 
 CREATE TABLE public.users (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  email citext NOT NULL,
+  email citext,
   username citext NOT NULL,
   display_name text,
   password_hash text NOT NULL,
@@ -49,6 +49,7 @@ CREATE TABLE public.users (
   sci_exp integer NOT NULL DEFAULT 0 CHECK (sci_exp >= 0),
   hist_geo_exp integer NOT NULL DEFAULT 0 CHECK (hist_geo_exp >= 0),
   civic_exp integer NOT NULL DEFAULT 0 CHECK (civic_exp >= 0),
+  leaderboard_hidden boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   CONSTRAINT users_email_unique UNIQUE (email),
@@ -336,6 +337,7 @@ CREATE TABLE public.attempt_answers (
   points_earned numeric(10, 2),
   feedback text,
   answered_at timestamptz NOT NULL DEFAULT now(),
+  manual_graded_at timestamptz,
   CONSTRAINT attempt_answers_unique UNIQUE (attempt_id, question_id),
   CONSTRAINT attempt_answers_points_nonneg
     CHECK (points_earned IS NULL OR points_earned >= 0)
@@ -506,7 +508,7 @@ CREATE INDEX student_vocabulary_cards_assignment_id_idx
 CREATE TABLE public.vocabulary_review_events (
   id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
   card_id uuid NOT NULL REFERENCES public.student_vocabulary_cards (id) ON DELETE CASCADE,
-  result text NOT NULL CHECK (result IN ('pass', 'fail')),
+  result text NOT NULL CHECK (result IN ('pass', 'fail', 'hard')),
   interval_step_before integer NOT NULL CHECK (interval_step_before BETWEEN 0 AND 4),
   interval_step_after integer NOT NULL CHECK (interval_step_after BETWEEN 0 AND 4),
   reviewed_at timestamptz NOT NULL DEFAULT now()
@@ -516,3 +518,35 @@ CREATE INDEX vocabulary_review_events_card_id_idx
   ON public.vocabulary_review_events (card_id);
 CREATE INDEX vocabulary_review_events_reviewed_at_idx
   ON public.vocabulary_review_events (reviewed_at DESC);
+
+CREATE TABLE public.student_review_days (
+  user_id uuid NOT NULL REFERENCES public.users (id) ON DELETE CASCADE,
+  day date NOT NULL,
+  reviews integer NOT NULL DEFAULT 0 CHECK (reviews >= 0),
+  PRIMARY KEY (user_id, day)
+);
+
+-- ---------------------------------------------------------------------------
+-- Grading helpers and account audit (20261107000000_ux_improvements_schema)
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE public.feedback_templates (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  owner_id uuid NOT NULL REFERENCES public.users (id) ON DELETE CASCADE,
+  text text NOT NULL CHECK (char_length(text) BETWEEN 1 AND 300),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT feedback_templates_owner_text_unique UNIQUE (owner_id, text)
+);
+
+CREATE INDEX feedback_templates_owner_id_idx ON public.feedback_templates (owner_id);
+
+CREATE TABLE public.account_audit_events (
+  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
+  actor_id uuid NOT NULL REFERENCES public.users (id) ON DELETE RESTRICT,
+  target_user_id uuid NOT NULL REFERENCES public.users (id) ON DELETE CASCADE,
+  action text NOT NULL CHECK (action IN ('temporary_password_reset', 'account_imported')),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX account_audit_events_target_idx
+  ON public.account_audit_events (target_user_id, created_at DESC);

@@ -151,9 +151,15 @@ export async function installFakeExamDb() {
     updateAnswerGrading: async (
       attemptId: string,
       questionId: string,
-      patch: { isCorrect?: boolean | null; pointsEarned?: number | null; feedback?: string | null },
+      patch: {
+        isCorrect?: boolean | null;
+        pointsEarned?: number | null;
+        feedback?: string | null;
+        manualGradedAt?: string | null;
+      },
     ) => {
       const row = db.answers.find((a) => a.attemptId === attemptId && a.questionId === questionId)!;
+      if (patch.manualGradedAt !== undefined) row.manualGradedAt = patch.manualGradedAt;
       if (patch.isCorrect !== undefined) row.isCorrect = patch.isCorrect;
       if (patch.pointsEarned !== undefined) row.pointsEarned = patch.pointsEarned;
       if (patch.feedback !== undefined) row.feedback = patch.feedback;
@@ -194,6 +200,7 @@ export function user(role: PublicUser['role'], id = `${role}-${randomUUID().slic
     id,
     email: `${id}@test.local`,
     username: id,
+    leaderboardHidden: false,
     displayName: null,
     role,
     status: 'active',

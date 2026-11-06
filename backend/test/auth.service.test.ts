@@ -16,6 +16,7 @@ function seedUser(patch: Partial<User> = {}): User {
     id: 'u1',
     email: 'hs1@test.local',
     username: 'hs1',
+    leaderboardHidden: false,
     displayName: null,
     role: 'student',
     status: 'active',

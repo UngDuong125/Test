@@ -28,11 +28,45 @@ export function nextIntervalAfterReview(
       status: 'learning',
     };
   }
+  if (result === 'hard') {
+    return {
+      intervalStep: step,
+      nextReviewAt: startOfDayAfter(now, VOCABULARY_INTERVAL_DAYS[step], timeZone),
+      status: 'learning',
+    };
+  }
   return {
     intervalStep: 0,
     nextReviewAt: startOfDayAfter(now, VOCABULARY_INTERVAL_DAYS[0], timeZone),
     status: 'learning',
   };
+}
+
+/** YYYY-MM-DD of `date` in `timeZone`. */
+export function localDayKey(date: Date, timeZone = DEFAULT_SRS_TIME_ZONE): string {
+  const { year, month, day } = zonedParts(date, timeZone);
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+}
+
+function previousDayKey(key: string): string {
+  const [y, m, d] = key.split('-').map(Number);
+  const prev = new Date(Date.UTC(y, m - 1, d - 1));
+  return prev.toISOString().slice(0, 10);
+}
+
+/**
+ * Consecutive review days ending today, or ending yesterday if the student has not
+ * reviewed yet today (the streak is still alive until the day is over).
+ */
+export function computeStreak(dayKeys: Iterable<string>, todayKey: string): number {
+  const days = new Set(dayKeys);
+  let cursor = days.has(todayKey) ? todayKey : previousDayKey(todayKey);
+  let streak = 0;
+  while (days.has(cursor)) {
+    streak += 1;
+    cursor = previousDayKey(cursor);
+  }
+  return streak;
 }
 
 export function initialCardSchedule(availableFrom: Date, now = new Date()): Date {

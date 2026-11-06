@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  findMe,
+  applyVisibility,
   presentEntriesForViewer,
   type LeaderboardEntry,
 } from '../src/modules/leaderboard/leaderboard.service.js';
@@ -41,16 +41,33 @@ describe('leaderboard privacy', () => {
   });
 });
 
-describe('leaderboard me', () => {
-  it('returns own rank for a ranked student, even outside the returned page', () => {
-    assert.deepEqual(findMe(ranked, viewer('student', 's2')), { rank: 2, totalExp: 20 });
+describe('leaderboard visibility and me', () => {
+  it('returns own rank for a ranked student', () => {
+    assert.deepEqual(applyVisibility(ranked, new Set(), viewer('student', 's2')).me, {
+      rank: 2,
+      totalExp: 20,
+    });
   });
 
   it('returns rank null for a student without EXP', () => {
-    assert.deepEqual(findMe(ranked, viewer('student', 's9')), { rank: null, totalExp: 0 });
+    assert.deepEqual(applyVisibility(ranked, new Set(), viewer('student', 's9')).me, {
+      rank: null,
+      totalExp: 0,
+    });
   });
 
   it('is null for staff', () => {
-    assert.equal(findMe(ranked, viewer('teacher')), null);
+    assert.equal(applyVisibility(ranked, new Set(), viewer('teacher')).me, null);
+  });
+
+  it('removes hidden students, renumbers, and still tells them their place', () => {
+    const { visible, me } = applyVisibility(ranked, new Set(['s1']), viewer('student', 's1'));
+    assert.deepEqual(
+      visible.map((e) => [e.userId, e.rank]),
+      [['s2', 1]],
+    );
+    assert.deepEqual(me, { rank: 1, totalExp: 30 });
+    const other = applyVisibility(ranked, new Set(['s1']), viewer('student', 's2'));
+    assert.deepEqual(other.me, { rank: 1, totalExp: 20 });
   });
 });

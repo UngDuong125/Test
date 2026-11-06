@@ -168,6 +168,6 @@ Người dùng là học sinh THCS (trẻ vị thành niên), nên bảng công 
 - **Hạng của tôi:** response luôn kèm `me: { rank, totalExp }` kể cả khi ngoài top 20, để học sinh biết mình đang ở đâu.
 - Tùy chọn gamification (làm sau): streak ngày, huy hiệu mốc EXP; tính từ `exp_ledger`, không ghi trực tiếp.
 
-Trạng thái code: đã có bỏ `email` cho student, `classId`, `me`; chưa có biệt danh riêng / ẩn khỏi bảng (cần thêm cột trên `users`).
+Trạng thái code: đã có bỏ `email` cho student, `classId`, `me`, biệt danh (`display_name`, sửa qua `PATCH /api/auth/me`) và ẩn khỏi bảng (`users.leaderboard_hidden`). Học sinh ẩn bị bỏ khỏi `entries`, các hạng được đánh số lại; học sinh đó vẫn nhận `me.rank` = vị trí sau mọi học sinh hiển thị đứng trước. Thẻ cài đặt nằm trên `/leaderboard`. Chưa làm: huy hiệu.
 
 Tiêu chí xong: payload cho student không có field `email`; học sinh ngoài top vẫn thấy `me`; bảng lớp chỉ chứa thành viên lớp.

@@ -1,4 +1,5 @@
 import { AppError } from '../../domain/errors.js';
+import { isEnrollableStatus } from '../../domain/students.js';
 import type {
   AssignmentStatus,
   ExamAssignment,
@@ -106,8 +107,8 @@ async function assertCanTargetStudent(actor: PublicUser, studentId: string) {
   if (user.role !== 'student') {
     throw new AppError(422, 'Target must be a student', 'NOT_STUDENT');
   }
-  if (user.status !== 'active') {
-    throw new AppError(422, 'Student must be active', 'STUDENT_NOT_ACTIVE');
+  if (!isEnrollableStatus(user.status)) {
+    throw new AppError(422, 'Student account is locked or disabled', 'STUDENT_NOT_ACTIVE');
   }
   if (actor.role === 'teacher') {
     const ok = await isStudentInTeacherClass(studentId, actor.id);
@@ -208,7 +209,7 @@ export async function assignExamForUser(
 
     for (const studentId of memberIds) {
       const user = await findUserById(studentId);
-      if (!user || user.role !== 'student' || user.status !== 'active') {
+      if (!user || user.role !== 'student' || !isEnrollableStatus(user.status)) {
         warnings.push(`Skipped invalid member ${studentId}`);
         continue;
       }

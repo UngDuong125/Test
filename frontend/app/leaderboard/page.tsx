@@ -12,6 +12,7 @@ import {
   type LeaderboardEntry,
 } from '@/lib/api-client';
 import { useSession } from '@/lib/auth';
+import { LeaderboardPrivacyCard } from '@/components/accounts/LeaderboardPrivacyCard';
 import type { ClassRecord } from '@/types/content';
 
 type PeriodTab = 'all' | 'week' | 'month' | 'term';
@@ -26,6 +27,7 @@ function LeaderboardBody() {
   const [classes, setClasses] = useState<ClassRecord[]>([]);
   const [classId, setClassId] = useState<string>('');
   const [classesReady, setClassesReady] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const [me, setMe] = useState<{ rank: number | null; totalExp: number } | null>(null);
   const [period, setPeriod] = useState<PeriodTab>('all');
   const [periodId, setPeriodId] = useState<string>('');
@@ -90,7 +92,7 @@ function LeaderboardBody() {
         setLoading(false);
       }
     })();
-  }, [period, periodId, subjectId, classId, classesReady]);
+  }, [period, periodId, subjectId, classId, classesReady, reloadKey]);
 
   const tabs: { id: PeriodTab; label: string }[] = [
     { id: 'all', label: 'Tất cả' },
@@ -172,6 +174,8 @@ function LeaderboardBody() {
           Cửa sổ: {new Date(meta.from).toLocaleString()} → {new Date(meta.to).toLocaleString()}
         </p>
       )}
+
+      <LeaderboardPrivacyCard onChanged={() => setReloadKey((k) => k + 1)} />
 
       {isStudent && me && !loading && (
         <p className="rounded-lg border border-accent/30 bg-accent/5 px-4 py-3 text-sm text-ink">

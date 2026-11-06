@@ -19,6 +19,9 @@ psql "$DATABASE_URL" -f supabase/migrations/20260906180000_add_users_username.sq
 psql "$DATABASE_URL" -f supabase/migrations/20260908230000_allow_unlimited_exam_duration.sql
 # Vocabulary SRS (additive):
 psql "$DATABASE_URL" -f supabase/migrations/20260924120000_vocabulary_srs.sql
+# Cải tiến UX (additive): email nullable, ẩn khỏi bảng xếp hạng, 'hard', chấm tay theo câu,
+# mẫu nhận xét, audit tài khoản, ngày ôn (streak):
+psql "$DATABASE_URL" -f supabase/migrations/20261107000000_ux_improvements_schema.sql
 psql "$DATABASE_URL" -f supabase/seed.sql
 ```
 

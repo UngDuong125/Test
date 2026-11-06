@@ -406,7 +406,7 @@ Các mục dưới đây mở rộng MVP; ghi rõ để tránh mâu thuẫn vớ
 
 ### 15.1. Mức độ nhớ (4 nút thay cho 2)
 
-Giữ hai nút **Thuộc / Không thuộc** làm mặc định. Tùy chọn bật thêm **Khó nhớ**: kết quả `hard` giữ `intervalStep` hiện tại (không tăng, không reset), `nextReviewAt = startOfDay(today + INTERVAL_DAYS[intervalStep])`. `result` của `POST .../review` mở rộng thành `pass | fail | hard`; backend vẫn là nơi duy nhất tính lịch.
+Đã cài: flashcard có ba nút **Không thuộc / Khó nhớ / Thuộc** (phím ← ↓ →). **Khó nhớ**: kết quả `hard` giữ `intervalStep` hiện tại (không tăng, không reset), `nextReviewAt = startOfDay(today + INTERVAL_DAYS[intervalStep])`. `result` của `POST .../review` mở rộng thành `pass | fail | hard`; backend vẫn là nơi duy nhất tính lịch.
 
 ### 15.2. Hình thức ôn
 
@@ -417,8 +417,8 @@ Giữ hai nút **Thuộc / Không thuộc** làm mặc định. Tùy chọn bậ
 
 ### 15.3. Động lực
 
-- **Streak:** số ngày liên tiếp có ít nhất một review, tính theo `VOCABULARY_TIME_ZONE`.
-- **Mục tiêu ngày:** số thẻ cần ôn mỗi ngày (mặc định 10, học sinh chỉnh được), hiện thanh tiến độ trên trang ôn.
+- **Streak (đã cài):** số ngày liên tiếp có ít nhất một review, tính theo `VOCABULARY_TIME_ZONE`; chuỗi còn sống tới hết ngày hôm nay dù chưa ôn. Lưu ở bảng `student_review_days (user_id, day, reviews)` (backfill từ `vocabulary_review_events`); `GET .../vocabulary/stats` trả thêm `streak`, `reviewedToday`.
+- **Mục tiêu ngày (đã cài):** mặc định 10 thẻ, học sinh chỉnh được (lưu trên trình duyệt), thanh tiến độ trên trang ôn. `hard` không tăng `passCount`/`failCount`.
 - **EXP cho ôn từ:** vẫn mặc định tắt (mục 12). Nếu bật thì dùng nguồn riêng, có trần mỗi ngày để không lấn át EXP bài làm.
 
 ## 16. Nhắc ôn và theo dõi tiến độ (ngoài MVP ban đầu)

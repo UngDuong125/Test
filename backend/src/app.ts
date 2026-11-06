@@ -7,6 +7,8 @@ import { authMiddleware, enforcePasswordChangeGate } from './middleware/auth.js'
 import { errorHandler } from './middleware/errorHandler.js';
 import { assignmentsRouter } from './routes/assignments.routes.js';
 import { attemptsRouter } from './routes/attempts.routes.js';
+import { accountsRouter } from './routes/accounts.routes.js';
+import { feedbackTemplatesRouter } from './routes/feedback.routes.js';
 import { authRouter } from './routes/auth.routes.js';
 import { classesRouter } from './routes/classes.routes.js';
 import { examsRouter } from './routes/exams.routes.js';
@@ -50,6 +52,7 @@ export function createApp() {
 
   app.use('/api/auth', authRouter);
   app.use('/api/admin/users', usersRouter);
+  app.use('/api/users', accountsRouter);
   app.use('/api/admin/exp', adminExpRouter);
   app.use('/api', taxonomyRouter);
   app.use('/api/questions', questionsRouter);
@@ -62,6 +65,7 @@ export function createApp() {
   app.use('/api/exam-assignments', assignmentsRouter);
   app.use('/api/attempts', attemptsRouter);
   app.use('/api/grading', gradingRouter);
+  app.use('/api/feedback-templates', feedbackTemplatesRouter);
   app.use('/api/leaderboard', leaderboardRouter);
   app.use('/api/students', studentsRouter);
   app.use('/api/upload', uploadRouter);

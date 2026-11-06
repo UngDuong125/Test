@@ -23,7 +23,23 @@ type VocabStats = {
   learning: number;
   mastered: number;
   due: number;
+  streak?: number;
+  reviewedToday?: number;
 };
+
+type ReviewResult = 'pass' | 'fail' | 'hard';
+
+const GOAL_KEY = 'testarchive:vocab-daily-goal';
+const DEFAULT_GOAL = 10;
+
+function readGoal(): number {
+  try {
+    const n = Number(window.localStorage.getItem(GOAL_KEY));
+    return Number.isInteger(n) && n > 0 && n <= 500 ? n : DEFAULT_GOAL;
+  } catch {
+    return DEFAULT_GOAL;
+  }
+}
 
 const DUE_PAGE = 30;
 
@@ -58,6 +74,11 @@ function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
   const [stats, setStats] = useState<VocabStats | null>(null);
   const [sessionDone, setSessionDone] = useState(0);
   const [mode, setMode] = useState<ReviewMode>('flashcard');
+  const [goal, setGoal] = useState(DEFAULT_GOAL);
+
+  useEffect(() => {
+    setGoal(readGoal());
+  }, []);
   const [pendingSaves, setPendingSaves] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [pullTick, setPullTick] = useState(0);
@@ -138,22 +159,28 @@ function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
     void load();
   }, [load]);
 
-  const applyStats = useCallback((result: 'pass' | 'fail', intervalStep: number, dir: 1 | -1) => {
+  const applyStats = useCallback((result: ReviewResult, intervalStep: number, dir: 1 | -1) => {
     const mastered = result === 'pass' && intervalStep >= LAST_STEP;
     setStats((current) => {
       if (!current) return current;
+      const before = current.reviewedToday ?? 0;
+      const after = Math.max(0, before + dir);
+      // The first review of the day extends the streak; undoing it takes it back.
+      const streakDelta = before === 0 && after > 0 ? 1 : before > 0 && after === 0 ? -1 : 0;
       return {
         ...current,
         due: Math.max(0, current.due - dir),
         learning: mastered ? current.learning - dir : current.learning,
         mastered: mastered ? current.mastered + dir : current.mastered,
+        reviewedToday: after,
+        streak: current.streak != null ? Math.max(0, current.streak + streakDelta) : current.streak,
       };
     });
   }, []);
 
   /** Record a result for the current card (flashcard, quiz and typing all end here). */
   const submitReview = useCallback(
-    (result: 'pass' | 'fail') => {
+    (result: ReviewResult) => {
       const card = queueRef.current[index];
       if (!card) return;
       if (reviewedIds.current.has(card.card.id)) return;
@@ -186,7 +213,7 @@ function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
   );
 
   const onReview = useCallback(
-    (result: 'pass' | 'fail') => {
+    (result: ReviewResult) => {
       if (!flipped) return;
       submitReview(result);
     },
@@ -215,6 +242,9 @@ function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
       } else if (event.key === 'ArrowRight') {
         event.preventDefault();
         onReview('pass');
+      } else if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        onReview('hard');
       }
     }
     window.addEventListener('keydown', onKey);
@@ -265,6 +295,51 @@ function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
           </Link>
         </div>
       </div>
+
+      {stats && (
+        <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+          <span className="font-medium text-ink" title="Số ngày liên tiếp có ôn ít nhất một thẻ">
+            🔥 Chuỗi {stats.streak ?? 0} ngày
+          </span>
+          <span className="flex items-center gap-2 text-slate-600">
+            Hôm nay {stats.reviewedToday ?? 0}/{goal}
+            <span
+              className="inline-block h-2 w-24 overflow-hidden rounded-full bg-mist"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={goal}
+              aria-valuenow={Math.min(stats.reviewedToday ?? 0, goal)}
+              aria-label="Mục tiêu hôm nay"
+            >
+              <span
+                className="block h-2 rounded-full bg-accent"
+                style={{ width: `${Math.min(100, ((stats.reviewedToday ?? 0) / goal) * 100)}%` }}
+              />
+            </span>
+            {(stats.reviewedToday ?? 0) >= goal && <span className="text-emerald-700">✓ Đạt mục tiêu</span>}
+          </span>
+          <label className="flex items-center gap-1 text-xs text-slate-500">
+            Mục tiêu
+            <input
+              type="number"
+              min={1}
+              max={500}
+              value={goal}
+              onChange={(e) => {
+                const n = Math.max(1, Math.min(500, Math.floor(Number(e.target.value) || DEFAULT_GOAL)));
+                setGoal(n);
+                try {
+                  window.localStorage.setItem(GOAL_KEY, String(n));
+                } catch {
+                  // per-device convenience only
+                }
+              }}
+              className="w-14 rounded border border-mist px-1 py-0.5"
+            />
+            thẻ/ngày
+          </label>
+        </div>
+      )}
 
       {stats && (
         <p className="mb-4 text-sm text-slate-500">
@@ -369,7 +444,17 @@ function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
                 className="flex-1 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 hover:bg-red-100"
               >
                 Không thuộc
-                <span className="mt-0.5 block text-xs font-normal text-red-500">←</span>
+                <span className="mt-0.5 block text-xs font-normal text-red-500">← · về 1 ngày</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => onReview('hard')}
+                className="flex-1 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-900 hover:bg-amber-100"
+              >
+                Khó nhớ
+                <span className="mt-0.5 block text-xs font-normal text-amber-700">
+                  ↓ · giữ mốc {INTERVAL_LABELS[current.card.intervalStep] ?? ''}
+                </span>
               </button>
               <button
                 type="button"

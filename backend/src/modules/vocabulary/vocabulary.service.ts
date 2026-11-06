@@ -1,5 +1,6 @@
 import { env } from '../../config/env.js';
 import { AppError } from '../../domain/errors.js';
+import { isEnrollableStatus } from '../../domain/students.js';
 import type {
   DueVocabularyCard,
   PublicUser,
@@ -47,8 +48,15 @@ import {
   updateVocabularyEntry,
   listCardsForAssignments,
   listLiveVocabularyAssignmentsForBank,
+  listRecentReviewDays,
+  recordReviewDay,
 } from '../../repositories/vocabulary.repository.js';
-import { initialCardSchedule, nextIntervalAfterReview } from './srs.logic.js';
+import {
+  computeStreak,
+  initialCardSchedule,
+  localDayKey,
+  nextIntervalAfterReview,
+} from './srs.logic.js';
 import { computeVocabularyProgress } from './progress.logic.js';
 
 function assertTeacherOrAdmin(actor: PublicUser) {
@@ -371,8 +379,8 @@ async function assertCanTargetStudent(actor: PublicUser, studentId: string) {
   if (user.role !== 'student') {
     throw new AppError(422, 'Target must be a student', 'NOT_STUDENT');
   }
-  if (user.status !== 'active') {
-    throw new AppError(422, 'Student must be active', 'STUDENT_NOT_ACTIVE');
+  if (!isEnrollableStatus(user.status)) {
+    throw new AppError(422, 'Student account is locked or disabled', 'STUDENT_NOT_ACTIVE');
   }
   if (actor.role === 'teacher') {
     const ok = await isStudentInTeacherClass(studentId, actor.id);
@@ -484,7 +492,7 @@ export async function assignBankForUser(
 
     for (const studentId of memberIds) {
       const user = await findUserById(studentId);
-      if (!user || user.role !== 'student' || user.status !== 'active') {
+      if (!user || user.role !== 'student' || !isEnrollableStatus(user.status)) {
         warnings.push(`Skipped invalid member ${studentId}`);
         continue;
       }
@@ -651,7 +659,19 @@ export async function getMyVocabularyStats(actor: PublicUser) {
   if (actor.role !== 'student') {
     throw new AppError(403, 'Forbidden', 'FORBIDDEN');
   }
-  return countCardsForUser(actor.id);
+  const [counts, days] = await Promise.all([
+    countCardsForUser(actor.id),
+    listRecentReviewDays(actor.id),
+  ]);
+  const today = localDayKey(new Date(), env.VOCABULARY_TIME_ZONE);
+  return {
+    ...counts,
+    streak: computeStreak(
+      days.map((d) => d.day),
+      today,
+    ),
+    reviewedToday: days.find((d) => d.day === today)?.reviews ?? 0,
+  };
 }
 
 export async function reviewCardForStudent(
@@ -713,6 +733,11 @@ export async function reviewCardForStudent(
     intervalStepBefore: card.intervalStep,
     intervalStepAfter: schedule.intervalStep,
   });
+  try {
+    await recordReviewDay(actor.id, localDayKey(now, env.VOCABULARY_TIME_ZONE));
+  } catch {
+    // The review itself is saved; a missed day counter must not fail the request.
+  }
 
   return { card: updated };
 }
