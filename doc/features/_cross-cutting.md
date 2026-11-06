@@ -138,6 +138,47 @@ Không dùng permission granular riêng `assign_exam`. Quyền giao đề nằm 
 - Analytics: [analytics.md](./analytics.md)
 - Migrate legacy: [migration-legacy.md](../migration-legacy.md)
 
+## Yêu cầu phi chức năng
+
+### Khởi động và trạng thái chờ
+
+Backend chạy Render Free có thể ngủ; cronjob buổi tối giữ thức (việc vận hành). Frontend luôn hiện skeleton, và sau 3 giây hiện "Hệ thống đang khởi động" thay vì màn trắng. Chi tiết: [student-response.md](./student-response.md#8-cold-start-giữ-thức-và-màn-đang-khởi-động).
+
+### Kiểm thử
+
+- Unit test giữ như hiện có (`npm test`).
+- Bổ sung **test tích hợp** (backend + database thử) cho các luồng dễ lỗi do đồng thời và idempotency: bấm **Bắt đầu** hai lần song song (một attempt, một snapshot); nộp hai lần; ghi `exp_ledger` trùng; regrade không cộng trùng; hết hạn khi đang làm; giao lớp bỏ qua trùng.
+- Bổ sung một **e2e smoke test** cho đường chính: đăng nhập → bắt đầu → trả lời → nộp → xem kết quả; và một cho ôn từ (thẻ đầu → thuộc).
+- Chạy trong CI trước khi deploy.
+
+### Quan sát và vận hành
+
+- Log có cấu trúc (JSON) kèm `requestId`, `userId`, route, thời gian xử lý; không ghi mật khẩu, token, đáp án.
+- Theo dõi lỗi (ví dụ Sentry) cho cả frontend và backend; cảnh báo khi tỷ lệ lỗi 5xx tăng.
+- Đo độ trễ theo route cho các endpoint trong ngân sách học sinh ([student-response.md](./student-response.md)); cảnh báo khi vượt ngưỡng.
+- Cảnh báo khi gửi email mời/reset thất bại; admin thấy trạng thái gửi và có nút gửi lại.
+- `GET /api/health` kiểm tra được cả kết nối database (bản nhẹ cho cronjob, bản đầy đủ cho giám sát).
+
+### Truy cập và di động
+
+- Giao diện responsive tối thiểu từ 360px; học sinh làm bài chủ yếu trên điện thoại. Vùng bấm tối thiểu 44px; bảng câu hỏi dạng ngăn kéo trên màn nhỏ.
+- Dùng được bằng bàn phím (thứ tự tab, focus nhìn thấy được); độ tương phản chữ đạt mức WCAG AA; không chỉ dựa vào màu để phân biệt đúng/sai (kèm biểu tượng và chữ).
+- Ảnh trong câu hỏi có `alt`; công thức LaTeX hiển thị tốt trên màn nhỏ (cuộn ngang trong khối, không làm vỡ trang).
+- Nút/điều khiển thay cho kéo-thả (Lên/Xuống, nối bằng hai lần bấm) giữ nguyên để dùng được trên cảm ứng.
+
+### Bảo mật và riêng tư
+
+- Người dùng là trẻ vị thành niên: tối thiểu hóa dữ liệu hiển thị công khai (không email trên bảng xếp hạng; xem [leaderboard.md](./leaderboard.md#11-riêng-tư-và-công-bằng-cải-tiến)).
+- Rate limit không chỉ cho login/upload mà cả các endpoint nặng (analytics, export CSV, import tài khoản) và `check` của bài học.
+- Chống gian lận mức nhẹ (tùy đề): xáo câu/đáp án đã có; tùy chọn ghi nhận số lần rời tab trong attempt để teacher tham khảo (chỉ ghi nhận, không tự trừ điểm).
+- Phiên: không cache user phía server (giữ nguyên quy tắc); nếu tải tăng, chỉ được cân nhắc cache ngắn kèm vô hiệu hóa ngay khi logout/khóa tài khoản, và phải cập nhật [student-response.md](./student-response.md#7-việc-không-được-đưa-vào-luồng-học-sinh) trước.
+
+### Sao lưu và dữ liệu
+
+- Sao lưu Supabase định kỳ và thử khôi phục theo lịch; ghi rõ chu kỳ và thời gian giữ.
+- Lưu trữ theo năm học: lớp, assignment, attempt cũ được đánh dấu lưu trữ, không xóa; truy vấn mặc định chỉ lấy năm học hiện tại.
+- Dọn media mồ côi theo lịch (media không còn block nào tham chiếu quá N ngày); cảnh báo trước khi xóa.
+
 ## Mã lỗi HTTP (gợi ý)
 
 | Code | Khi nào |

@@ -30,6 +30,10 @@ Bộ tài liệu feature cho hệ thống tạo bài học, bộ đề theo ch�
 15. [interactive-lessons.md](./features/interactive-lessons.md) — Bài học: thẻ chọn, nối cặp, sắp xếp, lý thuyết từng phần
 16. [student-response.md](./features/student-response.md) — Hợp đồng tốc độ phản hồi: dashboard, làm bài, nộp, ôn từ
 
+## Cải tiến trải nghiệm đang theo dõi
+
+Các hạng mục UX/phi chức năng mới được ghi trong từng file feature (đánh dấu "cải tiến" hoặc nằm trong mục riêng). Tổng hợp ở [overview.md](./overview.md#trạng-thái-implementation); yêu cầu phi chức năng ở [_cross-cutting.md](./features/_cross-cutting.md#yêu-cầu-phi-chức-năng).
+
 ## Nguyên tắc kiến trúc
 
 ```text

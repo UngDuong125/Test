@@ -93,6 +93,17 @@ Submit grade → graded + EXP
 
 UI path gợi ý: `/grading` (queue), `/grading/[attemptId]` (chi tiết).
 
+### Chấm nhanh (cải tiến)
+
+- **Chấm theo câu:** trong một đề, mở từng câu và chấm câu đó cho cả lớp liên tiếp (câu 5 của mọi học sinh) thay vì từng bài. Chế độ xem: `/grading?examId=&groupBy=question`; API đọc `GET /api/grading/queue?examId=&questionId=` trả các câu trả lời pending của câu đó, phân trang, mỗi item chỉ gồm câu trả lời và `attemptId`.
+- **Mẫu feedback:** teacher lưu và chèn lại các câu nhận xét thường dùng (ví dụ "Thiếu đơn vị"). Mẫu thuộc về teacher, không dùng chung.
+- **Chấm nhanh bằng phím:** gợi ý điểm nhanh (0, một nửa, tối đa) và phím tắt chuyển bài kế tiếp để chấm không cần dùng chuột.
+- **Lưu nháp:** lưu điểm đã nhập mà chưa hoàn tất; attempt vẫn `needs_grading` cho tới khi mọi câu pending được chấm.
+- **Thông báo cho học sinh:** khi attempt chuyển `needs_grading` → `graded`, dashboard hiện chấm "Có điểm mới" (xem [dashboard.md](./dashboard.md#nhắc-việc-trên-dashboard)); email tùy chọn.
+- **Hàng đợi:** hiện số bài chờ chấm trên nav của teacher, và sắp xếp bài cũ nhất trước để không bỏ sót.
+
+Tiêu chí: chấm theo câu và chấm theo bài cho cùng một kết quả `score`; hoàn tất vẫn đi qua `POST /api/attempts/:id/grade` (backend tính lại điểm, ghi EXP một lần).
+
 ## 6. Regrade
 
 - Teacher có thể mở lại attempt đã `graded` trong cửa sổ regrade (MVP: luôn cho phép owner/admin).

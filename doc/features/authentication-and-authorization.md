@@ -144,6 +144,18 @@ Invite body tối thiểu: `{ "email", "username", "role", "displayName?" }`.
 
 `displayName` map từ `users.display_name` (nullable). Schema: [database-target.md](../database-target.md).
 
+## 7b. Quản trị tài khoản hàng loạt (cải tiến)
+
+Học sinh THCS thường không có email riêng, và admin không nên mời từng tài khoản bằng tay.
+
+- **Import CSV:** `POST /api/admin/users/import` (multipart, cột `username`, `displayName`, `role`, tùy chọn `email`, `className`). Chạy kiểm tra trước (dry-run): trả danh sách dòng hợp lệ và dòng lỗi theo số dòng (trùng username, role sai, định dạng sai). Chỉ tạo khi admin xác nhận. Tùy chọn gán vào lớp theo `className`.
+- **Tài khoản không có email:** cho phép tạo user chỉ có `username` (email nullable). Kích hoạt bằng mật khẩu tạm in/xuất cho giáo viên, vẫn bắt buộc đổi mật khẩu ở lần đăng nhập đầu. Luồng quên mật khẩu qua email không áp dụng cho tài khoản không có email; dùng reset do giáo viên (dưới đây).
+- **Xuất mật khẩu tạm:** sau import, admin tải **một lần** danh sách `username` + mật khẩu tạm theo lớp (CSV hoặc trang in) để phát cho học sinh. Hệ thống chỉ hiển thị một lần, không lưu plaintext, không ghi vào log.
+- **Reset do giáo viên:** `POST /api/teacher/students/:id/reset-password` cho teacher có học sinh trong lớp mình quản lý (và admin): sinh mật khẩu tạm mới, hủy session cũ, đặt `mustChangePassword = true`. Mật khẩu tạm trả về một lần cho người thực hiện. Có audit (ai, khi nào, học sinh nào).
+- **Chuyển lớp / lên lớp cuối năm:** thao tác hàng loạt trên `class_members` (chuyển nhóm học sinh sang lớp mới, lưu trữ lớp cũ), không xóa assignment và attempt lịch sử.
+
+Tiêu chí xong: import có dry-run, báo đúng dòng lỗi; mật khẩu tạm chỉ hiện một lần và không có trong log; teacher chỉ reset được học sinh trong lớp mình.
+
 ## 8. Acceptance Criteria
 
 - Người dùng hợp lệ đăng nhập được bằng email **hoặc** username cùng mật khẩu.

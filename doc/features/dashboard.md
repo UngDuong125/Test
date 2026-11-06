@@ -70,7 +70,7 @@ Dashboard hỗ trợ các loại câu hỏi MVP trong [Question Management](./qu
 - `fill_blank`, `short_answer`: nhập câu trả lời.
 - `essay`: nhập nội dung để teacher chấm thủ công.
 
-Các loại đã bật thêm trên UI: `multiple_select`, `numeric`. `matching` / `ordering` chưa có UI làm bài.
+Các loại đã bật thêm trên UI: `multiple_select`, `numeric`, `matching` (nối cặp), `ordering` (sắp xếp). Chi tiết: [interactive-lessons.md](./interactive-lessons.md).
 
 Question có thể chứa text, LaTeX và image block. Dashboard chỉ hiển thị question đã có trong snapshot của attempt; không nhận answer key trước khi submit nếu exam yêu cầu kiểm tra nghiêm túc.
 
@@ -121,11 +121,30 @@ Request lưu answer chỉ chứa giá trị student chọn/nhập, ví dụ:
 - Sau submit, hiển thị kết quả hoặc trạng thái `needs_grading` theo setting.
 - Không hiển thị `high_score` toàn cục như kết quả cá nhân và không dùng nút “Làm lại đề mới” ngoài việc tạo attempt mới hợp lệ.
 
+### Nhắc việc trên dashboard
+
+Không thêm request trước lần vẽ danh sách; mọi thứ dưới đây suy ra từ payload `GET /api/students/me/assignments` và dữ liệu tải sau.
+
+- **Sắp hết hạn:** hàng bài còn lượt và `deadline` trong 48 giờ hiện nhãn "Còn X giờ/ngày"; dưới 6 giờ đổi sang màu cảnh báo. Sắp xếp mặc định: đang làm, rồi sắp hết hạn, rồi còn lại.
+- **Thẻ từ đến hạn:** mục cố định "Ôn từ vựng" trên nav và dashboard hiện badge số thẻ đến hạn (`dueCount`). Badge tải sau lần vẽ đầu (cùng nhóm với stats), lỗi thì ẩn badge, không chặn gì.
+- **Bài đã chấm xong:** khi `latestFinishedAttempt` chuyển từ `needs_grading` sang `graded` kể từ lần xem trước, hàng bài hiện chấm "Có điểm mới". Trạng thái "đã xem" lưu phía client.
+- Thông báo email nhắc hạn/ôn từ: xem [vocabulary-srs.md](./vocabulary-srs.md#16-nhắc-ôn-và-theo-dõi-tiến-độ-ngoài-mvp-ban-đầu), mặc định tắt.
+
+### Lịch sử và tiến bộ của học sinh
+
+Trang `/history` (link từ dashboard), dành cho `student` xem dữ liệu của chính mình:
+
+- Danh sách mọi attempt đã nộp: tên đề, môn, ngày, điểm/phần trăm, trạng thái chấm; phân trang, lọc theo môn.
+- Biểu đồ phần trăm theo thời gian, theo từng môn.
+- **Câu đã sai:** danh sách câu sai ở các attempt đã được phép xem đáp án (tuân quy tắc `showExplanation` + hết lượt trong [attempt-and-result.md](./attempt-and-result.md#9-security)). Chưa được phép xem đáp án thì chỉ hiện đề và đề bài, không hiện đáp án đúng.
+- API: `GET /api/students/me/results?subjectId=&page=` (một query phân trang), `GET /api/students/me/wrong-questions?subjectId=&page=`. Không nằm trong ngân sách dashboard vì không chặn lần vẽ đầu.
+- Không hiển thị dữ liệu của học sinh khác.
+
 ## 9. File liên quan
 
 | Layer | Path |
 | :--- | :--- |
-| UI | `frontend/app/dashboard/page.tsx` |
+| UI | `frontend/app/dashboard/page.tsx`, `frontend/app/history/page.tsx` |
 | Exam | `doc/features/exam-management.md` |
 | Assignment | `doc/features/exam-distribution.md` |
 | Class | `doc/features/class-management.md` |

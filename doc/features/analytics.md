@@ -81,6 +81,16 @@ Nguồn: `attempt_answers` join `attempts` (`status=graded`).
 
 Query chung: `from`, `to` (ISO datetime) để giới hạn cửa sổ thời gian attempt.
 
+## 5b. Phân tích sâu và xuất dữ liệu (cải tiến)
+
+- **Phân tích đáp án nhiễu:** với `multiple_choice`/`multiple_select`, trả tỷ lệ chọn từng option (`optionStats: [{ optionId, selectedRate }]`) để teacher phát hiện đáp án gây nhầm lẫn hoặc câu có đáp án sai. Chỉ aggregate, không lộ câu trả lời từng học sinh.
+- **Thời gian làm:** ghi `answered_at` mỗi lần lưu; `averageTimeSeconds` tính từ chênh lệch các lần lưu liên tiếp trong cùng attempt (câu đầu tính từ `started_at`). Bỏ qua dữ liệu vượt trần hợp lý để không bị lệch bởi học sinh bỏ treo.
+- **So sánh lớp:** `GET /api/exams/:id/analytics?groupBy=class` trả điểm trung bình, tỷ lệ hoàn thành theo từng lớp được giao; chỉ cho owner exam/admin.
+- **Xuất CSV:** `GET /api/exams/:id/results?format=csv` và `GET /api/classes/:id/analytics?format=csv&examId=`: các cột học sinh, lớp, số lượt, điểm tốt nhất, điểm lần cuối, trạng thái, thời điểm nộp. File UTF-8 có BOM để mở đúng tiếng Việt trong Excel; cùng quyền và phạm vi như bản JSON.
+- **Học sinh cần chú ý:** danh sách học sinh chưa làm bài sau hạn, hoặc điểm dưới ngưỡng do teacher chọn.
+
+Tiêu chí xong: CSV mở được trong Excel không lỗi dấu; `optionStats` cộng lại bằng 1 trên các option của câu; không thể xem dữ liệu ngoài phạm vi sở hữu.
+
 ## 6. Privacy
 
 - Không trả nội dung answer của student khác trong analytics aggregate.

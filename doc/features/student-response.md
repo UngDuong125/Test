@@ -4,7 +4,7 @@ Tài liệu này là hợp đồng của các màn học sinh dùng mỗi ngày:
 
 Mục tiêu: sau khi process API đã thức, học sinh thấy danh sách bài hoặc đề đang làm sau **một** response nghiệp vụ, và số query không tăng theo số đề hay số câu.
 
-Giới hạn đo: thời gian handler khi process đang chạy. Cold start của Render Free nằm ở [mục 8](#8-process-api-phải-thức-trong-giờ-học); tối ưu query không cứu được request đầu nếu process đang ngủ.
+Giới hạn đo: thời gian handler khi process đang chạy. Cold start của Render Free nằm ở [mục 8](#8-cold-start-giữ-thức-và-màn-đang-khởi-động); tối ưu query không cứu được request đầu nếu process đang ngủ.
 
 ## 1. Phạm vi
 
@@ -162,11 +162,18 @@ Migration mới trong `supabase/migrations/`. Không sửa migration cũ. Hai re
 - Thêm cache session phía server để “đỡ query”. Một query join là đủ và khỏi phục vụ user đã bị khóa.
 - Thêm thư viện data-fetch mới chỉ để đạt ngân sách này. `SessionProvider` và payload gộp ở trên là đủ với stack hiện tại.
 
-## 8. Process API phải thức trong giờ học
+## 8. Cold start: giữ thức và màn "đang khởi động"
 
-Hợp đồng trên giả định process Express đang chạy. Backend trên Render Free ngủ sau khoảng 15 phút không có request. Workflow `.github/workflows/keep-backend-awake.yml` hiện chỉ ping từ 16:45 đến 23:59 giờ Việt Nam, nên tiết học buổi sáng vẫn dính cold start (vài chục giây) trước mọi tối ưu query.
+Hợp đồng trên giả định process Express đang chạy. Backend trên Render Free ngủ sau khoảng 15 phút không có request. Việc giữ thức do cronjob gọi `GET /api/health` vào buổi tối (workflow `.github/workflows/keep-backend-awake.yml`, biến repository `BACKEND_URL`); ngoài khung giờ đó vẫn có thể gặp cold start (vài chục giây). Lịch ping là việc vận hành, không phải tiêu chí của hợp đồng này.
 
-Khi sửa vận hành cùng đợt này: lịch ping phải phủ **06:00–22:00** `Asia/Ho_Chi_Minh`, vẫn gọi `GET /api/health`. Giữ biến repository `BACKEND_URL`.
+Vì cold start không loại bỏ hoàn toàn, frontend phải xử lý trạng thái chờ rõ ràng:
+
+- Request đầu của phiên (`GET /api/auth/me`, đăng nhập) quá **3 giây** chưa có response thì hiện skeleton kèm dòng *"Hệ thống đang khởi động, vui lòng chờ trong giây lát…"*. Dưới 3 giây chỉ hiện skeleton thường, không nháy thông báo.
+- Skeleton giữ đúng khung trang (header, danh sách bài, vùng làm bài) để không giật bố cục khi dữ liệu về.
+- Có thể kèm bộ đếm hoặc thanh tiến trình không xác định; không để màn trắng.
+- Quá **60 giây** hoặc lỗi mạng: hiện thông báo lỗi kèm nút **Thử lại**, không tự retry vòng lặp (giữ quy tắc `401` ở mục 3).
+- Đăng nhập khi đang khởi động: nút đăng nhập ở trạng thái đang xử lý, không cho bấm lặp, và giữ nguyên thông tin đã nhập.
+- Trạng thái này chỉ là giao diện; không thêm request "đánh thức" riêng trước khi vẽ danh sách bài.
 
 ## 9. Tiêu chí xong
 
@@ -178,6 +185,42 @@ Khi sửa vận hành cùng đợt này: lịch ping phải phủ **06:00–22:0
 - Bấm **Bắt đầu** hai lần liên tiếp: một attempt `in_progress`, một lần dựng snapshot.
 - `/vocabulary/review`: thẻ đầu hiện từ một GET `/due`. Bấm thuộc không gọi lại cả danh sách.
 - Số query của `GET /api/students/me/assignments` và `GET /api/attempts/:id` (student) không tăng khi thêm đề hoặc thêm câu vào cùng một bài.
+- Request đầu chậm hơn 3 giây: hiện skeleton và dòng "Hệ thống đang khởi động"; không có màn trắng.
+
+## 11. Trải nghiệm làm bài (UX)
+
+Phần này bổ sung hành vi giao diện cho `/attempts/[id]`. Không thêm request vào ngân sách ở mục 2.
+
+### Trạng thái lưu
+
+- Chỉ báo cố định trên thanh làm bài: **Đang lưu…** → **Đã lưu** (kèm giờ) → **Lưu lỗi, đang thử lại**.
+- Lưu lỗi mạng: giữ câu trên màn, xếp vào hàng đợi trong bộ nhớ theo từng câu, thử lại với backoff (2s, 5s, 10s…) và khi sự kiện `online` bắn ra. Không mất nội dung học sinh đang gõ.
+- Còn câu chưa lưu được thì nút **Nộp bài** hiện cảnh báo "Còn N câu chưa lưu" và vẫn cho thử nộp sau khi flush.
+- Hàng đợi chỉ giữ trong phiên tab; không lưu đáp án vào `localStorage` khi đề yêu cầu kiểm tra nghiêm túc.
+
+### Điều hướng câu hỏi
+
+- Bảng tổng quan câu (lưới số câu) luôn truy cập được: màu cho **đã trả lời**, **chưa trả lời**, **đã đánh dấu**. Nhảy tới câu bất kỳ, không đổi thứ tự snapshot.
+- Nút **Đánh dấu xem lại** cho từng câu. Đánh dấu chỉ là trạng thái giao diện trong phiên, không gửi lên server và không ảnh hưởng chấm điểm.
+- Trên di động, bảng câu mở dạng ngăn kéo (drawer) từ nút cố định.
+
+### Hết giờ và nộp bài
+
+- Cảnh báo khi còn **5 phút** và **1 phút** (banner, không chặn thao tác; có thể kèm rung/âm nếu trình duyệt cho phép). Chỉ tính từ đồng hồ `serverNow`/`expiresAt` đã có, không poll.
+- Hộp xác nhận **Nộp bài** nêu số câu chưa trả lời và số câu đã đánh dấu, kèm nút **Xem câu chưa làm** nhảy tới câu đầu tiên chưa trả lời.
+- Hết giờ tự nộp theo mục 5; sau đó hiện thông báo rõ "Đã hết giờ, bài đã được nộp".
+
+### Khôi phục
+
+- Đóng tab hoặc mất kết nối giữa chừng: mở lại bằng **Tiếp tục** từ dashboard, một `GET /api/attempts/:id`, đáp án đã lưu hiện đủ và đồng hồ chạy tiếp từ `expiresAt`.
+- Một học sinh mở cùng attempt ở hai tab/thiết bị: tab sau vẫn được phép đọc, nhưng khi một tab đã nộp thì tab kia nhận `409` và chuyển sang trang kết quả với thông báo.
+
+### Tiêu chí xong (UX)
+
+- Ngắt mạng khi gõ một câu rồi bật lại: câu được lưu, chỉ báo về **Đã lưu**.
+- Bảng câu đúng trạng thái sau khi trả lời, đánh dấu và nhảy câu.
+- Hộp nộp bài liệt kê đúng số câu bỏ trống.
+- Banner 5 phút và 1 phút hiện đúng một lần mỗi mốc.
 
 ## 10. File đã theo hợp đồng
 
@@ -190,4 +233,5 @@ Khi sửa vận hành cùng đợt này: lịch ping phải phủ **06:00–22:0
 | Đọc / bắt đầu / lưu bài | `backend/src/modules/attempts/attempts.service.ts`, `frontend/app/attempts/[id]/page.tsx` |
 | Một attempt đang làm | `supabase/migrations/` (index partial mới), `doc/database-target.md` khi đã apply |
 | Ôn từ theo trang | `backend/src/modules/vocabulary/vocabulary.service.ts`, `frontend/app/vocabulary/review/page.tsx` |
-| Process thức giờ học | `.github/workflows/keep-backend-awake.yml` |
+| Cronjob giữ thức (vận hành) | `.github/workflows/keep-backend-awake.yml` |
+| Skeleton "đang khởi động" | `frontend/components/auth/AuthGate.tsx`, `frontend/lib/api-client.ts` |

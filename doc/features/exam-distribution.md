@@ -195,6 +195,15 @@ Assign
 - "Giao lại" = `POST /api/exam-assignments/:id/cancel` assignment cũ rồi `POST /api/exams/:id/assign` (`targetType = user`) tạo assignment mới với `availableFrom = now`, `deadline` do teacher chọn (mặc định +7 ngày), giữ nguyên `attemptLimit`/`settings`. Phải hủy trước vì backend bỏ qua khi còn assignment chưa `cancelled`/`expired`. Assignment mới không có `sourceClassId` nên hiển thị ở nhóm "Giao lẻ". Chỉ áp dụng cho assignment **chưa có lượt làm** và đang `available`/`expired` (`assigned` chưa mở thì bỏ qua).
 - "Giao lại tất cả đề chưa có lượt làm" áp dụng cho các nhóm có tổng 0 lượt; nút từng nhóm giao lại cho các HS chưa làm trong nhóm.
 
+### Gia hạn, ngoại lệ và học sinh vào lớp sau (cải tiến)
+
+- **Gia hạn không cần hủy:** `PATCH /api/exam-assignments/:id` cho phép teacher đổi `deadline` và `attemptLimit` của **một** assignment (ví dụ học sinh nghỉ ốm, cho thêm lượt). Điều kiện: `deadline` mới > `availableFrom`; `attemptLimit` mới không nhỏ hơn số lượt đã dùng. Assignment đã `expired` chỉ gia hạn khi `deadline` mới còn ở tương lai; trạng thái được suy ra lại theo mục 5. Thay đổi ghi `updated_at` và người sửa.
+- **Gia hạn cả nhóm:** `POST /api/exams/:id/extend` với `{ sourceClassId?, deadline }` áp cho mọi assignment chưa `cancelled` trong nhóm; trả danh sách bản ghi đã đổi và bản ghi bị bỏ qua kèm lý do.
+- **Học sinh thêm vào lớp sau khi giao:** khi `POST /api/classes/:id/members` thêm học sinh, hệ thống hỏi (hoặc theo cờ `syncAssignments`) có giao các bài đang mở của lớp (assignment `available`, còn `deadline`) cho học sinh mới hay không. Assignment tạo thêm giữ `sourceClassId` và cùng `deadline`/`settings` với nhóm. Không tạo lại cho bài đã hết hạn.
+- **Giao lớp bị bỏ qua:** response bulk phải liệt kê rõ học sinh bị bỏ qua (đã có assignment còn hiệu lực) và hiện trên UI, không chỉ nằm trong warning. Teacher có thể bấm "Giao lại" ngay trong danh sách đó.
+
+Tiêu chí xong: gia hạn một học sinh không đổi assignment của người khác; học sinh mới vào lớp nhận bài đang mở khi bật đồng bộ; danh sách bị bỏ qua hiện rõ.
+
 ## 11. Student Workflow
 
 ```text

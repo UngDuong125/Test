@@ -43,7 +43,7 @@ Trình duyệt ──► frontend (Next.js 14 App Router, port 3000)
                Supabase PostgreSQL          Cloudinary (ảnh)      SMTP (email mời / reset)
 ```
 
-- Backend deploy trên Render (gói Free). Process ngủ sau khoảng 15 phút không request. Workflow `.github/workflows/keep-backend-awake.yml` ping `GET /api/health` suốt **06:00–22:00** giờ Việt Nam (cần repository variable `BACKEND_URL`). Ngân sách query của luồng học sinh giả định process đang thức: [features/student-response.md](./features/student-response.md).
+- Backend deploy trên Render (gói Free). Process ngủ sau khoảng 15 phút không request. Workflow `.github/workflows/keep-backend-awake.yml` ping `GET /api/health` bằng cronjob vào buổi tối (cần repository variable `BACKEND_URL`); ngoài khung giờ này có thể cold start nên frontend hiện skeleton "Hệ thống đang khởi động" (xem [student-response.md](./features/student-response.md#8-cold-start-giữ-thức-và-màn-đang-khởi-động)). Ngân sách query của luồng học sinh giả định process đang thức: [features/student-response.md](./features/student-response.md).
 - Frontend gọi API qua `NEXT_PUBLIC_API_BASE_URL` (mặc định `http://localhost:4000`).
 - Session học sinh: một `SessionProvider` ở layout, một `GET /api/auth/me` mỗi lần tải trang. `authMiddleware` đọc session và user bằng một query join, không hai query nối tiếp.
 

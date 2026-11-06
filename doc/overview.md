@@ -100,6 +100,7 @@ Code hiện tại đã triển khai mô hình trong tài liệu feature, kể c�
 - Leaderboard: `period=all` đọc projection `users.*_exp`; các period khác aggregate từ `exp_ledger` (+ `leaderboard_periods`).
 - Có unit test (`backend/test/`, `frontend/tests/`; `npm test`). Chưa có suite integration/e2e đầy đủ.
 - Hợp đồng tốc độ cho dashboard, làm bài, nộp bài và ôn từ đã được đưa vào code: [features/student-response.md](./features/student-response.md).
+- **Hướng cải tiến trải nghiệm (đã ghi trong tài liệu feature, chưa chắc đã có trong code):** skeleton "đang khởi động"; chỉ báo lưu, bảng điều hướng câu, đánh dấu xem lại, cảnh báo hết giờ ([student-response.md](./features/student-response.md#11-trải-nghiệm-làm-bài-ux)); lịch sử/tiến bộ và nhắc việc cho học sinh ([dashboard.md](./features/dashboard.md)); nhắc ôn, theo dõi tiến độ SRS, thêm hình thức ôn ([vocabulary-srs.md](./features/vocabulary-srs.md)); chấm nhanh ([manual-grading.md](./features/manual-grading.md)); gia hạn/giao lại ([exam-distribution.md](./features/exam-distribution.md)); analytics sâu và xuất CSV ([analytics.md](./features/analytics.md)); import tài khoản ([authentication-and-authorization.md](./features/authentication-and-authorization.md)); riêng tư bảng xếp hạng ([leaderboard.md](./features/leaderboard.md)); yêu cầu phi chức năng ([_cross-cutting.md](./features/_cross-cutting.md#yêu-cầu-phi-chức-năng)).
 
 Kiến trúc và cấu trúc thư mục chi tiết: [structure.md](./structure.md).
 

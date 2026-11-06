@@ -25,13 +25,13 @@ Trong phạm vi:
 
 Trang ôn có thêm chế độ **Nối từ** (tối đa 5 thẻ due, chấm trên trình duyệt). Chế độ này không ghi review, không đổi lịch SRS và không cộng EXP. Flashcard vẫn là cách ghi nhận thuộc / chưa thuộc. Chi tiết: [interactive-lessons.md](./interactive-lessons.md).
 
-Ngoài phạm vi MVP (có thể mở rộng sau):
+Ngoài phạm vi MVP (có thể mở rộng sau; hướng cải tiến đã ghi ở [mục 15](#15-cải-tiến-trải-nghiệm-ôn-tập) và [mục 16](#16-nhắc-ôn-và-theo-dõi-tiến-độ-ngoài-mvp-ban-đầu)):
 
-- Thuật toán SM-2 / ease factor động.
-- Gõ chính tả / nghe – nói (chỉ flashcard nhận biết nghĩa).
+- Thuật toán SM-2 / ease factor động (mục 15.1 chỉ thêm mức `hard`).
+- Nghe – nói đầy đủ; gõ chính tả và trắc nghiệm (mục 15.2).
 - Cộng EXP khi ôn từ (xem mục 12).
 - Import CSV / từ điển ngoài (dán text trong trang bộ từ đã có).
-- Nhắc push / email khi đến hạn ôn.
+- Nhắc push; email nhắc (mục 16.1).
 
 ## 3. Tại sao module riêng?
 
@@ -338,7 +338,7 @@ Thiết lập availableFrom (± deadline)
    ↓
 Assign → tạo cards
    ↓
-Theo dõi tiến độ (số thẻ due / pass rate — phase sau)
+Theo dõi tiến độ (số thẻ due / pass rate — mục 16.2)
 ```
 
 ## 10. Student workflow
@@ -400,7 +400,51 @@ Chi tiết cột khi implement: bổ sung vào [database-target.md](../database-
 - Không thay đổi schema / hành vi exam hiện có.
 - Client không được tự set `intervalStep` / `nextReviewAt` tùy ý qua API.
 
-## 15. Liên kết
+## 15. Cải tiến trải nghiệm ôn tập
+
+Các mục dưới đây mở rộng MVP; ghi rõ để tránh mâu thuẫn với mục 2 ("ngoài phạm vi"). Mục nào làm sau thì để cờ cấu hình tắt.
+
+### 15.1. Mức độ nhớ (4 nút thay cho 2)
+
+Giữ hai nút **Thuộc / Không thuộc** làm mặc định. Tùy chọn bật thêm **Khó nhớ**: kết quả `hard` giữ `intervalStep` hiện tại (không tăng, không reset), `nextReviewAt = startOfDay(today + INTERVAL_DAYS[intervalStep])`. `result` của `POST .../review` mở rộng thành `pass | fail | hard`; backend vẫn là nơi duy nhất tính lịch.
+
+### 15.2. Hình thức ôn
+
+- **Trắc nghiệm nghĩa:** chọn nghĩa đúng trong 4 lựa chọn (3 nhiễu lấy từ entry khác cùng bank). Kết quả ghi review như flashcard.
+- **Gõ chính tả:** nhập `term` từ `definition`; so khớp bỏ khoảng trắng thừa, không phân biệt hoa thường. Ghi review `pass`/`fail`.
+- **Nghe:** nếu entry có `mediaId` audio thì có nút phát; chế độ nghe-chọn từ.
+- **Nối từ** vẫn không ghi review (mục 2). Tùy chọn: nối đúng cả 5 thẻ thì gợi ý "Ôn tiếp bằng flashcard", không tự đổi lịch.
+
+### 15.3. Động lực
+
+- **Streak:** số ngày liên tiếp có ít nhất một review, tính theo `VOCABULARY_TIME_ZONE`.
+- **Mục tiêu ngày:** số thẻ cần ôn mỗi ngày (mặc định 10, học sinh chỉnh được), hiện thanh tiến độ trên trang ôn.
+- **EXP cho ôn từ:** vẫn mặc định tắt (mục 12). Nếu bật thì dùng nguồn riêng, có trần mỗi ngày để không lấn át EXP bài làm.
+
+## 16. Nhắc ôn và theo dõi tiến độ (ngoài MVP ban đầu)
+
+### 16.1. Nhắc ôn
+
+- Badge "N thẻ đến hạn" trên mục "Ôn từ vựng" (nav, dashboard) — làm trước, không cần hạ tầng mới.
+- Email nhắc tùy chọn: một email tóm tắt mỗi ngày khi `dueCount > 0` và học sinh chưa ôn hôm nay; học sinh tắt được. Học sinh không có email thì bỏ qua. Gửi theo lịch cronjob, không trong request của học sinh.
+
+### 16.2. Tiến độ cho teacher
+
+```text
+GET /api/vocabulary-assignments/:id/progress
+GET /api/classes/:id/vocabulary-progress?bankId=
+```
+
+Mỗi học sinh: số thẻ `learning` / `mastered` / `suspended`, số thẻ đang due, `passCount`/`failCount`, `lastReviewedAt`, streak. Tổng hợp theo lớp: tỷ lệ học sinh đã ôn trong 7 ngày, danh sách học sinh **chưa ôn quá 3 ngày**, và các từ có tỷ lệ fail cao nhất (từ khó). Quyền: owner bank / giáo viên của lớp / admin; không lộ dữ liệu học sinh ngoài phạm vi.
+
+### 16.3. Tiêu chí xong
+
+- Teacher thấy danh sách học sinh lâu chưa ôn và các từ hay sai.
+- Badge số thẻ đến hạn khớp `dueCount` của `/due`.
+- Chế độ `hard` không tăng và không reset `intervalStep`.
+- Gõ chính tả và trắc nghiệm đều đi qua `POST /api/vocabulary-cards/:id/review`, client không tự đặt lịch.
+
+## 17. Liên kết
 
 - Phân phối đề (pattern giao lớp): [exam-distribution.md](./exam-distribution.md)
 - Lớp học: [class-management.md](./class-management.md)

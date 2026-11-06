@@ -53,7 +53,7 @@ Nếu một attempt được chấm lại, aggregate phải phản ánh đúng p
 }
 ```
 
-`displayName` map từ `users.display_name` (nullable); UI fallback → `username` rồi local-part của `email`. Đăng nhập bằng `email` **hoặc** `username`. Schema: [database-target.md](../database-target.md).
+`displayName` map từ `users.display_name` (nullable); UI fallback → `username`; local-part của `email` chỉ dùng cho teacher/admin (xem [mục 11](#11-riêng-tư-và-công-bằng-cải-tiến)). Đăng nhập bằng `email` **hoặc** `username`. Schema: [database-target.md](../database-target.md).
 
 Tên field API có thể dùng `camelCase`; frontend không nên tự cộng các cột để quyết định thứ hạng.
 
@@ -131,7 +131,7 @@ API tính thứ hạng sau filter/limit/tie-break; không để frontend `.slice
 
 ## 8. UI
 
-- Hiển thị hạng, tên hiển thị (hoặc email), tổng EXP và EXP theo môn.
+- Hiển thị hạng, tên hiển thị, tổng EXP và EXP theo môn. **Không hiển thị email** cho người xem là student (xem mục 11).
 - Có empty state: *“Chưa có dữ liệu xếp hạng.”*
 - Có loading và error state.
 - Có thể lọc theo môn và theo kỳ (tuần/tháng/học kỳ).
@@ -157,3 +157,15 @@ Implementation hiện tại dùng `GET /api/leaderboard` (+ `GET /api/leaderboar
 - `period=week|month|term|custom`: aggregate `exp_ledger` trong cửa sổ thời gian.
 - Limit / rank / tie-break do backend trả về.
 - Nguồn ghi EXP: `exp_ledger` (xem [exp.md](./exp.md)). Lộ trình legacy chỉ còn tham chiếu: [migration-legacy.md](../migration-legacy.md).
+
+## 11. Riêng tư và công bằng (cải tiến)
+
+Người dùng là học sinh THCS (trẻ vị thành niên), nên bảng công khai phải tối thiểu hóa dữ liệu cá nhân.
+
+- **Không trả `email`** trong response `GET /api/leaderboard` khi người gọi là `student`. Teacher/admin vẫn có thể nhận `email`/`username` để đối chiếu. Fallback tên hiển thị cho student: `displayName` → `username` (không dùng local-part của email, vì dễ lộ tên thật/ngày sinh).
+- Cho phép học sinh đặt **biệt danh** hiển thị (`displayName`) và tùy chọn **ẩn khỏi bảng công khai** (vẫn thấy hạng của mình). Học sinh bị ẩn không tính vào top nhưng vẫn có EXP.
+- **Xếp hạng theo lớp:** `GET /api/leaderboard?classId=` chỉ gồm thành viên lớp đó; quyền: thành viên lớp, owner lớp, admin. Mặc định học sinh thấy bảng lớp của mình trước bảng toàn trường để người yếu hơn không bị nản.
+- **Hạng của tôi:** response luôn kèm `me: { rank, totalExp }` kể cả khi ngoài top 20, để học sinh biết mình đang ở đâu.
+- Tùy chọn gamification (làm sau): streak ngày, huy hiệu mốc EXP; tính từ `exp_ledger`, không ghi trực tiếp.
+
+Tiêu chí xong: payload cho student không có field `email`; học sinh ngoài top vẫn thấy `me`; bảng lớp chỉ chứa thành viên lớp.
