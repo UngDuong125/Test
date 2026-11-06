@@ -1,12 +1,14 @@
-# Giữ backend Render (gói Free) không ngủ vào buổi tối theo giờ Việt Nam (UTC+7).
-# GitHub cron dùng giờ UTC: 09:45 UTC = 16:45 VN, 16:59 UTC = 23:59 VN.
-# Cần tạo repository variable BACKEND_URL (vd: https://ten-app.onrender.com).
-name: Keep backend awake (evening)
+# Giữ backend Render (gói Free) thức trong giờ học, 06:00–22:00 giờ Việt Nam (UTC+7).
+# GitHub cron dùng giờ UTC.
+# 06:00–06:50 VN = 23:00–23:50 UTC, 07:00–21:50 VN = 00:00–14:50 UTC, 22:00 VN = 15:00 UTC.
+# Cần repository variable BACKEND_URL (vd: https://ten-app.onrender.com).
+name: Keep backend awake (school hours)
 
 on:
   schedule:
-    - cron: '45,55 9 * * *'
-    - cron: '*/10 10-16 * * *'
+    - cron: '*/10 23 * * *'
+    - cron: '*/10 0-14 * * *'
+    - cron: '0 15 * * *'
   workflow_dispatch:
 
 jobs:
