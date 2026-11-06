@@ -1,7 +1,6 @@
 import { AppError } from '../../domain/errors.js';
-import type { Difficulty, Question } from '../../types/domain.js';
+import type { Difficulty, Question, QuestionType, TagKey } from '../../types/domain.js';
 import { listPublishedCandidates } from '../../repositories/questions.repository.js';
-import type { QuestionType, TagKey } from '../../types/domain.js';
 
 export interface RandomSelectionInput {
   subjectId?: TagKey;
@@ -10,7 +9,6 @@ export interface RandomSelectionInput {
   count: number;
   difficulty?: Partial<Record<Difficulty, number>>;
   types?: QuestionType[];
-  bankId?: string;
 }
 
 function shuffle<T>(arr: T[]): T[] {
@@ -88,8 +86,8 @@ function allocateByWeight(
 }
 
 /**
- * Random selection pipeline from question-bank.md:
- * filter → exclude unavailable → group by difficulty → sample → validate.
+ * Random selection: filter published questions → sample, optionally one per topic
+ * when there are more topics than requested questions.
  */
 export async function selectRandomQuestions(
   input: RandomSelectionInput,
@@ -99,7 +97,6 @@ export async function selectRandomQuestions(
     grade: input.grade,
     topicIds: input.topicIds,
     types: input.types,
-    bankId: input.bankId,
   });
 
   const allowed = input.topicIds?.length ? input.topicIds : undefined;

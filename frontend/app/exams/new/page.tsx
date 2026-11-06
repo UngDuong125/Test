@@ -52,7 +52,7 @@ function NewExamBody() {
         <div>
           <h1 className="font-display text-3xl font-bold text-ink">Tạo đề nháp</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Sau khi tạo, mở trình soạn đề để thêm câu từ ngân hàng hoặc tạo câu mới.
+            Sau khi tạo, mở trình soạn đề để thêm câu đã có hoặc tạo câu mới.
           </p>
         </div>
         <Link href="/exams" className="text-sm text-accentDark hover:underline">

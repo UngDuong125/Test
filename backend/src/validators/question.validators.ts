@@ -8,7 +8,6 @@ import {
   questionOptionSchema,
   questionStatusSchema,
   questionTypeSchema,
-  randomSelectionSchema,
   tagKeySchema,
 } from './content.validators.js';
 
@@ -24,7 +23,6 @@ export const createQuestionSchema = z.object({
   explanation: explanationSchema,
   points: z.number().positive().max(100).default(1),
   tags: z.array(z.string().trim().min(1).max(64)).max(30).default([]),
-  bankId: z.string().uuid().optional(),
 });
 
 export const updateQuestionSchema = z
@@ -53,40 +51,9 @@ export const listQuestionsQuerySchema = z.object({
   createdBy: z.string().uuid().optional(),
   tag: z.string().trim().min(1).max(64).optional(),
   q: z.string().trim().min(1).max(200).optional(),
-  bankId: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
   offset: z.coerce.number().int().min(0).default(0),
 });
-
-export const createQuestionBankSchema = z.object({
-  name: z.string().trim().min(1).max(200),
-  description: z.string().trim().max(2000).default(''),
-  subjectId: tagKeySchema,
-  grade: gradeSchema,
-});
-
-export const updateQuestionBankSchema = z
-  .object({
-    name: z.string().trim().min(1).max(200).optional(),
-    description: z.string().trim().max(2000).optional(),
-    subjectId: tagKeySchema.optional(),
-    grade: gradeSchema.optional(),
-  })
-  .refine((data) => Object.keys(data).length > 0, { message: 'No fields to update' });
-
-export const listQuestionBanksQuerySchema = z.object({
-  subjectId: tagKeySchema.optional(),
-  grade: z.coerce.number().int().min(6).max(9).optional(),
-  ownerId: z.string().uuid().optional(),
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
-});
-
-export const bankAddQuestionsSchema = z.object({
-  questionIds: z.array(z.string().uuid()).min(1).max(100),
-});
-
-export const bankRandomSchema = randomSelectionSchema.omit({ bankId: true, status: true });
 
 export const listTopicsQuerySchema = z.object({
   subjectId: tagKeySchema.optional(),

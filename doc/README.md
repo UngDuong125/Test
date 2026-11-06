@@ -1,11 +1,12 @@
 # TestArchive — Feature Documentation
 
-Bộ tài liệu feature cho hệ thống tạo bài học, ngân hàng câu hỏi, bộ đề và phân phối đề cho học sinh THCS.
+Bộ tài liệu feature cho hệ thống tạo bài học, bộ đề theo chủ đề và phân phối đề cho học sinh THCS.
 
 - Setup chạy code: [../SETUP.md](../SETUP.md)
 - Tổng quan: [overview.md](./overview.md)
 - Cấu trúc: [structure.md](./structure.md)
 - Quy ước: [features/_cross-cutting.md](./features/_cross-cutting.md)
+- Tốc độ luồng học sinh: [features/student-response.md](./features/student-response.md)
 - Schema đích: [database-target.md](./database-target.md)
 - Migrate legacy (P3): [migration-legacy.md](./migration-legacy.md)
 - SQL: [`supabase/`](../supabase/README.md)
@@ -15,7 +16,6 @@ Bộ tài liệu feature cho hệ thống tạo bài học, ngân hàng câu h�
 0. [_cross-cutting.md](./features/_cross-cutting.md) — Quy ước API, trạng thái, timer, EXP
 1. [authentication-and-authorization.md](./features/authentication-and-authorization.md) — Đăng nhập và phân quyền
 2. [question-management.md](./features/question-management.md) — Quản lý câu hỏi
-3. [question-bank.md](./features/question-bank.md) — Ngân hàng câu hỏi
 4. [media-upload.md](./features/media-upload.md) — Upload ảnh Cloudinary
 5. [exam-management.md](./features/exam-management.md) — Quản lý bộ đề (composer tích hợp, generate)
 6. [class-management.md](./features/class-management.md) — Quản lý lớp
@@ -28,12 +28,13 @@ Bộ tài liệu feature cho hệ thống tạo bài học, ngân hàng câu h�
 13. [analytics.md](./features/analytics.md) — Thống kê câu hỏi / đề / lớp
 14. [vocabulary-srs.md](./features/vocabulary-srs.md) — Ôn từ vựng (spaced repetition / flashcard)
 15. [interactive-lessons.md](./features/interactive-lessons.md) — Bài học: thẻ chọn, nối cặp, sắp xếp, lý thuyết từng phần
+16. [student-response.md](./features/student-response.md) — Hợp đồng tốc độ phản hồi: dashboard, làm bài, nộp, ôn từ
 
 ## Nguyên tắc kiến trúc
 
 ```text
-Subject → Topic
-       └── Question Bank → Question (+ Media)
+Subject
+       └── Topic → Question (+ Media)
                   │
                   └──────────────┐
                                  ▼
@@ -57,7 +58,7 @@ Subject
 
 ### Các entity chính
 
-- `Question` / `QuestionOption` / `QuestionBank` / `Media`
+- `Question` / `QuestionOption` / `Topic` / `Media`
 - `Exam` / `ExamAssignment` / `Class`
 - `Attempt` / `Answer` / `exp_ledger`
 - `VocabularyEntry` / `VocabularyBank` / `VocabularyAssignment` / `StudentVocabularyCard` — xem [vocabulary-srs](./features/vocabulary-srs.md)

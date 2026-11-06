@@ -107,17 +107,6 @@ export interface Question {
   updatedAt: string;
 }
 
-export interface QuestionBank {
-  id: string;
-  name: string;
-  description: string;
-  subjectId: TagKey;
-  grade: number;
-  ownerId: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface ExamSettings {
   shuffleQuestions: boolean;
   shuffleOptions: boolean;
@@ -222,6 +211,14 @@ export interface ExamAssignment {
   examTitle?: string;
   targetEmail?: string;
   targetUsername?: string;
+  /** Student list only. Counts non-cancelled attempts against attemptLimit. */
+  remainingAttempts?: number;
+  inProgressAttemptId?: string | null;
+  latestFinishedAttempt?: {
+    id: string;
+    status: 'graded' | 'needs_grading' | 'submitted' | 'expired';
+    percentage: number | null;
+  } | null;
 }
 
 export interface MediaRecord {

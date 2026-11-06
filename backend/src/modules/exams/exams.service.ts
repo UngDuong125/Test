@@ -31,11 +31,6 @@ import {
   updateExamSection,
 } from '../../repositories/exams.repository.js';
 import {
-  addQuestionsToBank,
-  findQuestionBankById,
-  findQuestionIdsInAnyBank,
-} from '../../repositories/questionBanks.repository.js';
-import {
   createQuestion,
   deleteQuestion,
   findQuestionsByIds,
@@ -47,7 +42,7 @@ import {
   assertQuestionPayloadValid,
   collectQuestionPayloadIssues,
 } from '../questions/question.validation.js';
-import { selectRandomQuestions } from '../question-banks/random.selection.js';
+import { selectRandomQuestions } from './random.selection.js';
 
 export type ExamValidationIssue = {
   code: string;
@@ -298,7 +293,7 @@ export async function addQuestionsToExamForUser(
 }
 
 /**
- * Composer: create Question draft (+ optional bank) and attach to exam.
+ * Composer: create a Question draft and attach it to the exam.
  * Best-effort transaction: delete question if exam link fails.
  */
 export async function createQuestionOnExamForUser(
@@ -316,7 +311,6 @@ export async function createQuestionOnExamForUser(
     explanation: Question['explanation'];
     points: number;
     tags: string[];
-    bankId?: string;
     sectionId?: string | null;
     examPoints?: number;
   },
@@ -358,17 +352,6 @@ export async function createQuestionOnExamForUser(
 
   await assertTopicsValidForQuestion(input.topicIds, subjectId, grade);
 
-  if (input.bankId) {
-    const bank = await findQuestionBankById(input.bankId);
-    if (!bank) throw new AppError(404, 'Question bank not found', 'BANK_NOT_FOUND');
-    if (actor.role !== 'admin' && bank.ownerId !== actor.id) {
-      throw new AppError(403, 'Not the bank owner', 'FORBIDDEN');
-    }
-    if (bank.subjectId !== subjectId || bank.grade !== grade) {
-      throw new AppError(422, 'Question subject/grade must match bank', 'BANK_MISMATCH');
-    }
-  }
-
   const question = await createQuestion({
     type: input.type,
     subjectId,
@@ -385,10 +368,6 @@ export async function createQuestionOnExamForUser(
   });
 
   try {
-    if (input.bankId) {
-      await addQuestionsToBank(input.bankId, [question.id]);
-    }
-
     const order = await nextExamQuestionOrder(examId);
     const examQuestion = await addExamQuestion({
       examId,
@@ -515,16 +494,6 @@ export async function validateExamForPublish(
   }
 
   if (draftQuestionIds.length) {
-    const inBank = await findQuestionIdsInAnyBank(draftQuestionIds);
-    for (const id of draftQuestionIds) {
-      if (!inBank.has(id)) {
-        warnings.push({
-          code: 'NOT_IN_BANK',
-          message: `Draft question ${id} is not in any question bank`,
-          questionId: id,
-        });
-      }
-    }
     warnings.push({
       code: 'DRAFT_QUESTIONS',
       message: `${draftQuestionIds.length} draft/review question(s) need publishDraftQuestions=true`,
@@ -686,7 +655,6 @@ export async function generateExamForUser(
     type: ExamType;
     difficulty: Difficulty;
     duration: number;
-    bankId?: string;
     selection: {
       count: number;
       topicIds?: string[];
@@ -705,21 +673,9 @@ export async function generateExamForUser(
     throw new AppError(422, 'Unknown subject', 'INVALID_SUBJECT');
   }
 
-  if (input.bankId) {
-    const bank = await findQuestionBankById(input.bankId);
-    if (!bank) throw new AppError(404, 'Question bank not found', 'BANK_NOT_FOUND');
-    if (actor.role !== 'admin' && bank.ownerId !== actor.id) {
-      throw new AppError(403, 'No access to bank', 'FORBIDDEN');
-    }
-    if (bank.subjectId !== input.subjectId || bank.grade !== input.grade) {
-      throw new AppError(422, 'Bank subject/grade mismatch', 'BANK_MISMATCH');
-    }
-  }
-
   const { questions, warnings } = await selectRandomQuestions({
     subjectId: input.subjectId,
     grade: input.grade,
-    bankId: input.bankId,
     count: input.selection.count,
     topicIds: input.selection.topicIds,
     difficulty: input.selection.difficulty,

@@ -1,6 +1,6 @@
 # TestArchive
 
-Hệ thống tạo câu hỏi, ngân hàng đề và phân phối bài học cho học sinh THCS.
+Hệ thống tạo câu hỏi, bộ đề theo chủ đề và phân phối bài học cho học sinh THCS.
 
 - **Tài liệu đặc tả:** [doc/README.md](doc/README.md)
 - **Setup & chạy local:** [SETUP.md](SETUP.md)
@@ -30,8 +30,8 @@ npm run dev:frontend
 Đã triển khai mô hình đích trong `doc/`:
 
 - Auth (login/logout/me, đổi mật khẩu, forgot/reset, admin invite/RBAC)
-- Question bank, exam composer, class, giao đề, attempt + snapshot, chấm tự động/thủ công
+- Chủ đề (topic), exam composer, class, giao đề, attempt + snapshot, chấm tự động/thủ công
 - EXP (`exp_ledger`) + leaderboard (all-time / seasonal)
 - Vocabulary SRS (flashcard 1/3/7/14/30 ngày)
 
-Chi tiết: [doc/overview.md](doc/overview.md). Test unit: `npm test` (workspace / `backend` / `frontend`).
+Chi tiết: [doc/overview.md](doc/overview.md). Hợp đồng tốc độ luồng học sinh: [doc/features/student-response.md](doc/features/student-response.md). Test unit: `npm test` (workspace / `backend` / `frontend`).

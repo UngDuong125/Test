@@ -60,7 +60,7 @@ Dùng cho lời mời kích hoạt và đặt lại mật khẩu. Token phải �
 | `created_by` | uuid FK → `users.id` | `ON DELETE SET NULL` |
 | `tag` | text | Key môn học |
 | `quiz_title` | text | Tiêu đề đề |
-| `question_count` | int | Tổng câu trong ngân hàng |
+| `question_count` | int | Tổng số câu của đề |
 | `display_count` | int | Số câu mỗi lần làm |
 | `category_display_counts` | jsonb | Quota theo category, ví dụ `{ "thucvat": 2 }` |
 | `questions` | jsonb | Mảng object câu hỏi (không có bảng `questions` riêng) |

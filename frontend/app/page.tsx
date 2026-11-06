@@ -8,7 +8,7 @@ export default function HomePage() {
           TestArchive
         </p>
         <h1 className="text-xl font-medium text-slate-700 md:text-2xl">
-          Ngân hàng câu hỏi, bộ đề và làm bài cho học sinh THCS
+          Câu hỏi theo chủ đề, bộ đề và làm bài cho học sinh THCS
         </h1>
         <p className="max-w-xl text-slate-600">
           Đăng nhập để xem assignment, quản lý đề hoặc mời tài khoản. Quyền truy cập được kiểm soát

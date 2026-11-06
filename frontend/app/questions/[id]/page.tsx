@@ -156,9 +156,7 @@ function QuestionDetailBody() {
           submitLabel="Cập nhật"
           onCancel={() => setEditing(false)}
           onSubmit={async (payload) => {
-            const { bankId, ...body } = payload;
-            void bankId;
-            const res = await updateQuestion(question.id, body);
+            const res = await updateQuestion(question.id, payload);
             setQuestion(res.question);
             setEditing(false);
           }}

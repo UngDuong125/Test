@@ -113,7 +113,7 @@ function ExamsBody() {
         <div>
           <h1 className="font-display text-3xl font-bold text-ink">Đề thi</h1>
           <p className="mt-1 text-sm text-slate-600">
-            Trình soạn đề tích hợp: tạo câu mới hoặc lấy từ ngân hàng, không copy nội dung vào đề.
+            Trình soạn đề: tạo câu mới hoặc lấy câu đã xuất bản theo chủ đề.
           </p>
         </div>
         <Link
@@ -172,6 +172,8 @@ function ExamsBody() {
         />
         <div className="sm:col-span-2">
           <TopicPicker
+            searchable
+            pageSize={8}
             subjectId={gen.subjectId}
             grade={gen.grade}
             topics={genTopics.topics}

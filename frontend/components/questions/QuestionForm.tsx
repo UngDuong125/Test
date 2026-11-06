@@ -61,7 +61,6 @@ export type QuestionFormValues = {
   explanationSteps: string;
   points: number;
   tags: string;
-  bankId?: string;
 };
 
 function textOption(id: string, text: string): FormOption {
@@ -181,7 +180,6 @@ function buildPayload(values: QuestionFormValues): {
   explanation: { text?: string; steps?: string[] };
   points: number;
   tags: string[];
-  bankId?: string;
 } {
   const content = values.content
     .filter((b) => {
@@ -304,13 +302,11 @@ function buildPayload(values: QuestionFormValues): {
     explanation,
     points: values.points,
     tags,
-    ...(values.bankId ? { bankId: values.bankId } : {}),
   };
 }
 
 type Props = {
   initial?: Question;
-  bankId?: string;
   /** Lock môn/lớp to exam (composer). */
   lockTaxonomy?: boolean;
   defaultSubjectId?: TagKey;
@@ -323,7 +319,6 @@ type Props = {
   /** Gọi sau khi secondary submit thành công (vd. scroll tới editor). */
   onAfterContinue?: () => void;
   onCancel?: () => void;
-  /** Extra footer content (e.g. save-to-bank checkbox controlled outside). */
   footerExtra?: ReactNode;
   /** Ẩn tiêu đề khung meta (composer tự có heading). */
   hideHeader?: boolean;
@@ -331,7 +326,6 @@ type Props = {
 
 export function QuestionForm({
   initial,
-  bankId,
   lockTaxonomy,
   defaultSubjectId,
   defaultGrade,
@@ -345,8 +339,8 @@ export function QuestionForm({
   hideHeader,
 }: Props) {
   const [values, setValues] = useState<QuestionFormValues>(() => {
-    if (initial) return { ...questionToFormValues(initial), bankId };
-    const base = { ...emptyFormValues(), bankId };
+    if (initial) return questionToFormValues(initial);
+    const base = emptyFormValues();
     if (defaultSubjectId) base.subjectId = defaultSubjectId;
     if (defaultGrade != null) base.grade = defaultGrade;
     return base;
@@ -430,7 +424,6 @@ export function QuestionForm({
     const next = emptyFormValues();
     next.subjectId = defaultSubjectId ?? values.subjectId;
     next.grade = defaultGrade ?? values.grade;
-    next.bankId = bankId ?? values.bankId;
     next.type = values.type;
     next.difficulty = values.difficulty;
     if (next.subjectId === values.subjectId && next.grade === values.grade) {

@@ -178,15 +178,6 @@ export async function sumExpForAttemptIds(attemptIds: string[]): Promise<number>
   );
 }
 
-export async function listBankQuestionIds(bankId: string): Promise<string[]> {
-  const { data, error } = await getDb()
-    .from('question_bank_items')
-    .select('question_id')
-    .eq('bank_id', bankId);
-  if (error) throw error;
-  return ((data ?? []) as { question_id: string }[]).map((r) => r.question_id);
-}
-
 export async function upsertQuestionStats(input: {
   questionId: string;
   usageCount: number;

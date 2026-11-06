@@ -121,6 +121,5 @@ export const randomSelectionSchema = z.object({
   count: z.number().int().min(1).max(100),
   difficulty: difficultyMixSchema,
   types: z.array(questionTypeSchema).optional(),
-  bankId: z.string().uuid().optional(),
   status: z.literal('published').optional(),
 });

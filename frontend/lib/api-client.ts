@@ -13,7 +13,6 @@ import type {
   ExamQuestion,
   ExamSection,
   Question,
-  QuestionBank,
   StudentAnswerValue,
   StudentVocabularyCard,
   Subject,
@@ -139,7 +138,7 @@ export function updateUserRole(userId: string, role: string) {
   });
 }
 
-// --- Taxonomy / Questions / Banks / Exams ---
+// --- Taxonomy / Questions / Exams ---
 
 export function listSubjects() {
   return api<{ subjects: Subject[] }>('/api/subjects');
@@ -216,41 +215,6 @@ export function getMedia(id: string) {
   return api<{
     media: { id: string; url: string; mimeType: string; byteSize: number };
   }>(`/api/media/${id}`);
-}
-
-export function listQuestionBanks(params?: Record<string, string | number | undefined>) {
-  const qs = new URLSearchParams();
-  if (params) {
-    for (const [k, v] of Object.entries(params)) {
-      if (v !== undefined && v !== '') qs.set(k, String(v));
-    }
-  }
-  const suffix = qs.toString() ? `?${qs}` : '';
-  return api<{ items: QuestionBank[]; total: number }>(`/api/question-banks${suffix}`);
-}
-
-export function createQuestionBank(body: {
-  name: string;
-  description?: string;
-  subjectId: TagKey;
-  grade: number;
-}) {
-  return api<{ bank: QuestionBank }>('/api/question-banks', { method: 'POST', body });
-}
-
-export function getQuestionBank(id: string) {
-  return api<{ bank: QuestionBank }>(`/api/question-banks/${id}`);
-}
-
-export function listBankQuestions(bankId: string) {
-  return api<{ items: Question[]; total: number }>(`/api/question-banks/${bankId}/questions`);
-}
-
-export function addQuestionsToBank(bankId: string, questionIds: string[]) {
-  return api<{ added: number }>(`/api/question-banks/${bankId}/questions`, {
-    method: 'POST',
-    body: { questionIds },
-  });
 }
 
 export function listExams(params?: Record<string, string | number | undefined>) {
@@ -814,10 +778,27 @@ export function cancelVocabularyAssignment(id: string) {
   );
 }
 
-export function listMyDueVocabulary() {
+export function listMyDueVocabulary(page?: { after?: string; afterId?: string }) {
+  const qs = new URLSearchParams();
+  if (page?.after) qs.set('after', page.after);
+  if (page?.afterId) qs.set('afterId', page.afterId);
+  const suffix = qs.toString() ? `?${qs}` : '';
   return api<{ items: DueVocabularyCard[]; dueCount: number }>(
-    '/api/students/me/vocabulary/due',
+    `/api/students/me/vocabulary/due${suffix}`,
   );
+}
+
+export function saveAttemptAnswerKeepalive(
+  attemptId: string,
+  body: { questionId: string; value: StudentAnswerValue },
+) {
+  void fetch(`${API_BASE}/api/attempts/${attemptId}/answers`, {
+    method: 'PATCH',
+    credentials: 'include',
+    keepalive: true,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
 }
 
 export function getMyVocabularyStats() {

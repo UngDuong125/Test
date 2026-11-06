@@ -5,7 +5,7 @@
 - Monorepo npm workspaces (`test-archive-workspace`) gồm `frontend`, `backend`; database nằm trong `supabase/`.
 - Frontend chỉ hiển thị UI và gọi API; không tự quyết định quyền, điểm hoặc EXP. Route guard phía UI (`AuthGate`) chỉ để điều hướng.
 - Backend là nơi xác thực session, RBAC, kiểm tra quyền sở hữu, snapshot attempt, chấm điểm, ghi EXP và lập lịch SRS.
-- Database tách nội dung tái sử dụng (`Question`, `QuestionBank`, `VocabularyEntry`, `VocabularyBank`) khỏi đề (`Exam`), phân phối (`ExamAssignment`, `VocabularyAssignment`) và lịch sử (`Attempt`, `Answer`, `StudentVocabularyCard`).
+- Database tách nội dung tái sử dụng (`Question`, `Topic`, `VocabularyEntry`, `VocabularyBank`) khỏi đề (`Exam`), phân phối (`ExamAssignment`, `VocabularyAssignment`) và lịch sử (`Attempt`, `Answer`, `StudentVocabularyCard`).
 - Không dùng `Exam.assignedUsers[]`, `User.assignedExams[]` hoặc điểm do client gửi để thay thế các entity nghiệp vụ.
 - Các attempt giữ snapshot/version của exam và question để lịch sử không đổi khi nội dung gốc được sửa.
 
@@ -14,7 +14,7 @@ Luồng dữ liệu chính:
 ```text
 Subject/Topic
     ↓
-QuestionBank → Question
+Topic → Question
     ↓             ↓
     └──────────→ Exam
                    ↓
@@ -43,8 +43,9 @@ Trình duyệt ──► frontend (Next.js 14 App Router, port 3000)
                Supabase PostgreSQL          Cloudinary (ảnh)      SMTP (email mời / reset)
 ```
 
-- Backend deploy trên Render (gói Free). Workflow `.github/workflows/keep-backend-awake.yml` ping `GET /api/health` vào buổi tối giờ Việt Nam để server không ngủ (cần repository variable `BACKEND_URL`).
+- Backend deploy trên Render (gói Free). Process ngủ sau khoảng 15 phút không request. Workflow `.github/workflows/keep-backend-awake.yml` ping `GET /api/health` suốt **06:00–22:00** giờ Việt Nam (cần repository variable `BACKEND_URL`). Ngân sách query của luồng học sinh giả định process đang thức: [features/student-response.md](./features/student-response.md).
 - Frontend gọi API qua `NEXT_PUBLIC_API_BASE_URL` (mặc định `http://localhost:4000`).
+- Session học sinh: một `SessionProvider` ở layout, một `GET /api/auth/me` mỗi lần tải trang. `authMiddleware` đọc session và user bằng một query join, không hai query nối tiếp.
 
 ### Phân tầng backend
 
@@ -101,7 +102,6 @@ TestArchive/
 │   │   │   ├── page.tsx                # Danh sách, lọc câu hỏi
 │   │   │   ├── new/page.tsx
 │   │   │   └── [id]/page.tsx           # Sửa, review, lifecycle
-│   │   ├── question-banks/page.tsx
 │   │   ├── exams/
 │   │   │   ├── page.tsx
 │   │   │   ├── new/page.tsx
@@ -136,7 +136,7 @@ TestArchive/
 │   │   └── analytics/                  # StatsPanel
 │   ├── lib/
 │   │   ├── api-client.ts               # api<T>() + hàm typed cho từng endpoint, ApiError
-│   │   ├── auth.ts                     # useSession và helper session phía UI
+│   │   ├── auth.tsx                    # SessionProvider, useSession
 │   │   ├── validation.ts               # Form validation, không thay thế backend
 │   │   ├── latex.ts                    # Render LaTeX (KaTeX)
 │   │   ├── bulk-question-text.ts       # Parse nhập câu hỏi hàng loạt từ text
@@ -163,7 +163,6 @@ TestArchive/
 │       │   ├── users.routes.ts         # /api/admin/users
 │       │   ├── taxonomy.routes.ts      # /api/subjects, /api/topics
 │       │   ├── questions.routes.ts     # /api/questions
-│       │   ├── questionBanks.routes.ts # /api/question-banks
 │       │   ├── exams.routes.ts         # /api/exams
 │       │   ├── classes.routes.ts       # /api/classes
 │       │   ├── assignments.routes.ts   # /api/exam-assignments
@@ -177,7 +176,6 @@ TestArchive/
 │       │   ├── auth/                   # Login, invite, reset/đổi mật khẩu
 │       │   ├── taxonomy/               # Topic CRUD + rule gắn topic vào câu hỏi
 │       │   ├── questions/              # CRUD, validation, lifecycle
-│       │   ├── question-banks/         # Filter và random selection
 │       │   ├── exams/                  # Section, ordering, publish, generate
 │       │   ├── classes/                # Lớp và thành viên
 │       │   ├── assignments/            # Giao đề, deadline, attempt limit
@@ -212,7 +210,7 @@ Unit test: `backend/test/*.test.ts`, `frontend/tests/*.test.ts` (`npm test`). Ch
 | Identity | `users`, `sessions`, `auth_tokens` | Tài khoản, session, invite/reset token |
 | Taxonomy | `subjects`, `topics`, `question_topic_links` | Môn học, chủ đề và liên kết câu hỏi–chủ đề |
 | Media | `media` | Metadata ảnh đã upload lên Cloudinary |
-| Questions | `questions`, `question_options`, `question_banks`, `question_bank_items`, `question_stats` | Nội dung, metadata, lifecycle, quan hệ bank và thống kê |
+| Questions | `questions`, `question_options`, `question_topic_links`, `question_stats` | Nội dung, metadata, lifecycle, chủ đề và thống kê |
 | Exams | `exams`, `exam_sections`, `exam_questions` | Cấu trúc đề, thứ tự và điểm |
 | Distribution | `classes`, `class_members`, `exam_assignments` | Giao cho student/class và setting riêng |
 | Attempts | `attempts`, `attempt_answers`, `attempt_snapshots` | Lịch sử làm bài, câu trả lời và snapshot |
@@ -228,7 +226,6 @@ Chi tiết field: [database-target.md](database-target.md). Schema legacy `quizz
 | Authentication & Authorization | `app/login`, `app/change-password`, `app/forgot-password`, `app/reset-password`, `app/admin/users`, `components/auth` | `modules/auth`, `routes/users`, `middleware` | `users`, `sessions`, `auth_tokens` |
 | Taxonomy (Subject/Topic) | `app/topics`, `components/questions/TopicPicker` | `modules/taxonomy`, `routes/taxonomy` | `subjects`, `topics`, `question_topic_links` |
 | Question Management | `app/questions` | `modules/questions` | `questions`, `question_options` |
-| Question Bank | `app/question-banks` | `modules/question-banks` | `question_banks`, `question_bank_items` |
 | Exam Management | `app/exams`, `components/exams` | `modules/exams` | `exams`, `exam_sections`, `exam_questions` |
 | Class Management | `app/classes` | `modules/classes` | `classes`, `class_members` |
 | Exam Distribution | `app/assignments` | `modules/assignments` | `exam_assignments` |
@@ -242,11 +239,11 @@ Chi tiết field: [database-target.md](database-target.md). Schema legacy `quizz
 
 ## Trạng thái triển khai
 
-Đã có code cho toàn bộ feature trong bảng trên, bao gồm auth/RBAC, question/bank, exam, class, assignment, attempt + snapshot, chấm tự động/thủ công, EXP ledger, leaderboard theo mùa, analytics và vocabulary SRS. Endpoint legacy `/api/quizzes` đã bị loại bỏ.
+Đã có code cho toàn bộ feature trong bảng trên, bao gồm auth/RBAC, question/topic, exam, class, assignment, attempt + snapshot, chấm tự động/thủ công, EXP ledger, leaderboard theo mùa, analytics và vocabulary SRS. Endpoint legacy `/api/quizzes` đã bị loại bỏ.
 
 Việc còn mở:
 
-- Test integration cho quyền truy cập và trạng thái nghiệp vụ, test e2e cho luồng login → giao đề → làm bài → kết quả.
+- Test integration cho quyền truy cập và trạng thái nghiệp vụ, test e2e cho luồng login → giao đề → làm bài → kết quả. Hợp đồng request của luồng học sinh: [features/student-response.md](./features/student-response.md).
 - Lint thực sự cho backend (hiện chỉ typecheck).
 
 Các rule bảo mật không được chỉ kiểm tra ở frontend.

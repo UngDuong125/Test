@@ -35,7 +35,6 @@ export interface QuestionListFilters {
   viewerId?: string;
   viewerIsAdmin?: boolean;
   tag?: string;
-  bankId?: string;
   ids?: string[];
   limit?: number;
   offset?: number;
@@ -142,27 +141,11 @@ export async function listQuestions(filters: QuestionListFilters): Promise<{
     if (!questionIdsFromTopic.length) return { items: [], total: 0 };
   }
 
-  let questionIdsFromBank: string[] | null = null;
-  if (filters.bankId) {
-    const { data, error } = await getDb()
-      .from('question_bank_items')
-      .select('question_id')
-      .eq('bank_id', filters.bankId);
-    if (error) throw error;
-    questionIdsFromBank = (data ?? []).map((r: { question_id: string }) => r.question_id);
-    if (!questionIdsFromBank.length) return { items: [], total: 0 };
-  }
-
   let idsFilter = filters.ids ?? null;
   if (questionIdsFromTopic) {
     idsFilter = idsFilter
       ? idsFilter.filter((id) => questionIdsFromTopic!.includes(id))
       : questionIdsFromTopic;
-  }
-  if (questionIdsFromBank) {
-    idsFilter = idsFilter
-      ? idsFilter.filter((id) => questionIdsFromBank!.includes(id))
-      : questionIdsFromBank;
   }
   if (idsFilter && !idsFilter.length) return { items: [], total: 0 };
 
@@ -326,19 +309,8 @@ export async function listPublishedCandidates(filters: {
   grade?: number;
   topicIds?: string[];
   types?: QuestionType[];
-  bankId?: string;
 }): Promise<Question[]> {
   let ids: string[] | undefined;
-
-  if (filters.bankId) {
-    const { data, error } = await getDb()
-      .from('question_bank_items')
-      .select('question_id')
-      .eq('bank_id', filters.bankId);
-    if (error) throw error;
-    ids = (data ?? []).map((r: { question_id: string }) => r.question_id);
-    if (!ids.length) return [];
-  }
 
   if (filters.topicIds?.length) {
     const { data, error } = await getDb()

@@ -94,9 +94,6 @@ function QuestionsBody() {
           >
             + Tạo câu hỏi
           </Link>
-          <Link href="/question-banks" className="rounded-md border border-mist px-3 py-1.5 hover:border-accent">
-            Ngân hàng →
-          </Link>
         </div>
       </div>
 

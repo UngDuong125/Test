@@ -8,22 +8,24 @@ Dashboard không tự tạo đề, không tự chọn lại câu hỏi và khôn
 
 ## 2. Luồng student
 
-1. Đăng nhập → vào `/dashboard` (không có session → redirect `/login`).
-2. Tải các assignment mà user hiện tại được phép truy cập.
-3. Hiển thị các assignment ở trạng thái `available`, `in_progress`, `completed` hoặc `expired`.
-4. Student chọn assignment để xem:
-   - tiêu đề, môn, mô tả và hướng dẫn của exam;
-   - thời gian mở và deadline;
-   - số lần đã làm và `attemptLimit`;
-   - điểm/kết quả nếu assignment cho phép xem.
-5. Chọn **Bắt đầu làm bài** → backend tạo `Attempt` và trả về snapshot exam/question cần hiển thị.
-6. Student trả lời câu hỏi và lưu từng `Answer` trong khi làm.
-7. Chọn **Nộp bài** → backend khóa attempt, kiểm tra câu trả lời và tính điểm.
-8. Hiển thị kết quả theo `showResult` (điểm, đúng/sai). Đáp án/lời giải chỉ hiện khi `showExplanation` **và** học sinh đã hết lượt (`remainingAttempts = 0`); còn lượt thì khóa đáp án để tránh xem key rồi làm lại.
+Ngân sách request và hình payload: [student-response.md](./student-response.md). Đoạn dưới là nghiệp vụ; số lần gọi API làm theo hợp đồng đó.
+
+1. Đăng nhập → vào `/dashboard` (không có session → redirect `/login`). Session lấy một lần cho cả header và trang, không gọi `/api/auth/me` riêng ở dashboard.
+2. Một `GET /api/students/me/assignments`. Response của từng dòng đã có `remainingAttempts`, `inProgressAttemptId` và `latestFinishedAttempt`. Không gọi `GET /api/exam-assignments/:id/attempts` cho từng đề.
+3. Vẽ danh sách ngay. `GET /api/students/me/stats`, `me/exp` và `me/classes` chạy sau, lỗi của chúng không chặn danh sách hay nút làm bài.
+4. Hàng bài hiện trạng thái `available`, `in_progress`, `completed` hoặc `expired` bằng nhãn tiếng Việt. Mã trạng thái không hiện cho học sinh. Trên hàng đã có tiêu đề, hạn, `attemptLimit` và `remainingAttempts`.
+5. **Tiếp tục** mở `GET /api/attempts/:id` một lần. **Bắt đầu** gọi `POST /api/exam-assignments/:id/attempts`; body POST đã là attempt detail (snapshot, câu đã lưu, `serverNow`, `expiresAt`), trang làm bài không refetch nếu vừa nhận body đó.
+6. Student trả lời và lưu từng `Answer`. Lưu không refetch attempt và không chặn phím khi request trước còn chạy.
+7. **Nộp bài** chỉ chuyển sang kết quả khi `POST /api/attempts/:id/submit` thành công.
+8. Kết quả theo `showResult` (điểm, đúng/sai). Đáp án/lời giải chỉ hiện khi `showExplanation` **và** học sinh đã hết lượt (`remainingAttempts = 0`); còn lượt thì khóa đáp án để tránh xem key rồi làm lại.
 
 ## 3. Điều kiện hiển thị assignment
 
-`GET /api/students/me/assignments` trả danh sách assignment của student (kể cả `cancelled` / `expired` nếu còn trong DB). UI dashboard hiển thị các status đó; nút **Bắt đầu** chỉ bật khi status `available` hoặc `in_progress` (và còn lượt).
+`GET /api/students/me/assignments` trả danh sách assignment của student (kể cả `cancelled` / `expired` nếu còn trong DB), mỗi dòng kèm số lượt còn lại và attempt đang làm. UI chỉ bật nút sau khi payload này về.
+
+- Có `inProgressAttemptId`: nút **Tiếp tục**, không hiện **Bắt đầu**.
+- Không có attempt đang làm, status `available` hoặc `in_progress`, và `remainingAttempts > 0`: nút **Bắt đầu**.
+- `remainingAttempts = 0` và không còn bài đang làm: không có nút bắt đầu.
 
 Điều kiện **bắt đầu attempt** mới (backend):
 
@@ -92,7 +94,7 @@ percentage = score / maxScore * 100
 
 | Method | Endpoint | Mục đích |
 | :--- | :--- | :--- |
-| `GET` | `/api/students/me/assignments` | Lấy assignment của student đang đăng nhập |
+| `GET` | `/api/students/me/assignments` | Assignment của student, kèm `remainingAttempts`, `inProgressAttemptId`, `latestFinishedAttempt`. Đây là request duy nhất để vẽ hàng bài |
 | `GET` | `/api/students/:id/assignments` | Teacher/admin (hoặc chính student) xem assignment theo `id` |
 | `GET` | `/api/exam-assignments/:id` | Xem chi tiết assignment và exam |
 | `POST` | `/api/exam-assignments/:id/attempts` | Tạo attempt mới và trả về snapshot |
@@ -112,7 +114,7 @@ Request lưu answer chỉ chứa giá trị student chọn/nhập, ví dụ:
 
 ## 8. UI
 
-- Danh sách assignment có trạng thái rõ ràng: `available`, `in_progress`, `completed`, `expired`.
+- Danh sách assignment có nhãn tiếng Việt tương ứng `assigned` (Chưa mở), `available` (Còn lượt), `in_progress` (Đang làm), `completed` (Đã xong), `expired` (Hết hạn), `cancelled` (Đã hủy).
 - Khu vực làm bài hiển thị progress, timer thời lượng đề (`Exam.duration > 0`) hoặc “Không giới hạn” (`duration = 0`), hạn assignment, sections và trạng thái đã trả lời.
 - Có thể điều hướng giữa các câu nhưng không làm thay đổi thứ tự hoặc snapshot của attempt.
 - Nút **Lưu** có thể tự động lưu answer; nút **Nộp bài** cần xác nhận trước khi submit.
@@ -128,9 +130,12 @@ Request lưu answer chỉ chứa giá trị student chọn/nhập, ví dụ:
 | Assignment | `doc/features/exam-distribution.md` |
 | Class | `doc/features/class-management.md` |
 | Attempt/result | `doc/features/attempt-and-result.md` |
+| Tốc độ luồng học sinh | `doc/features/student-response.md` |
 | Manual grading | `doc/features/manual-grading.md` |
 | Question | `doc/features/question-management.md` |
 
 ## 10. Tương thích với implementation hiện tại
 
-Dashboard hiện tại dùng mô hình đích: `GET /api/students/me/assignments` để liệt kê đề được giao, `POST /api/exam-assignments/:id/attempts` để bắt đầu attempt (backend tạo snapshot và thứ tự câu), `PATCH /api/attempts/:id/answers` và `POST /api/attempts/:id/submit` để lưu và nộp bài. Mô hình legacy (`/api/quizzes`, `high_score`, lấy mẫu câu phía client) đã bị loại khỏi code; lộ trình cũ ở [migration-legacy.md](../migration-legacy.md) chỉ để tham chiếu.
+Dashboard dùng mô hình đích: `GET /api/students/me/assignments` để liệt kê đề được giao, `POST /api/exam-assignments/:id/attempts` để bắt đầu attempt (backend tạo snapshot và thứ tự câu), `PATCH /api/attempts/:id/answers` và `POST /api/attempts/:id/submit` để lưu và nộp bài. Mô hình legacy (`/api/quizzes`, `high_score`, lấy mẫu câu phía client) đã bị loại khỏi code; lộ trình cũ ở [migration-legacy.md](../migration-legacy.md) chỉ để tham chiếu.
+
+Danh sách bài, nút làm bài và đồng hồ làm theo [student-response.md](./student-response.md): một payload assignment, stats/EXP/lớp tải sau.

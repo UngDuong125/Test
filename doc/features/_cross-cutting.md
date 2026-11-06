@@ -21,17 +21,25 @@ GET /api/students/:id/assignments   # teacher/admin, có kiểm tra quyền
 
 - `:id` trong path luôn là UUID server-side; client không gửi `userId` thay cho session.
 
+## Ngân sách đọc của học sinh
+
+Dashboard, làm bài, nộp bài và ôn từ tuân [student-response.md](./student-response.md). Tóm tắt bắt buộc khi sửa mã:
+
+- Một `GET /api/auth/me` mỗi lần tải trang; middleware resolve session + user bằng một query.
+- `GET /api/students/me/assignments` mang `remainingAttempts`, `inProgressAttemptId`, `latestFinishedAttempt`. UI không gọi attempt theo từng đề.
+- `GET /api/attempts/:id` (chủ attempt là student) trả snapshot, câu đã lưu, `serverNow` và `expiresAt` trong tối đa hai lượt database.
+- Stats, EXP và lớp không được đứng trước lần vẽ danh sách bài hoặc thẻ từ đầu tiên.
+
 ## Taxonomy (Subject / Topic)
 
 ```text
 subjects (TagKey: math, lang, …)
    └── topics (id, subject_id, name, grade? — null = mọi lớp)
-        └── question_bank_items → questions
+        └── question_topic_links → questions
 ```
 
-- **`subjectId`** trên `Question`, `QuestionBank`, `Exam` = key trong bảng `subjects` (= `TagKey`).
+- **`subjectId`** trên `Question`, `Exam` = key trong bảng `subjects` (= `TagKey`).
 - **`topicIds`** trên `Question` = mảng UUID tới `topics.id` (bảng nối `question_topic_links`); không trùng với `tags` (nhãn tự do, ví dụ `"algebra"`).
-- `QuestionBank` lọc theo `subjectId` + `grade`; câu hỏi có thể thuộc nhiều bank qua `question_bank_items`.
 
 ### Chủ đề (Topic)
 
@@ -58,7 +66,7 @@ Vi phạm → `422` với code `TOPIC_NOT_FOUND`, `TOPIC_SUBJECT_MISMATCH` hoặ
 
 **Dùng topic ở đâu:**
 
-- Lọc câu hỏi: `GET /api/questions?topicId=` (danh sách câu hỏi, tab ngân hàng trong composer).
+- Lọc câu hỏi: `GET /api/questions?topicId=` (danh sách câu hỏi, tab “Câu có sẵn” trong composer).
 - Random/generate đề: `selection.topicIds` — lấy câu thuộc **ít nhất một** topic trong danh sách.
 - Tạo câu (form và dán text): chọn topic có sẵn hoặc tạo mới ngay trong form qua `POST /api/topics`.
 - Quản lý tập trung: trang `/topics` (teacher tạo; admin đổi tên/lớp, xóa).
@@ -80,6 +88,8 @@ Vi phạm → `422` với code `TOPIC_NOT_FOUND`, `TOPIC_SUBJECT_MISMATCH` hoặ
 | **Thời lượng làm bài** | `Exam.duration` (phút) | `duration > 0`: timer đếm ngược từ `Attempt.startedAt`; hết giờ → auto-submit hoặc `expired`. `duration = 0`: không giới hạn thời lượng đề |
 | **Hạn nộp** | `ExamAssignment.deadline` | Không cho **bắt đầu** attempt mới sau deadline. Attempt đang `in_progress` cũng hết hạn khi `deadline` đến (`expireIfNeeded`); `expires_at` khi start = `min(now + duration, deadline)` nếu `duration > 0`, hoặc bằng deadline nếu `duration = 0` |
 | **Thời gian mở** | `ExamAssignment.availableFrom` | Không hiển thị / không cho start trước thời điểm này |
+
+Client vẽ đồng hồ từ `serverNow` và `expiresAt` của chính response attempt, rồi tick locally. Không gọi thêm API để lấy giờ. Công thức và ngân sách request: [student-response.md](./student-response.md).
 
 ## Điểm câu hỏi
 

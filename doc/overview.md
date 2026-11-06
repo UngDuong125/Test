@@ -2,12 +2,12 @@
 
 ## TestArchive là gì?
 
-**TestArchive** là hệ thống tạo, phân phối và làm bài học tập cho học sinh THCS. Hệ thống hỗ trợ nhiều loại câu hỏi, ngân hàng câu hỏi có thể tái sử dụng, bộ đề theo môn/lớp/chủ đề, giao đề có giới hạn và theo dõi kết quả từng lần làm bài.
+**TestArchive** là hệ thống tạo, phân phối và làm bài học tập cho học sinh THCS. Hệ thống hỗ trợ nhiều loại câu hỏi tái sử dụng, bộ đề theo môn/lớp/chủ đề, giao đề có giới hạn và theo dõi kết quả từng lần làm bài.
 
 Các feature chính:
 
 - Quản lý câu hỏi có nội dung rich content (text, LaTeX, hình ảnh), đáp án, lời giải và vòng đời draft/review/published/archived.
-- Tổ chức câu hỏi vào **Question Bank**, tìm kiếm/lọc và chọn câu thủ công hoặc ngẫu nhiên để tạo đề.
+- Phân loại câu hỏi theo **Chủ đề (Topic)**, tìm kiếm/lọc và chọn câu thủ công hoặc ngẫu nhiên để tạo đề.
 - Quản lý **Exam** theo section, thứ tự câu, điểm số, thời lượng, loại đề và trạng thái xuất bản.
 - Tạo **ExamAssignment** cho từng học sinh hoặc lớp (expand per student), kèm thời gian mở, deadline, số lần làm và quyền hiển thị kết quả.
 - Cho phép học sinh tạo **Attempt**, lưu **Answer**, nộp bài và xem kết quả theo quyền của assignment.
@@ -21,7 +21,7 @@ Luồng nghiệp vụ chính:
 ```text
 Subject / Topic
 	↓
-Question Bank → Question
+Question (gắn Topic)
 	↓
      Exam
 	↓
@@ -67,7 +67,6 @@ Người dùng không được truy cập assignment của người khác. Chỉ
 | Entity | Vai trò |
 | :--- | :--- |
 | `Question` | Câu hỏi tái sử dụng, có loại câu, nội dung, đáp án, điểm và lời giải |
-| `QuestionBank` | Tập câu hỏi để tìm kiếm, lọc và tạo đề |
 | `Exam` | Bộ đề gồm các câu hỏi theo section, thứ tự và điểm số |
 | `ExamAssignment` | Metadata giao đề: đối tượng nhận, deadline, attempt limit và setting hiển thị |
 | `Attempt` | Một lần học sinh làm đề, giữ snapshot/version của nội dung |
@@ -100,6 +99,7 @@ Code hiện tại đã triển khai mô hình trong tài liệu feature, kể c�
 - Chấm điểm, snapshot attempt và EXP đều nằm ở backend; EXP ghi vào `exp_ledger` có idempotency (unique `attempt_id`).
 - Leaderboard: `period=all` đọc projection `users.*_exp`; các period khác aggregate từ `exp_ledger` (+ `leaderboard_periods`).
 - Có unit test (`backend/test/`, `frontend/tests/`; `npm test`). Chưa có suite integration/e2e đầy đủ.
+- Hợp đồng tốc độ cho dashboard, làm bài, nộp bài và ôn từ đã được đưa vào code: [features/student-response.md](./features/student-response.md).
 
 Kiến trúc và cấu trúc thư mục chi tiết: [structure.md](./structure.md).
 

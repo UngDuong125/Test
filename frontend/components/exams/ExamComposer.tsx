@@ -14,7 +14,6 @@ import {
   addExamSection,
   createExamQuestion,
   deleteExam,
-  listQuestionBanks,
   listQuestions,
   publishExam,
   removeExamQuestion,
@@ -23,7 +22,8 @@ import {
   validateExam,
 } from '@/lib/api-client';
 import type { BulkQuestionCreatePayload } from '@/lib/bulk-question-text';
-import { topicLabel, useTopics } from '@/lib/topics';
+import { TopicFilter } from '@/components/exams/TopicFilter';
+import { useTopics } from '@/lib/topics';
 import type { TagKey } from '@/types/auth';
 import type {
   Exam,
@@ -31,11 +31,10 @@ import type {
   ExamSection,
   ExamType,
   Question,
-  QuestionBank,
 } from '@/types/content';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
-type RightTab = 'bank' | 'create' | 'bulk';
+type RightTab = 'pick' | 'create' | 'bulk';
 
 type Props = {
   initialExam: Exam;
@@ -111,15 +110,12 @@ export function ExamComposer({
   const [flash, setFlash] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
   const [rightTab, setRightTab] = useState<RightTab | null>(
-    initialExam.status === 'draft' ? 'bank' : null,
+    initialExam.status === 'draft' ? 'pick' : null,
   );
-  const [banks, setBanks] = useState<QuestionBank[]>([]);
-  const [selectedBankId, setSelectedBankId] = useState('');
-  const [saveToBank, setSaveToBank] = useState(true);
-  const [bankPool, setBankPool] = useState<Question[]>([]);
-  const [bankLoading, setBankLoading] = useState(false);
-  const [bankTopicId, setBankTopicId] = useState('');
-  const bankTopics = useTopics(meta.subjectId, meta.grade);
+  const [pool, setPool] = useState<Question[]>([]);
+  const [poolLoading, setPoolLoading] = useState(false);
+  const [poolTopicId, setPoolTopicId] = useState('');
+  const examTopics = useTopics(meta.subjectId, meta.grade);
   const [validation, setValidation] = useState<Awaited<ReturnType<typeof validateExam>> | null>(
     null,
   );
@@ -138,9 +134,8 @@ export function ExamComposer({
     () => examQuestions.reduce((acc, eq) => acc + eq.points, 0),
     [examQuestions],
   );
-
-  const pointsMatch =
-    meta.totalPoints === 0 || Math.abs(sumPoints - meta.totalPoints) <= 0.001;
+  const sumPointsRef = useRef(sumPoints);
+  sumPointsRef.current = sumPoints;
 
   const sortedQuestions = useMemo(
     () => [...examQuestions].sort((a, b) => a.order - b.order),
@@ -171,33 +166,6 @@ export function ExamComposer({
     scrollToEditor();
   }
 
-  const bankFooter = (
-    <label className="flex flex-wrap items-center gap-2 rounded-md border border-mist bg-slate-50/80 px-3 py-2 text-sm text-slate-700">
-      <input
-        type="checkbox"
-        checked={saveToBank && Boolean(selectedBankId)}
-        disabled={!selectedBankId}
-        onChange={(e) => setSaveToBank(e.target.checked)}
-      />
-      Lưu vào ngân hàng
-      {selectedBankId ? (
-        <select
-          className="rounded-md border border-mist bg-white px-2 py-1 text-sm"
-          value={selectedBankId}
-          onChange={(e) => setSelectedBankId(e.target.value)}
-        >
-          {banks.map((b) => (
-            <option key={b.id} value={b.id}>
-              {b.name}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <span className="text-xs text-amber-700">Chưa có bank môn/lớp này</span>
-      )}
-    </label>
-  );
-
   const persistMeta = useCallback(async () => {
     if (!editable) return;
     setSaveStatus('saving');
@@ -211,7 +179,7 @@ export function ExamComposer({
         type: m.type,
         difficulty: m.difficulty,
         duration: m.duration,
-        totalPoints: m.totalPoints,
+        totalPoints: sumPointsRef.current,
         instructions: m.instructions,
       });
       setExam(updated);
@@ -232,24 +200,28 @@ export function ExamComposer({
   }
 
   useEffect(() => {
+    if (!editable) return;
+    if (Math.abs(sumPoints - metaRef.current.totalPoints) <= 0.001) return;
+    setMeta((prev) =>
+      Math.abs(prev.totalPoints - sumPoints) <= 0.001
+        ? prev
+        : { ...prev, totalPoints: sumPoints },
+    );
+    scheduleAutosave();
+    // Tổng điểm luôn theo Σ điểm câu, không nhập tay.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sumPoints, editable]);
+
+  useEffect(() => {
     return () => {
       if (saveTimer.current) clearTimeout(saveTimer.current);
       if (flashTimer.current) clearTimeout(flashTimer.current);
     };
   }, []);
 
-  useEffect(() => {
-    void listQuestionBanks({ subjectId: meta.subjectId, grade: meta.grade }).then((res) => {
-      setBanks(res.items);
-      if (!selectedBankId && res.items[0]) {
-        setSelectedBankId(res.items[0].id);
-      }
-    });
-  }, [meta.subjectId, meta.grade, selectedBankId]);
-
-  async function loadBankPool() {
+  async function loadPool() {
     setError(null);
-    setBankLoading(true);
+    setPoolLoading(true);
     try {
       const params: Record<string, string | number | undefined> = {
         subjectId: meta.subjectId,
@@ -257,28 +229,27 @@ export function ExamComposer({
         status: 'published',
         limit: 50,
       };
-      if (selectedBankId) params.bankId = selectedBankId;
-      if (bankTopicId) params.topicId = bankTopicId;
+      if (poolTopicId) params.topicId = poolTopicId;
       const res = await listQuestions(params);
       const onExam = new Set(examQuestions.map((eq) => eq.questionId));
-      setBankPool(res.items.filter((q) => !onExam.has(q.id)));
+      setPool(res.items.filter((q) => !onExam.has(q.id)));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Không tải được ngân hàng');
+      setError(err instanceof ApiError ? err.message : 'Không tải được câu hỏi');
     } finally {
-      setBankLoading(false);
+      setPoolLoading(false);
     }
   }
 
   useEffect(() => {
-    if (rightTab === 'bank' && editable) void loadBankPool();
+    if (rightTab === 'pick' && editable) void loadPool();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rightTab, selectedBankId, bankTopicId]);
+  }, [rightTab, poolTopicId]);
 
   useEffect(() => {
-    if (bankTopicId && bankTopics.loaded && !bankTopics.topics.some((t) => t.id === bankTopicId)) {
-      setBankTopicId('');
+    if (poolTopicId && examTopics.loaded && !examTopics.topics.some((t) => t.id === poolTopicId)) {
+      setPoolTopicId('');
     }
-  }, [bankTopicId, bankTopics.loaded, bankTopics.topics]);
+  }, [poolTopicId, examTopics.loaded, examTopics.topics]);
 
   async function ensureDefaultSection(): Promise<string | null> {
     if (sections[0]) return sections[0].id;
@@ -303,7 +274,7 @@ export function ExamComposer({
     });
   }
 
-  async function onAddFromBank(questionId: string) {
+  async function onAddExisting(questionId: string) {
     if (!editable) return;
     setError(null);
     try {
@@ -313,8 +284,8 @@ export function ExamComposer({
         sectionId,
       });
       await refreshLocalFromAdd(res.questions, res.questionDetails);
-      setBankPool((prev) => prev.filter((q) => q.id !== questionId));
-      showFlash('Đã thêm câu từ ngân hàng vào đề');
+      setPool((prev) => prev.filter((q) => q.id !== questionId));
+      showFlash('Đã thêm câu vào đề');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Thêm câu thất bại');
     }
@@ -329,7 +300,6 @@ export function ExamComposer({
       subjectId: meta.subjectId,
       grade: meta.grade,
       sectionId,
-      ...(saveToBank && selectedBankId ? { bankId: selectedBankId } : {}),
     };
     const res = await createExamQuestion(exam.id, body);
     await refreshLocalFromAdd([res.examQuestion], [res.question]);
@@ -339,8 +309,8 @@ export function ExamComposer({
   async function onCreateAndClose(payload: Record<string, unknown>) {
     await attachCreatedQuestion(payload);
     showFlash('Đã gắn câu vào đề');
-    setRightTab('bank');
-    void bankTopics.reload();
+    setRightTab('pick');
+    void examTopics.reload();
   }
 
   async function onCreateAndContinue(payload: Record<string, unknown>) {
@@ -638,27 +608,10 @@ export function ExamComposer({
               />
             </label>
           </div>
-          <label className="block text-xs font-medium text-slate-600">
+          <div className="text-xs font-medium text-slate-600">
             Tổng điểm đề
-            <input
-              type="number"
-              min={0}
-              step={0.5}
-              disabled={!editable}
-              className={fieldClass}
-              value={meta.totalPoints}
-              onChange={(e) => {
-                setMeta({ ...meta, totalPoints: Number(e.target.value) });
-                scheduleAutosave();
-              }}
-            />
-            <span
-              className={`mt-1 block text-[11px] ${pointsMatch ? 'text-slate-500' : 'text-amber-700'}`}
-            >
-              Σ câu: {sumPoints}
-              {!pointsMatch ? ' · chưa khớp tổng điểm' : ''}
-            </span>
-          </label>
+            <p className="mt-1 text-sm font-semibold text-ink">{sumPoints} điểm</p>
+          </div>
           <label className="block text-xs font-medium text-slate-600">
             Hướng dẫn
             <textarea
@@ -697,10 +650,10 @@ export function ExamComposer({
                 <div className="flex gap-2">
                   <button
                     type="button"
-                    onClick={() => setRightTab('bank')}
+                    onClick={() => setRightTab('pick')}
                     className="rounded-md border border-mist px-2.5 py-1 text-xs hover:border-accent sm:text-sm sm:px-3 sm:py-1.5"
                   >
-                    Ngân hàng
+                    Câu có sẵn
                   </button>
                   <button
                     type="button"
@@ -791,7 +744,7 @@ export function ExamComposer({
                       >
                         Tạo câu mới
                       </button>{' '}
-                      hoặc thêm từ ngân hàng.
+                      hoặc thêm câu đã có.
                     </>
                   )}
                 </li>
@@ -800,20 +753,20 @@ export function ExamComposer({
           </section>
         </div>
 
-        {/* Right: bank picker */}
+        {/* Right: published questions filtered by topic */}
         <aside className="h-fit space-y-3 rounded-xl border border-mist bg-white/90 p-3.5 shadow-sm xl:sticky xl:top-[4.5rem]">
           <div className="flex gap-1 rounded-lg bg-slate-100 p-0.5 text-xs font-medium">
             <button
               type="button"
               disabled={!editable}
-              onClick={() => setRightTab('bank')}
+              onClick={() => setRightTab('pick')}
               className={`flex-1 rounded-md px-2 py-1.5 ${
-                rightTab === 'bank' || rightTab === null
+                rightTab === 'pick' || rightTab === null
                   ? 'bg-white text-ink shadow-sm'
                   : 'text-slate-500'
               }`}
             >
-              Ngân hàng
+              Câu có sẵn
             </button>
             <button
               type="button"
@@ -841,41 +794,22 @@ export function ExamComposer({
             <p className="text-sm text-slate-500">Đề đã khóa — không thêm/sửa cấu trúc.</p>
           )}
 
-          {editable && (rightTab === 'bank' || rightTab === null) && (
+          {editable && (rightTab === 'pick' || rightTab === null) && (
             <div className="space-y-2">
-              <select
-                className="w-full rounded-md border border-mist px-2 py-1.5 text-sm"
-                value={selectedBankId}
-                onChange={(e) => setSelectedBankId(e.target.value)}
-              >
-                <option value="">Published · môn/lớp</option>
-                {banks.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                className="w-full rounded-md border border-mist px-2 py-1.5 text-sm"
-                value={bankTopicId}
-                onChange={(e) => setBankTopicId(e.target.value)}
-              >
-                <option value="">Mọi chủ đề</option>
-                {bankTopics.topics.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {topicLabel(t)}
-                  </option>
-                ))}
-              </select>
+              <TopicFilter
+                topics={examTopics.topics}
+                value={poolTopicId}
+                onChange={setPoolTopicId}
+              />
               <button
                 type="button"
-                onClick={() => void loadBankPool()}
+                onClick={() => void loadPool()}
                 className="w-full rounded-md border border-mist px-3 py-1.5 text-sm hover:border-accent"
               >
-                {bankLoading ? 'Đang tải…' : 'Làm mới danh sách'}
+                {poolLoading ? 'Đang tải…' : 'Làm mới danh sách'}
               </button>
               <ul className="max-h-[28rem] space-y-1.5 overflow-y-auto">
-                {bankPool.map((q) => (
+                {pool.map((q) => (
                   <li
                     key={q.id}
                     className="flex items-start justify-between gap-2 rounded-md border border-mist/80 px-2 py-1.5 text-sm"
@@ -885,7 +819,7 @@ export function ExamComposer({
                       <span className="mt-0.5 block text-[11px] text-slate-500">
                         {TYPE_LABEL[q.type] ?? q.type} · {q.points}đ
                         {q.topicIds
-                          .map((id) => bankTopics.topics.find((t) => t.id === id)?.name)
+                          .map((id) => examTopics.topics.find((t) => t.id === id)?.name)
                           .filter(Boolean)
                           .map((name) => ` · ${name}`)
                           .join('')}
@@ -893,14 +827,14 @@ export function ExamComposer({
                     </span>
                     <button
                       type="button"
-                      onClick={() => void onAddFromBank(q.id)}
+                      onClick={() => void onAddExisting(q.id)}
                       className="shrink-0 rounded border border-mist px-2 py-0.5 text-xs text-accentDark hover:border-accent"
                     >
                       Thêm
                     </button>
                   </li>
                 ))}
-                {!bankLoading && !bankPool.length && (
+                {!poolLoading && !pool.length && (
                   <p className="py-4 text-center text-xs text-slate-500">Không còn câu phù hợp.</p>
                 )}
               </ul>
@@ -960,7 +894,7 @@ export function ExamComposer({
             </div>
             <button
               type="button"
-              onClick={() => setRightTab('bank')}
+              onClick={() => setRightTab('pick')}
               className="text-xs text-slate-500 hover:text-ink"
             >
               Đóng
@@ -975,9 +909,8 @@ export function ExamComposer({
             defaultGrade={meta.grade}
             submitLabel="Gắn vào đề"
             secondarySubmitLabel="Gắn vào đề & tạo câu tiếp"
-            onCancel={() => setRightTab('bank')}
+            onCancel={() => setRightTab('pick')}
             onAfterContinue={scrollToEditor}
-            footerExtra={bankFooter}
             onSubmit={onCreateAndClose}
             onSecondarySubmit={onCreateAndContinue}
           />
@@ -994,11 +927,10 @@ export function ExamComposer({
             subjectId={meta.subjectId}
             grade={meta.grade}
             onCreateOne={onBulkCreateOne}
-            footerExtra={bankFooter}
-            onClose={() => setRightTab('bank')}
+            onClose={() => setRightTab('pick')}
             onComplete={(count) => {
               showFlash(`Đã tạo ${count} câu từ text và gắn vào đề`);
-              void bankTopics.reload();
+              void examTopics.reload();
             }}
           />
         </section>
@@ -1009,7 +941,7 @@ export function ExamComposer({
         onClose={closePreview}
         title={meta.title}
         duration={meta.duration}
-        totalPoints={meta.totalPoints}
+        totalPoints={sumPoints}
         instructions={meta.instructions}
         sections={sections}
         questions={examQuestions}

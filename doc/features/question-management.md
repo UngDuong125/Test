@@ -2,7 +2,7 @@
 
 ## 1. Mục tiêu
 
-Cho phép người quản lý tạo, chỉnh sửa, xem trước, kiểm tra và quản lý vòng đời của câu hỏi dùng trong bài học, ngân hàng câu hỏi và bộ đề.
+Cho phép người quản lý tạo, chỉnh sửa, xem trước, kiểm tra và quản lý vòng đời của câu hỏi dùng trong bài học và bộ đề.
 
 ## 2. Actor
 
@@ -219,7 +219,7 @@ PATCH  /api/topics/:id
 DELETE /api/topics/:id
 ```
 
-`GET /api/questions` hỗ trợ query `subjectId`, `grade`, `topicId`, `difficulty`, `type`, `status`, `tag`, `q`, `bankId`, `limit`, `offset`.
+`GET /api/questions` hỗ trợ query `subjectId`, `grade`, `topicId`, `difficulty`, `type`, `status`, `tag`, `q`, `limit`, `offset`.
 
 ## 11. Acceptance Criteria
 

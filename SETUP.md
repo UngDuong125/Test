@@ -32,6 +32,8 @@ psql "$DATABASE_URL" -f supabase/migrations/20260908230000_allow_unlimited_exam_
 psql "$DATABASE_URL" -f supabase/migrations/20260924120000_vocabulary_srs.sql
 # Interactive lessons (exam_sections.content + exams.type = lesson):
 psql "$DATABASE_URL" -f supabase/migrations/20261020000000_interactive_lessons.sql
+# Một attempt in_progress cho mỗi học sinh và assignment:
+psql "$DATABASE_URL" -f supabase/migrations/20261106085000_one_in_progress_attempt.sql
 psql "$DATABASE_URL" -f supabase/seed.sql
 ```
 
@@ -149,7 +151,7 @@ Sau khi có đề `published`:
 | `POST` | `/api/upload` |
 | `GET/DELETE` | `/api/media/:id` |
 
-Spec: [class-management.md](doc/features/class-management.md), [exam-distribution.md](doc/features/exam-distribution.md), [attempt-and-result.md](doc/features/attempt-and-result.md), [media-upload.md](doc/features/media-upload.md), [vocabulary-srs.md](doc/features/vocabulary-srs.md).
+Spec: [class-management.md](doc/features/class-management.md), [exam-distribution.md](doc/features/exam-distribution.md), [attempt-and-result.md](doc/features/attempt-and-result.md), [media-upload.md](doc/features/media-upload.md), [vocabulary-srs.md](doc/features/vocabulary-srs.md). Hợp đồng số request của học sinh: [student-response.md](doc/features/student-response.md).
 
 ## 7. Test
 
@@ -173,6 +175,7 @@ npm test --workspace=frontend
 | Giao đề 403 student not in class | Thêm học sinh vào lớp teacher sở hữu |
 | Vocabulary API lỗi thiếu bảng | Chưa apply `20260924120000_vocabulary_srs.sql` |
 | Upload không Cloudinary | OK local — log `[upload:dev-fallback]`; production cần `CLOUDINARY_*` |
+| Request học sinh đầu tiên rất chậm trên Render | Process Free đang ngủ. Ping `GET /api/health` phải phủ 06:00–22:00 giờ Việt Nam — [student-response.md](doc/features/student-response.md) |
 
 ## Cấu trúc code (tóm tắt)
 

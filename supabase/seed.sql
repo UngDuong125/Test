@@ -123,20 +123,6 @@ INSERT INTO public.class_members (class_id, user_id) VALUES
   )
 ON CONFLICT DO NOTHING;
 
--- Sample question bank
-INSERT INTO public.question_banks (
-  id, name, description, subject_id, grade, owner_id
-) VALUES
-  (
-    '30000000-0000-4000-8000-000000000001',
-    'Toán 7 - Phân số',
-    'Ngân hàng mẫu cho seed local',
-    'math',
-    7,
-    '00000000-0000-4000-8000-000000000002'
-  )
-ON CONFLICT (owner_id, name) DO NOTHING;
-
 -- Sample published MCQ
 INSERT INTO public.questions (
   id,
@@ -201,13 +187,6 @@ INSERT INTO public.question_topic_links (question_id, topic_id) VALUES
   (
     '40000000-0000-4000-8000-000000000001',
     '10000000-0000-4000-8000-000000000001'
-  )
-ON CONFLICT DO NOTHING;
-
-INSERT INTO public.question_bank_items (bank_id, question_id) VALUES
-  (
-    '30000000-0000-4000-8000-000000000001',
-    '40000000-0000-4000-8000-000000000001'
   )
 ON CONFLICT DO NOTHING;
 

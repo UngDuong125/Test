@@ -124,6 +124,8 @@ Endpoint lưu câu trả lời rồi trả về:
 
 `pairs` / `positions` chỉ nói từng vế hoặc từng vị trí đúng hay sai. Không trả id đáp án đúng. Học sinh được kiểm tra lại sau khi sửa. Điểm chính thức vẫn tính lúc nộp, từ câu trả lời đã lưu.
 
+UI dùng đúng body của `POST .../check` để vẽ đúng/sai. Không gọi `GET /api/attempts/:id` sau mỗi lần kiểm tra. Ngân sách request: [student-response.md](./student-response.md).
+
 `positions[].optionId` là lựa chọn của học sinh, không phải key.
 
 ## 9. Game nối từ vựng

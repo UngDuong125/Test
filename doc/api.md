@@ -16,7 +16,6 @@ Quy ước API đích (naming, lỗi, idempotency): [features/_cross-cutting.md]
 | `/questions` | `frontend/app/questions/page.tsx` | Danh sách / lọc câu hỏi |
 | `/questions/new` | `frontend/app/questions/new/page.tsx` | Tạo câu hỏi |
 | `/questions/[id]` | `frontend/app/questions/[id]/page.tsx` | Sửa, review, lifecycle |
-| `/question-banks` | `frontend/app/question-banks/page.tsx` | Ngân hàng câu hỏi |
 | `/attempts/[id]` | `frontend/app/attempts/[id]/page.tsx` | Làm bài theo snapshot |
 | `/results` | `frontend/app/results/page.tsx` | Danh sách kết quả |
 | `/results/[id]` | `frontend/app/results/[id]/page.tsx` | Kết quả attempt |
@@ -70,13 +69,12 @@ Chi tiết: [authentication-and-authorization.md](./features/authentication-and-
 | Nhóm | Endpoint chính | Feature doc |
 | :--- | :--- | :--- |
 | Questions | `POST/GET/PATCH /api/questions`, `…/submit-review`, `…/reject-review`, `…/publish`, `…/archive`, `…/duplicate` | [question-management.md](./features/question-management.md) |
-| Question banks | `POST/GET /api/question-banks`, search | [question-bank.md](./features/question-bank.md) |
 | Exams | `POST/GET/PATCH /api/exams`, `…/questions`, `…/questions/create`, `…/validate`, `…/publish`, `…/generate` | [exam-management.md](./features/exam-management.md) |
 | Assignments | `POST/GET/PATCH /api/exam-assignments`, `POST /api/exams/:id/assign` | [exam-distribution.md](./features/exam-distribution.md) |
 | Classes | `POST/GET/PATCH /api/classes`, `…/members`, `…/analytics` | [class-management.md](./features/class-management.md) |
-| Attempts | `POST /api/exam-assignments/:id/attempts`, `PATCH /api/attempts/:id/answers`, `POST /api/attempts/:id/check` (chỉ đề `lesson`), `POST /api/attempts/:id/submit` | [attempt-and-result.md](./features/attempt-and-result.md) |
+| Attempts | `POST /api/exam-assignments/:id/attempts` (body = attempt detail, có `serverNow`), `GET /api/attempts/:id`, `PATCH /api/attempts/:id/answers`, `POST /api/attempts/:id/check` (chỉ đề `lesson`), `POST /api/attempts/:id/submit` | [attempt-and-result.md](./features/attempt-and-result.md), [student-response.md](./features/student-response.md) |
 | Grading | `GET /api/grading/queue`, `GET /api/grading/:attemptId`, `POST /api/attempts/:id/grade`, `…/regrade` | [manual-grading.md](./features/manual-grading.md) |
-| Student | `GET /api/students/me/assignments`, `GET /api/students/:id/assignments`, `GET /api/students/:id/results` | [dashboard.md](./features/dashboard.md) |
+| Student | `GET /api/students/me/assignments` (kèm `remainingAttempts`, `inProgressAttemptId`, `latestFinishedAttempt`), `GET /api/students/:id/assignments`, `GET /api/students/:id/results` | [dashboard.md](./features/dashboard.md), [student-response.md](./features/student-response.md) |
 | Vocabulary SRS | `POST/GET /api/vocabulary-banks`, `/api/vocabulary-entries`, `/api/vocabulary-assignments` (+ cancel), `GET /api/students/me/vocabulary/due`, `POST /api/vocabulary-cards/:id/review` | [vocabulary-srs.md](./features/vocabulary-srs.md) |
 | Leaderboard | `GET /api/leaderboard`, `?period=`, `/periods` | [leaderboard.md](./features/leaderboard.md) |
 | Analytics | `GET /api/questions/:id/stats`, `…/exams/:id/analytics`, `…/classes/:id/analytics` | [analytics.md](./features/analytics.md) |

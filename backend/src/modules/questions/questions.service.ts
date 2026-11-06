@@ -7,10 +7,6 @@ import type {
   TagKey,
 } from '../../types/domain.js';
 import {
-  addQuestionsToBank,
-  findQuestionBankById,
-} from '../../repositories/questionBanks.repository.js';
-import {
   createQuestion,
   deleteQuestion,
   findQuestionById,
@@ -88,7 +84,6 @@ export async function createQuestionForUser(
     explanation: Question['explanation'];
     points: number;
     tags: string[];
-    bankId?: string;
   },
 ): Promise<Question> {
   assertTeacherOrAdmin(actor);
@@ -101,27 +96,10 @@ export async function createQuestionForUser(
   await assertQuestionMediaExist(input.content, input.options);
   await assertTopicsValidForQuestion(input.topicIds, input.subjectId, input.grade);
 
-  if (input.bankId) {
-    const bank = await findQuestionBankById(input.bankId);
-    if (!bank) throw new AppError(404, 'Question bank not found', 'BANK_NOT_FOUND');
-    if (actor.role !== 'admin' && bank.ownerId !== actor.id) {
-      throw new AppError(403, 'Not the bank owner', 'FORBIDDEN');
-    }
-    if (bank.subjectId !== input.subjectId || bank.grade !== input.grade) {
-      throw new AppError(422, 'Question subject/grade must match bank', 'BANK_MISMATCH');
-    }
-  }
-
-  const question = await createQuestion({
+  return createQuestion({
     ...input,
     createdBy: actor.id,
   });
-
-  if (input.bankId) {
-    await addQuestionsToBank(input.bankId, [question.id]);
-  }
-
-  return question;
 }
 
 export async function getQuestionForUser(

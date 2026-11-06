@@ -2,7 +2,7 @@
 
 ## 1. Mục tiêu
 
-Cho phép tạo một bộ đề từ Question Bank và quản lý cấu trúc, điểm số, thời lượng, trạng thái xuất bản.
+Cho phép tạo một bộ đề từ các câu hỏi (lọc theo chủ đề) và quản lý cấu trúc, điểm số, thời lượng, trạng thái xuất bản.
 
 ## 2. Exam Model
 
@@ -145,14 +145,14 @@ Không để việc chỉnh sửa question làm thay đổi lịch sử bài đ�
 
 ## 10. Trình soạn đề tích hợp (Exam Composer)
 
-Màn hình tạo/sửa đề (`/exams/new`, `/exams/[id]/edit`) cho phép nhập metadata, thêm câu từ ngân hàng **hoặc tạo câu mới**, xem trước và publish — **không** nhúng/copy nội dung câu vào đề. Câu mới vẫn là `Question` (thường `status=draft`); đề chỉ lưu liên kết qua `exam_questions`, tương thích snapshot khi học sinh làm bài và tái sử dụng ở đề khác.
+Màn hình tạo/sửa đề (`/exams/new`, `/exams/[id]/edit`) cho phép nhập metadata, thêm câu có sẵn (lọc theo chủ đề) **hoặc tạo câu mới**, xem trước và publish — **không** nhúng/copy nội dung câu vào đề. Câu mới vẫn là `Question` (thường `status=draft`); đề chỉ lưu liên kết qua `exam_questions`, tương thích snapshot khi học sinh làm bài và tái sử dụng ở đề khác.
 
 ### Luồng
 
 ```text
 Tạo đề nháp
   → nhập thông tin đề (autosave)
-  → thêm câu từ ngân hàng hoặc “Tạo câu hỏi mới”
+  → thêm câu có sẵn hoặc “Tạo câu hỏi mới”
   → câu mới: Question draft + exam_questions (transaction)
   → xem trước / chỉnh điểm / sắp xếp section
   → validate → xuất bản (publish câu draft hợp lệ nếu xác nhận + publish đề)
@@ -164,7 +164,7 @@ Tạo đề nháp
 | :--- | :--- |
 | Cột trái | Thông tin đề: tên, môn, lớp, thời lượng, loại, tổng điểm, hướng dẫn |
 | Giữa | Section + danh sách câu trên đề: chỉnh điểm, bỏ khỏi đề, (phase 2: kéo-thả); panel **Tạo câu mới** (form) hoặc **Dán text** (tạo hàng loạt) |
-| Phải / modal | “Thêm từ ngân hàng” (lọc theo bank và **chủ đề**), “Tạo câu hỏi mới”, “Dán text” |
+| Phải / modal | “Câu có sẵn” (tìm kiếm **chủ đề**, hiện 8 chủ đề đầu và “Xem thêm”), “Tạo câu hỏi mới”, “Dán text” |
 
 Form “Tạo câu hỏi mới” trong composer cho chọn/tạo chủ đề như form câu hỏi độc lập (môn/lớp theo đề) — xem [question-management.md](./question-management.md#chủ-đề-trong-form-câu-hỏi).
 
@@ -273,15 +273,14 @@ ANSWER: latex: \frac{-b\pm\sqrt{b^2-4ac}}{2a}
 - **Tạo câu trong composer** → `Question.status = draft`, rồi tạo `exam_questions` ngay (cùng transaction / rollback nếu gắn đề thất bại).
 - **Autosave** metadata đề (PATCH); UI hiển thị `Đã lưu` / `Đang lưu` / `Có lỗi`.
 - **Bỏ câu khỏi đề** → chỉ xóa liên kết `exam_questions`; không tự xóa `Question`. Có thể “xóa bản nháp chưa dùng” riêng (phase 2 hoặc action tùy chọn).
-- **Lưu vào ngân hàng** (`bankId` khi tạo): tùy chọn; mặc định theo bank đã chọn trong UI — tránh đầy kho bằng draft không mong muốn.
 - **Publish**: mọi câu gắn đề phải hợp lệ và `published`; `Σ ExamQuestion.points = Exam.totalPoints`. Có thể yêu cầu xác nhận `publishDraftQuestions` để publish các câu draft (do composer tạo) trước khi publish đề.
 
 ### Roadmap
 
 | Đợt | Phạm vi |
 | :--- | :--- |
-| **MVP** | Đề nháp, tạo câu mới trong editor, **dán text hàng loạt** (TN, chọn thẻ, Đ-S, điền, ngắn, nối cặp, sắp xếp), thêm từ bank, autosave, preview, validate trước publish |
-| **Hoàn thiện** | Kéo-thả, section template, phím tắt, duplicate question, cảnh báo chưa vào bank, version/draft recovery, bulk API 1 request |
+| **MVP** | Đề nháp, tạo câu mới trong editor, **dán text hàng loạt** (TN, chọn thẻ, Đ-S, điền, ngắn, nối cặp, sắp xếp), thêm câu có sẵn theo chủ đề, autosave, preview, validate trước publish |
+| **Hoàn thiện** | Kéo-thả, section template, phím tắt, duplicate question, version/draft recovery, bulk API 1 request |
 
 ## 11. API gợi ý
 
@@ -308,19 +307,19 @@ POST   /api/exams/generate
 
 | Method | Path | Mô tả |
 | :--- | :--- | :--- |
-| `POST` | `/api/exams/:id/questions` | Gắn câu có sẵn (từ bank / published / draft của mình) |
-| `POST` | `/api/exams/:id/questions/create` | Tạo `Question` draft (+ optional `bankId`) **và** gắn `exam_questions` trong một bước; rollback nếu gắn thất bại |
+| `POST` | `/api/exams/:id/questions` | Gắn câu có sẵn (published / draft của mình) |
+| `POST` | `/api/exams/:id/questions/create` | Tạo `Question` draft **và** gắn `exam_questions` trong một bước; rollback nếu gắn thất bại |
 | `PATCH` | `/api/exams/:id/questions/:questionId` | Đổi `sectionId`, `order`, `points` override |
 | `POST` | `/api/exams/:id/validate` | Trả toàn bộ lỗi/cảnh báo trước publish (không mutate) |
 | `POST` | `/api/exams/:id/publish` | Body tùy chọn `{ "publishDraftQuestions": true }` — publish các câu draft hợp lệ trên đề rồi publish đề |
 
 `GET /api/exams/:id` trả thêm `questionDetails` (payload `Question` đầy đủ của các câu đang gắn) để composer không phải N+1.
 
-API tạo/cập nhật question độc lập (`/api/questions`) vẫn giữ nguyên cho quản lý ngân hàng.
+API tạo/cập nhật question độc lập (`/api/questions`) vẫn giữ nguyên để quản lý câu hỏi.
 
 ### `POST /api/exams/generate`
 
-Sinh đề nháp (`status=draft`) từ Question Bank / filter — dùng cùng pipeline random với [question-bank.md](./question-bank.md).
+Sinh đề nháp (`status=draft`) từ filter môn/lớp/chủ đề/độ khó (random trên các câu `published`).
 
 **Request:**
 
@@ -331,7 +330,6 @@ Sinh đề nháp (`status=draft`) từ Question Bank / filter — dùng cùng pi
   "grade": 7,
   "type": "practice",
   "duration": 30,
-  "bankId": "bank_001",
   "selection": {
     "count": 10,
     "topicIds": ["10000000-0000-4000-8000-000000000001"],
@@ -347,7 +345,6 @@ Sinh đề nháp (`status=draft`) từ Question Bank / filter — dùng cùng pi
 | :--- | :--- | :--- |
 | `title`, `subjectId`, `grade`, `type` | Có | Metadata exam |
 | `duration` | Có | Phút; `0` = không giới hạn thời lượng đề |
-| `bankId` | Không | Giới hạn trong một bank; thiếu → filter theo subject/grade |
 | `selection` | Có | Rule lấy mẫu (chỉ câu `published`). `selection.topicIds` (UUID, tùy chọn): câu thuộc ít nhất một topic |
 | `defaultPoints` | Không | Gán `ExamQuestion.points` nếu không lấy từ `Question.points` |
 
@@ -370,7 +367,6 @@ Sinh đề nháp (`status=draft`) từ Question Bank / filter — dùng cùng pi
 | Code | Khi nào |
 | :--- | :--- |
 | `422` | Không đủ câu published thỏa filter / tỷ lệ difficulty |
-| `403` | Không quyền bank hoặc subject |
 
 Teacher chỉnh section/điểm rồi `POST /api/exams/:id/publish` như đề thủ công. Generate **không** publish sẵn.
 
@@ -378,7 +374,7 @@ UI generate (trang `/exams`): chọn môn, lớp, số câu và **chủ đề** 
 
 ## 12. Acceptance Criteria
 
-- Tạo đề thủ công từ Question Bank.
+- Tạo đề thủ công bằng cách chọn câu có sẵn, lọc theo chủ đề.
 - Tạo đề trong composer: thêm câu mới (Question draft + link) mà không copy nội dung vào đề.
 - Sinh đề nháp qua `/api/exams/generate` theo filter/difficulty/chủ đề.
 - Dán text tạo câu có gắn chủ đề (`TOPIC:` hoặc chủ đề mặc định), tự tạo chủ đề chưa có.

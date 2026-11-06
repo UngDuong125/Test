@@ -12,7 +12,6 @@ import { classesRouter } from './routes/classes.routes.js';
 import { examsRouter } from './routes/exams.routes.js';
 import { gradingRouter } from './routes/grading.routes.js';
 import { adminExpRouter, leaderboardRouter } from './routes/leaderboard.routes.js';
-import { questionBanksRouter } from './routes/questionBanks.routes.js';
 import { questionsRouter } from './routes/questions.routes.js';
 import { studentsRouter } from './routes/students.routes.js';
 import { taxonomyRouter } from './routes/taxonomy.routes.js';
@@ -54,7 +53,6 @@ export function createApp() {
   app.use('/api/admin/exp', adminExpRouter);
   app.use('/api', taxonomyRouter);
   app.use('/api/questions', questionsRouter);
-  app.use('/api/question-banks', questionBanksRouter);
   app.use('/api/vocabulary-banks', vocabularyBanksRouter);
   app.use('/api/vocabulary-entries', vocabularyEntriesRouter);
   app.use('/api/vocabulary-assignments', vocabularyAssignmentsRouter);

@@ -4,14 +4,12 @@ import {
   listAttemptStatsForExam,
   listAttemptsForAssignments,
   listAssignmentIdsForClass,
-  listBankQuestionIds,
   listGradedAnswerStatsForQuestion,
   observeDifficulty,
   sumExpForAttemptIds,
   upsertQuestionStats,
 } from '../../repositories/analytics.repository.js';
 import { findQuestionById } from '../../repositories/questions.repository.js';
-import { findQuestionBankById } from '../../repositories/questionBanks.repository.js';
 import { findExamById } from '../../repositories/exams.repository.js';
 import { findClassById, listMemberUserIds } from '../../repositories/classes.repository.js';
 import { listAttemptsByUser, findExpByAttempt } from '../../repositories/attempts.repository.js';
@@ -90,44 +88,6 @@ export async function getQuestionStats(
     averagePointsEarned,
     averageTimeSeconds,
     difficultyObserved,
-  };
-}
-
-export async function getQuestionBankStats(
-  actor: PublicUser,
-  bankId: string,
-  opts: { from?: string; to?: string } = {},
-) {
-  assertTeacherOrAdmin(actor);
-  const bank = await findQuestionBankById(bankId);
-  if (!bank) throw new AppError(404, 'Bank not found', 'NOT_FOUND');
-  if (actor.role === 'teacher' && bank.ownerId !== actor.id) {
-    throw new AppError(403, 'Not the bank owner', 'FORBIDDEN');
-  }
-
-  const questionIds = await listBankQuestionIds(bankId);
-  const items = [];
-  for (const qid of questionIds) {
-    try {
-      items.push(await getQuestionStats(actor, qid, opts));
-    } catch {
-      // skip inaccessible
-    }
-  }
-
-  const totalUsage = items.reduce((s, i) => s + i.usageCount, 0);
-  const withRate = items.filter((i) => i.correctRate != null);
-  const avgCorrect =
-    withRate.length > 0
-      ? withRate.reduce((s, i) => s + (i.correctRate ?? 0), 0) / withRate.length
-      : null;
-
-  return {
-    bankId,
-    questionCount: questionIds.length,
-    totalUsage,
-    averageCorrectRate: avgCorrect,
-    questions: items,
   };
 }
 

@@ -9,7 +9,7 @@ await mockModule(src('repositories/questions.repository.js'), {
   listPublishedCandidates: async () => pool,
 });
 
-const { selectRandomQuestions } = await import('../src/modules/question-banks/random.selection.js');
+const { selectRandomQuestions } = await import('../src/modules/exams/random.selection.js');
 
 function makePool(counts: Record<Difficulty, number>): Question[] {
   const out: Question[] = [];

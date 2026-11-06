@@ -175,28 +175,6 @@ CREATE TABLE public.question_topic_links (
   PRIMARY KEY (question_id, topic_id)
 );
 
-CREATE TABLE public.question_banks (
-  id uuid PRIMARY KEY DEFAULT uuid_generate_v4(),
-  name text NOT NULL,
-  description text NOT NULL DEFAULT '',
-  subject_id text NOT NULL REFERENCES public.subjects (id) ON DELETE RESTRICT,
-  grade integer NOT NULL CHECK (grade BETWEEN 6 AND 9),
-  owner_id uuid NOT NULL REFERENCES public.users (id) ON DELETE RESTRICT,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT question_banks_owner_name_unique UNIQUE (owner_id, name)
-);
-
-CREATE TRIGGER question_banks_set_updated_at
-  BEFORE UPDATE ON public.question_banks
-  FOR EACH ROW EXECUTE PROCEDURE public.set_updated_at();
-
-CREATE TABLE public.question_bank_items (
-  bank_id uuid NOT NULL REFERENCES public.question_banks (id) ON DELETE CASCADE,
-  question_id uuid NOT NULL REFERENCES public.questions (id) ON DELETE CASCADE,
-  PRIMARY KEY (bank_id, question_id)
-);
-
 CREATE TABLE public.question_stats (
   question_id uuid PRIMARY KEY REFERENCES public.questions (id) ON DELETE CASCADE,
   usage_count integer NOT NULL DEFAULT 0 CHECK (usage_count >= 0),
@@ -340,6 +318,9 @@ CREATE TABLE public.attempts (
 CREATE INDEX attempts_assignment_id_idx ON public.attempts (assignment_id);
 CREATE INDEX attempts_user_id_idx ON public.attempts (user_id);
 CREATE INDEX attempts_status_idx ON public.attempts (status);
+CREATE UNIQUE INDEX attempts_one_in_progress_idx
+  ON public.attempts (assignment_id, user_id)
+  WHERE status = 'in_progress';
 
 CREATE TABLE public.attempt_snapshots (
   attempt_id uuid PRIMARY KEY REFERENCES public.attempts (id) ON DELETE CASCADE,

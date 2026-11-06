@@ -2,7 +2,7 @@
 
 ## 1. Mục tiêu
 
-Cung cấp thống kê đọc được cho teacher/admin: độ khó thực tế của câu hỏi, kết quả theo đề/lớp, hỗ trợ cải thiện ngân hàng câu hỏi. Analytics **tính từ Attempt đã graded**, không tin score frontend.
+Cung cấp thống kê đọc được cho teacher/admin: độ khó thực tế của câu hỏi, kết quả theo đề/lớp, hỗ trợ cải thiện chất lượng câu hỏi. Analytics **tính từ Attempt đã graded**, không tin score frontend.
 
 Không thay thế trang kết quả từng attempt; không lộ answer key học sinh khác.
 
@@ -37,7 +37,7 @@ Nguồn: `attempt_answers` join `attempts` (`status=graded`).
 | `averageTimeSeconds` | Trung bình `(answered_at - attempt.started_at)` per question nếu có telemetry; MVP có thể bỏ |
 | `difficultyObserved` | Map từ `correctRate`: &gt;0.75 easy, 0.4–0.75 medium, &lt;0.4 hard |
 
-**Lưu trữ:** tính on-the-fly hoặc materialize `question_stats` (rebuild định kỳ). Không copy stats khi duplicate question ([question-bank.md](./question-bank.md)).
+**Lưu trữ:** tính on-the-fly hoặc materialize `question_stats` (rebuild định kỳ). Không copy stats khi duplicate question.
 
 ## 4. Exam / assignment / class
 
@@ -75,7 +75,6 @@ Nguồn: `attempt_answers` join `attempts` (`status=graded`).
 | Method | Endpoint | Mục đích | Quyền |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/questions/:id/stats` | Usage một câu | Owner question / admin |
-| `GET` | `/api/question-banks/:id/stats` | Tổng hợp câu trong bank | Owner bank / admin |
 | `GET` | `/api/exams/:id/analytics` | Thống kê đề | Owner exam / admin |
 | `GET` | `/api/classes/:id/analytics?examId=` | Thống kê lớp × đề | Class owner / admin |
 | `GET` | `/api/students/me/stats` | Tóm tắt cá nhân (optional) | `student` |
@@ -100,7 +99,6 @@ Query chung: `from`, `to` (ISO datetime) để giới hạn cửa sổ thời gi
 | Layer | Path |
 | :--- | :--- |
 | Backend | `modules/analytics` hoặc aggregate trong questions/exams/classes |
-| Question bank | [question-bank.md](./question-bank.md) |
 | Class | [class-management.md](./class-management.md) |
 | EXP | [exp.md](./exp.md) |
 | Schema | `attempt_answers`, optional `question_stats` |

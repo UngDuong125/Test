@@ -16,7 +16,7 @@ Tài liệu này định nghĩa lộ trình deprecate API/`quizzes` legacy và c
 | Legacy | Đích |
 | :--- | :--- |
 | `quizzes` | `exams` (+ `exam_sections`, `exam_questions`) |
-| `quizzes.questions` (jsonb) | `questions` + `question_options` (+ bank items) |
+| `quizzes.questions` (jsonb) | `questions` + `question_options` |
 | `quizzes.tag` | `exams.subject_id` (`TagKey`) |
 | `quizzes.target_user_ids` / `is_global` | `exam_assignments` (per user; global → assign từng student hoặc bỏ) |
 | `quizzes.high_score` | Bỏ; dùng `attempts.score` / thống kê từ attempt |

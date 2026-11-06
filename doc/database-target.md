@@ -106,26 +106,6 @@ Constraint `UNIQUE (subject_id, name, grade)` không chặn trùng khi `grade` l
 | `question_id` | uuid FK | |
 | `topic_id` | uuid FK → topics | PK composite |
 
-### `question_banks`
-
-| Cột | Kiểu | Mô tả |
-| :--- | :--- | :--- |
-| `id` | uuid PK | |
-| `name` | text | |
-| `description` | text | |
-| `subject_id` | text FK | |
-| `grade` | int | |
-| `owner_id` | uuid FK → users | |
-| `created_at` | timestamptz | |
-| `updated_at` | timestamptz | |
-
-### `question_bank_items`
-
-| Cột | Kiểu | Mô tả |
-| :--- | :--- | :--- |
-| `bank_id` | uuid FK | |
-| `question_id` | uuid FK | PK composite |
-
 ## Exams
 
 ### `exams`
@@ -229,6 +209,16 @@ Mỗi bản ghi **luôn** `target_type = 'user'` sau khi giao (kể cả giao th
 | `score` | numeric nullable | |
 | `max_score` | numeric | |
 | `percentage` | numeric nullable | |
+
+Một học sinh chỉ có một attempt `in_progress` trên một assignment. Index partial (migration mới, không sửa migration cũ):
+
+```sql
+CREATE UNIQUE INDEX attempts_one_in_progress_idx
+  ON public.attempts (assignment_id, user_id)
+  WHERE status = 'in_progress';
+```
+
+Index này chặn hai lần dựng snapshot khi bấm **Bắt đầu** đúp. Hành vi API: [features/student-response.md](./features/student-response.md).
 
 ### `attempt_snapshots`
 
@@ -336,7 +326,7 @@ Spec: [vocabulary-srs.md](./features/vocabulary-srs.md). Migration: `20260924120
 
 ### `vocabulary_banks` / `vocabulary_bank_items`
 
-Song song `question_banks` / `question_bank_items`. Unique `(owner_id, name)`.
+Nhóm từ vựng theo bộ, độc lập với câu hỏi. Unique `(owner_id, name)`.
 
 ### `vocabulary_assignments`
 
@@ -381,7 +371,7 @@ Audit: `card_id`, `result` (`pass`\|`fail`), `interval_step_before/after`, `revi
 
 ```text
 subjects → topics
-users → question_banks → question_bank_items → questions
+topics → question_topic_links → questions
 media → questions.content (mediaId)
 questions → exam_questions → exams
 users → classes → class_members

@@ -19,7 +19,6 @@ import type {
   MediaRecord,
   Question,
   QuestionAnswer,
-  QuestionBank,
   QuestionExplanation,
   QuestionOption,
   QuestionStatus,
@@ -54,17 +53,6 @@ export interface QuestionOptionRow {
   id: string;
   content: QuestionOption['content'];
   order: number;
-}
-
-export interface QuestionBankRow {
-  id: string;
-  name: string;
-  description: string;
-  subject_id: TagKey;
-  grade: number;
-  owner_id: string;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface ExamRow {
@@ -239,19 +227,6 @@ export function mapOption(row: QuestionOptionRow): QuestionOption {
     id: row.id,
     content: row.content,
     order: row.order,
-  };
-}
-
-export function mapQuestionBank(row: QuestionBankRow): QuestionBank {
-  return {
-    id: row.id,
-    name: row.name,
-    description: row.description,
-    subjectId: row.subject_id,
-    grade: row.grade,
-    ownerId: row.owner_id,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
   };
 }
 
