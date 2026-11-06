@@ -1,6 +1,10 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { getDb } from './db.js';
-import type { AuthTokenType, SessionRecord } from '../types/domain.js';
+import { mapUser, type UserRow } from './user.mapper.js';
+import type { AuthTokenType, SessionRecord, User } from '../types/domain.js';
+
+const AUTH_USER_COLUMNS =
+  'id, email, username, display_name, role, status, must_change_password, temporary_password_expires_at, failed_login_attempts, locked_until, email_verified_at, last_login_at, created_at, updated_at';
 
 export function hashToken(raw: string): string {
   return createHash('sha256').update(raw).digest('hex');
@@ -48,19 +52,43 @@ export async function createSession(userId: string, expiresAt: Date): Promise<{ 
 }
 
 export async function findValidSessionByRawToken(rawToken: string): Promise<SessionRecord | null> {
+  const found = await findSessionWithUser(rawToken);
+  return found?.session ?? null;
+}
+
+/**
+ * One query: session row plus its user. No cross-request cache — logout and
+ * lock take effect on the next request.
+ */
+export async function findSessionWithUser(
+  rawToken: string,
+): Promise<{ session: SessionRecord; user: User } | null> {
   const tokenHash = hashToken(rawToken);
   const { data, error } = await getDb()
     .from('sessions')
-    .select('id, user_id, token_hash, expires_at, revoked_at, created_at')
+    .select(
+      `id, user_id, token_hash, expires_at, revoked_at, created_at, users (${AUTH_USER_COLUMNS})`,
+    )
     .eq('token_hash', tokenHash)
     .maybeSingle();
 
   if (error) throw error;
   if (!data) return null;
-  const session = mapSession(data as SessionRow);
+
+  const row = data as SessionRow & {
+    users: Omit<UserRow, 'password_hash'> | Omit<UserRow, 'password_hash'>[] | null;
+  };
+  const userRow = Array.isArray(row.users) ? (row.users[0] ?? null) : row.users;
+  if (!userRow) return null;
+
+  const session = mapSession(row);
   if (session.revokedAt) return null;
   if (new Date(session.expiresAt).getTime() <= Date.now()) return null;
-  return session;
+
+  return {
+    session,
+    user: mapUser({ ...userRow, password_hash: '' }),
+  };
 }
 
 export async function revokeSessionById(sessionId: string): Promise<void> {

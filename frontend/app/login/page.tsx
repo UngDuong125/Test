@@ -4,9 +4,11 @@ import Link from 'next/link';
 import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ApiError, login } from '@/lib/api-client';
+import { useSession } from '@/lib/auth';
 
 export default function LoginPage() {
   const router = useRouter();
+  const { setUser } = useSession();
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -18,6 +20,7 @@ export default function LoginPage() {
     setSubmitting(true);
     try {
       const result = await login(loginId, password);
+      setUser(result.user);
       if (result.user.mustChangePassword) {
         router.replace('/change-password');
       } else {

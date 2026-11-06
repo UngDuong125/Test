@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { AppHeader } from '@/components/auth/AppHeader';
+import { SessionProvider } from '@/lib/auth';
 
 export const metadata: Metadata = {
   title: 'TestArchive',
@@ -11,8 +12,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="vi">
       <body>
-        <AppHeader />
-        <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+        <SessionProvider>
+          <AppHeader />
+          <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+        </SessionProvider>
       </body>
     </html>
   );

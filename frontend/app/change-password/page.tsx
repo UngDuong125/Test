@@ -4,9 +4,11 @@ import { FormEvent, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthGate } from '@/components/auth/AuthGate';
 import { ApiError, changePassword } from '@/lib/api-client';
+import { useSession } from '@/lib/auth';
 
 function ChangePasswordForm() {
   const router = useRouter();
+  const { setUser } = useSession();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -22,7 +24,8 @@ function ChangePasswordForm() {
     }
     setSubmitting(true);
     try {
-      await changePassword(currentPassword, newPassword);
+      const result = await changePassword(currentPassword, newPassword);
+      setUser(result.requireLogin ? null : result.user);
       router.replace('/login?changed=1');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Không đổi được mật khẩu');

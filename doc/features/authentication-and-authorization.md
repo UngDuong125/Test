@@ -83,6 +83,8 @@ Quy tắc:
 - Không lưu mật khẩu hoặc token nhạy cảm trong `localStorage`.
 - Sau khi đăng nhập, nếu `mustChangePassword = true`, chỉ cho phép gọi các API đổi mật khẩu/đăng xuất cho tới khi hoàn tất.
 - Đăng xuất phải hủy session hiện tại.
+- Mỗi lần tải trang, client chỉ gọi `GET /api/auth/me` một lần qua `SessionProvider` (header, cổng đăng nhập và trang dùng chung state).
+- `authMiddleware` resolve session và user bằng một query join `sessions` → `users` theo `token_hash`. Không cache user giữa request, để logout và tài khoản `locked` / `disabled` có hiệu lực ngay. Ngân sách này là một phần của [student-response.md](./student-response.md).
 - Các lỗi đăng nhập không tiết lộ email/username có tồn tại hay không.
 - Giới hạn tốc độ đăng nhập và khóa tạm thời sau nhiều lần sai liên tiếp.
 

@@ -2,9 +2,8 @@ import type { NextFunction, Request, Response } from 'express';
 import { env } from '../config/env.js';
 import { AppError } from '../domain/errors.js';
 import { isAccountLocked } from '../modules/auth/auth.service.js';
-import { findUserById } from '../repositories/users.repository.js';
 import { toPublicUser } from '../repositories/user.mapper.js';
-import { resolveSession } from '../services/session.service.js';
+import { findSessionWithUser } from '../repositories/sessions.repository.js';
 import type { PublicUser, SessionRecord } from '../types/domain.js';
 
 export interface AuthContext {
@@ -23,24 +22,18 @@ declare global {
 export async function authMiddleware(req: Request, _res: Response, next: NextFunction) {
   try {
     const raw = req.cookies?.[env.SESSION_COOKIE_NAME] as string | undefined;
-    const session = await resolveSession(raw);
-    if (!session) {
+    if (!raw) {
       next();
       return;
     }
 
-    const user = await findUserById(session.userId);
-    if (!user || user.status === 'disabled') {
+    const found = await findSessionWithUser(raw);
+    if (!found || found.user.status === 'disabled' || isAccountLocked(found.user)) {
       next();
       return;
     }
 
-    if (isAccountLocked(user)) {
-      next();
-      return;
-    }
-
-    req.auth = { user: toPublicUser(user), session };
+    req.auth = { user: toPublicUser(found.user), session: found.session };
     next();
   } catch (err) {
     next(err);
