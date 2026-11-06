@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import { requireRole } from '../middleware/requireRole.js';
 import * as analyticsService from '../modules/analytics/analytics.service.js';
@@ -38,7 +39,14 @@ studentsRouter.get('/me/vocabulary-assignments', requireRole('student'), async (
 
 studentsRouter.get('/me/vocabulary/due', requireRole('student'), async (req, res, next) => {
   try {
-    const result = await vocabularyService.listDueForStudent(req.auth!.user);
+    const query = z
+      .object({
+        limit: z.coerce.number().int().min(1).max(30).optional(),
+        after: z.string().min(1).optional(),
+        afterId: z.string().uuid().optional(),
+      })
+      .parse(req.query);
+    const result = await vocabularyService.listDueForStudent(req.auth!.user, query);
     res.json(result);
   } catch (err) {
     next(err);

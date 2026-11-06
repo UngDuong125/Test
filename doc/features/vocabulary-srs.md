@@ -42,7 +42,7 @@ Không tái sử dụng `questions` / `exams` / `exam_assignments` / `attempts` 
 | Một lần làm đề, chấm điểm | Nhiều lần ôn từng thẻ theo lịch |
 | `attempt_limit`, duration, deadline nộp | `next_review_at`, interval step |
 | Snapshot đề + grading | Trạng thái thẻ per student |
-| `question_banks` = câu hỏi đề thi | Word bank = mục từ vựng |
+| `exam_questions` = câu hỏi trong đề | Word bank = mục từ vựng |
 
 Module SRS **song song** với luồng đề thi; **không sửa** bảng exam hiện có. Tái sử dụng:
 
@@ -101,7 +101,7 @@ Một mục từ vựng tái sử dụng.
 
 ### 4.2. VocabularyBank + VocabularyBankItem
 
-Tương tự [question-bank](./question-bank.md): tập từ để giao bài.
+Tập từ để giao bài cho học sinh.
 
 ```json
 {
@@ -314,10 +314,12 @@ GET    /api/students/:id/vocabulary-assignments
 ### Review (student)
 
 ```text
-GET    /api/students/me/vocabulary/due      # danh sách thẻ due (+ entry payload)
+GET    /api/students/me/vocabulary/due      # trang thẻ due (+ entry); dueCount là tổng
 POST   /api/vocabulary-cards/:id/review     # { result: "pass" | "fail" }
-GET    /api/students/me/vocabulary/stats    # optional: due count, mastered, …
+GET    /api/students/me/vocabulary/stats    # không chặn thẻ đầu: due count, mastered, …
 ```
+
+Hợp đồng tốc độ: [student-response.md](./student-response.md). Trang đầu tối đa 30 thẻ, `card` và `entry` không query từng thẻ. Bấm thuộc hoặc chưa thuộc dùng response của `POST .../review` để chuyển thẻ, không gọi lại `/due`.
 
 `POST .../review` chỉ chấp nhận card `userId = session`, due (hoặc đang trong phiên ôn), và cập nhật `intervalStep` / `nextReviewAt` trên **backend** — không tin interval do client gửi.
 
@@ -359,7 +361,7 @@ Không bắt buộc “làm hết một assignment trong một phiên”; SRS th
 ## 11. UI notes
 
 - **Mục cố định** trên nav / dashboard học sinh (không phụ thuộc có exam assignment hay không); nếu chưa có assignment → empty state hướng dẫn.
-- Flashcard: một thẻ / viewport; tránh nhồi stats vào màn ôn chính.
+- Flashcard: một thẻ / viewport. Thẻ đầu vẽ từ `GET .../vocabulary/due`. Stats tải sau và không đứng trước thẻ đó.
 - Teacher: màn bank + nút “Giao bộ từ” (song song với giao đề).
 
 ## 12. EXP (ngoài MVP)
@@ -389,7 +391,7 @@ Chi tiết cột khi implement: bổ sung vào [database-target.md](../database-
 - Teacher tạo được vocabulary entry và bank.
 - Teacher giao bank cho một student hoặc cả lớp (expand per student).
 - Mỗi entry trong bank tạo đúng một card / student / assignment.
-- Student vào mục cố định “Ôn từ vựng” và chỉ thấy thẻ due của mình.
+- Student vào mục cố định “Ôn từ vựng” và chỉ thấy thẻ due của mình. Thẻ đầu hiện từ một `GET .../due` (tối đa 30 thẻ, có `dueCount`); bấm thuộc hoặc chưa thuộc không gọi lại cả danh sách.
 - Chọn **thuộc** → `intervalStep` tăng lên `nextStep`, `nextReviewAt` = 0h hôm nay + `INTERVAL_DAYS[nextStep]` (PASS lần đầu từ step 0 → +3 ngày; rồi 7 → 14 → 30; mốc 1 ngày chủ yếu dùng sau FAIL).
 - Chọn **thuộc** khi đang ở mốc 30 ngày → `status = mastered`, thẻ không còn xuất hiện trong queue due.
 - Chọn **không thuộc** → `intervalStep = 0`, `nextReviewAt` = 0h ngày mai.
@@ -401,8 +403,8 @@ Chi tiết cột khi implement: bổ sung vào [database-target.md](../database-
 ## 15. Liên kết
 
 - Phân phối đề (pattern giao lớp): [exam-distribution.md](./exam-distribution.md)
-- Ngân hàng câu hỏi (pattern bank): [question-bank.md](./question-bank.md)
 - Lớp học: [class-management.md](./class-management.md)
 - Auth / role: [authentication-and-authorization.md](./authentication-and-authorization.md)
 - Quy ước API: [_cross-cutting.md](./_cross-cutting.md)
+- Tốc độ màn ôn: [student-response.md](./student-response.md)
 - Schema đích: [database-target.md](../database-target.md)

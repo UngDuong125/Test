@@ -32,7 +32,6 @@ import {
   findActiveVocabularyAssignment,
   findVocabularyAssignmentById,
   findVocabularyBankById,
-  findVocabularyBanksByIds,
   findVocabularyCardForReview,
   findVocabularyEntriesByIds,
   findVocabularyEntryById,
@@ -615,7 +614,10 @@ export async function listStudentVocabularyAssignments(
 // Review
 // ---------------------------------------------------------------------------
 
-export async function listDueForStudent(actor: PublicUser): Promise<{
+export async function listDueForStudent(
+  actor: PublicUser,
+  page: { limit?: number; after?: string; afterId?: string } = {},
+): Promise<{
   items: DueVocabularyCard[];
   dueCount: number;
 }> {
@@ -623,33 +625,23 @@ export async function listDueForStudent(actor: PublicUser): Promise<{
     throw new AppError(403, 'Forbidden', 'FORBIDDEN');
   }
   const nowIso = new Date().toISOString();
-  const { cards, assignments } = await listDueCardsWithAssignments(actor.id, nowIso);
-  if (!cards.length) return { items: [], dueCount: 0 };
-
-  const entryIds = [...new Set(cards.map((c) => c.entryId))];
-  const bankIds = [...new Set(assignments.map((a) => a.bankId))];
-  const [entries, banks] = await Promise.all([
-    findVocabularyEntriesByIds(entryIds),
-    findVocabularyBanksByIds(bankIds),
-  ]);
-  const entryMap = new Map(entries.map((e) => [e.id, e]));
-  const bankNameById = new Map(banks.map((b) => [b.id, b.name]));
-  const assignmentBank = new Map(
-    assignments.map((a) => [a.id, bankNameById.get(a.bankId)]),
+  const { cards, assignments, bankNames, dueCount } = await listDueCardsWithAssignments(
+    actor.id,
+    nowIso,
+    page,
   );
-
-  const items: DueVocabularyCard[] = [];
-  for (const card of cards) {
-    const entry = entryMap.get(card.entryId);
-    if (!entry) continue;
-    items.push({
+  const bankByAssignment = new Map(
+    assignments.map((assignment) => [assignment.id, bankNames.get(assignment.bankId)]),
+  );
+  return {
+    dueCount,
+    items: cards.map(({ card, entry }) => ({
       card,
       entry,
       assignmentId: card.assignmentId,
-      bankName: assignmentBank.get(card.assignmentId),
-    });
-  }
-  return { items, dueCount: items.length };
+      bankName: bankByAssignment.get(card.assignmentId),
+    })),
+  };
 }
 
 export async function getMyVocabularyStats(actor: PublicUser) {

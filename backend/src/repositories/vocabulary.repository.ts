@@ -540,38 +540,81 @@ async function listOpenAssignmentsForUser(
     .map(mapVocabularyAssignment);
 }
 
+const DUE_PAGE_MAX = 30;
+
 export async function listDueCardsWithAssignments(
   userId: string,
   nowIso: string,
-): Promise<{ cards: StudentVocabularyCard[]; assignments: VocabularyAssignment[] }> {
+  page: { limit?: number; after?: string; afterId?: string } = {},
+): Promise<{
+  cards: { card: StudentVocabularyCard; entry: VocabularyEntry }[];
+  assignments: VocabularyAssignment[];
+  bankNames: Map<string, string>;
+  dueCount: number;
+}> {
   const assignments = await listOpenAssignmentsForUser(userId, nowIso);
-  if (!assignments.length) return { cards: [], assignments: [] };
+  if (!assignments.length) {
+    return { cards: [], assignments: [], bankNames: new Map(), dueCount: 0 };
+  }
 
-  const { data, error } = await getDb()
+  const assignmentIds = assignments.map((assignment) => assignment.id);
+  const bankIds = [...new Set(assignments.map((assignment) => assignment.bankId))];
+  const limit = Math.min(page.limit ?? DUE_PAGE_MAX, DUE_PAGE_MAX);
+
+  let cardsQuery = getDb()
     .from('student_vocabulary_cards')
-    .select(CARD_COLUMNS)
+    .select(`${CARD_COLUMNS}, vocabulary_entries (${ENTRY_COLUMNS})`)
     .eq('user_id', userId)
     .eq('status', 'learning')
-    .in(
-      'assignment_id',
-      assignments.map((a) => a.id),
-    )
+    .in('assignment_id', assignmentIds)
     .lte('next_review_at', nowIso)
     .order('next_review_at', { ascending: true })
-    .limit(100);
-  if (error) throw error;
+    .order('id', { ascending: true })
+    .limit(limit);
+
+  if (page.after && page.afterId) {
+    cardsQuery = cardsQuery.or(
+      `next_review_at.gt."${page.after}",and(next_review_at.eq."${page.after}",id.gt.${page.afterId})`,
+    );
+  }
+
+  const countQuery = getDb()
+    .from('student_vocabulary_cards')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('status', 'learning')
+    .in('assignment_id', assignmentIds)
+    .lte('next_review_at', nowIso);
+
+  const [cardsRes, countRes, banks] = await Promise.all([
+    cardsQuery,
+    countQuery,
+    findVocabularyBanksByIds(bankIds),
+  ]);
+  if (cardsRes.error) throw cardsRes.error;
+  if (countRes.error) throw countRes.error;
+
+  const cards = ((cardsRes.data ?? []) as (StudentVocabularyCardRow & {
+    vocabulary_entries: VocabularyEntryRow | VocabularyEntryRow[] | null;
+  })[]).flatMap((row) => {
+    const entryRow = Array.isArray(row.vocabulary_entries)
+      ? (row.vocabulary_entries[0] ?? null)
+      : row.vocabulary_entries;
+    if (!entryRow) return [];
+    return [{ card: mapStudentVocabularyCard(row), entry: mapVocabularyEntry(entryRow) }];
+  });
+
   return {
-    cards: ((data ?? []) as StudentVocabularyCardRow[]).map(mapStudentVocabularyCard),
+    cards,
     assignments,
+    bankNames: new Map(banks.map((bank) => [bank.id, bank.name])),
+    dueCount: countRes.count ?? cards.length,
   };
 }
 
-export async function listDueCardsForUser(
-  userId: string,
-  nowIso: string,
-): Promise<StudentVocabularyCard[]> {
-  const { cards } = await listDueCardsWithAssignments(userId, nowIso);
-  return cards;
+export async function countDueCardsForUser(userId: string, nowIso: string): Promise<number> {
+  const { dueCount } = await listDueCardsWithAssignments(userId, nowIso, { limit: 1 });
+  return dueCount;
 }
 
 export async function countCardsForUser(userId: string): Promise<{
@@ -590,11 +633,11 @@ export async function countCardsForUser(userId: string): Promise<{
     return query;
   };
 
-  const [totalRes, learningRes, masteredRes, dueCards] = await Promise.all([
+  const [totalRes, learningRes, masteredRes, due] = await Promise.all([
     cardCount(),
     cardCount('learning'),
     cardCount('mastered'),
-    listDueCardsForUser(userId, nowIso),
+    countDueCardsForUser(userId, nowIso),
   ]);
   if (totalRes.error) throw totalRes.error;
   if (learningRes.error) throw learningRes.error;
@@ -604,7 +647,7 @@ export async function countCardsForUser(userId: string): Promise<{
     total: totalRes.count ?? 0,
     learning: learningRes.count ?? 0,
     mastered: masteredRes.count ?? 0,
-    due: dueCards.length,
+    due,
   };
 }
 

@@ -24,23 +24,23 @@ type VocabStats = {
   due: number;
 };
 
-type Preload = {
-  due: Promise<{ items: DueVocabularyCard[]; dueCount: number }>;
-  stats: Promise<VocabStats | null>;
-};
+const DUE_PAGE = 30;
 
-function startPreload(): Preload {
+type DuePage = { items: DueVocabularyCard[]; dueCount: number };
+
+function startPreload(): Promise<DuePage> {
   const due = listMyDueVocabulary();
-  // Keep the rejection for the loader, but don't leave it unhandled if the
-  // review screen never mounts (wrong role, logged out).
   due.catch(() => {});
-  return {
-    due,
-    stats: getMyVocabularyStats().catch(() => null),
-  };
+  return due;
 }
 
-function VocabularyReviewBody({ preload }: { preload: Preload }) {
+function pageCursor(items: DueVocabularyCard[]): { after?: string; afterId?: string } {
+  const last = items[items.length - 1];
+  if (!last) return {};
+  return { after: last.card.nextReviewAt, afterId: last.card.id };
+}
+
+function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
   const [queue, setQueue] = useState<DueVocabularyCard[]>([]);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -69,7 +69,8 @@ function VocabularyReviewBody({ preload }: { preload: Preload }) {
   const prefetchMore = useCallback(() => {
     if (prefetching.current) return;
     const startedEmpty = queueRef.current.length === 0;
-    const run = listMyDueVocabulary()
+    const cursor = pageCursor(queueRef.current);
+    const run = listMyDueVocabulary(cursor)
       .then((due) => {
         const seen = new Set(queueRef.current.map((item) => item.card.id));
         for (const id of reviewedIds.current) seen.add(id);
@@ -81,7 +82,7 @@ function VocabularyReviewBody({ preload }: { preload: Preload }) {
             return fresh.length ? [...current, ...fresh] : current;
           });
         }
-        markHasMore(startedEmpty && extra.length === 0 ? false : due.items.length >= 100);
+        markHasMore(extra.length > 0 && due.items.length >= DUE_PAGE);
       })
       .catch(() => {
         if (startedEmpty) markHasMore(false);
@@ -98,11 +99,10 @@ function VocabularyReviewBody({ preload }: { preload: Preload }) {
     setError(null);
     const fresh = usedPreload.current;
     usedPreload.current = true;
-    const duePromise = fresh ? listMyDueVocabulary() : preload.due;
-    const statsPromise = fresh ? getMyVocabularyStats().catch(() => null) : preload.stats;
+    const duePromise = fresh ? listMyDueVocabulary() : preload;
     try {
       const due = await duePromise;
-      markHasMore(due.items.length >= 100);
+      markHasMore(due.items.length >= DUE_PAGE && due.dueCount > due.items.length);
       if (force || sessionDoneRef.current === 0) {
         reviewedIds.current.clear();
         setQueue(due.items);
@@ -114,7 +114,7 @@ function VocabularyReviewBody({ preload }: { preload: Preload }) {
     } finally {
       setLoading(false);
     }
-    const st = await statsPromise;
+    const st = await getMyVocabularyStats().catch(() => null);
     if (st) {
       const reviewed = force ? 0 : sessionDoneRef.current;
       setStats((current) => {
