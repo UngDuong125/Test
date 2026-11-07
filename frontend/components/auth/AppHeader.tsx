@@ -1,10 +1,34 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { displayNameOf, useSession } from '@/lib/auth';
+import { loadVocabStatsOnce } from '@/lib/vocab-stats';
 
 export function AppHeader() {
   const { user, logout, loading } = useSession();
+  const pathname = usePathname();
+  const [dueCount, setDueCount] = useState<number | null>(null);
+  const isStudent = user?.role === 'student';
+
+  // After the page has its content; failure just hides the badge.
+  useEffect(() => {
+    if (!isStudent) return;
+    let cancelled = false;
+    void loadVocabStatsOnce()
+      .then((s) => {
+        if (!cancelled) setDueCount(s.due);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [isStudent]);
+
+  // The review page changes the count on every card; a stale badge there would mislead.
+  const showBadge =
+    dueCount != null && dueCount > 0 && !pathname?.startsWith('/vocabulary/review');
 
   return (
     <header className="border-b border-mist bg-white/80 backdrop-blur">
@@ -25,6 +49,14 @@ export function AppHeader() {
                 <>
                   <Link href="/vocabulary/review" className="hover:text-accentDark">
                     Ôn từ
+                    {showBadge && (
+                      <span
+                        className="ml-1 rounded-full bg-accent px-1.5 py-0.5 text-xs font-medium text-white"
+                        aria-label={`${dueCount} thẻ đến hạn`}
+                      >
+                        {dueCount}
+                      </span>
+                    )}
                   </Link>
                   <Link href="/history" className="hover:text-accentDark">
                     Lịch sử

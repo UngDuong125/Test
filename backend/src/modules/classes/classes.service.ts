@@ -14,6 +14,7 @@ import {
   updateClass,
 } from '../../repositories/classes.repository.js';
 import { syncOpenClassAssignments } from '../assignments/assignments.service.js';
+import { syncOpenClassVocabulary } from '../vocabulary/vocabulary.service.js';
 import {
   findUserByEmail,
   findUserByUsername,
@@ -104,6 +105,7 @@ export async function addMembersForUser(
   added: ClassMember[];
   errors: { identifier: string; code: string; message: string }[];
   syncedAssignments: number;
+  syncedVocabulary: number;
   syncWarnings: string[];
 }> {
   await getManagedClass(actor, classId);
@@ -193,12 +195,21 @@ export async function addMembersForUser(
 
   // Only students who were not in the class yet get the class's open exams.
   const newcomers = [...resolvedIds].filter((id) => !before.has(id));
-  const sync =
-    input.syncAssignments && newcomers.length > 0
-      ? await syncOpenClassAssignments(actor, classId, newcomers)
-      : { created: 0, warnings: [] };
+  const shouldSync = input.syncAssignments && newcomers.length > 0;
+  const sync = shouldSync
+    ? await syncOpenClassAssignments(actor, classId, newcomers)
+    : { created: 0, warnings: [] };
+  const vocab = shouldSync
+    ? await syncOpenClassVocabulary(actor, classId, newcomers)
+    : { created: 0, warnings: [] };
 
-  return { added, errors, syncedAssignments: sync.created, syncWarnings: sync.warnings };
+  return {
+    added,
+    errors,
+    syncedAssignments: sync.created,
+    syncedVocabulary: vocab.created,
+    syncWarnings: [...sync.warnings, ...vocab.warnings],
+  };
 }
 
 export async function removeMemberForUser(
@@ -216,4 +227,46 @@ export async function listMyClasses(actor: PublicUser) {
     throw new AppError(403, 'Only students can list their own classes here', 'FORBIDDEN');
   }
   return listClassesForStudent(actor.id);
+}
+
+/** Split requested ids into members of the source class and ids that are not. */
+export function splitTransferIds(
+  requested: string[],
+  sourceMemberIds: Set<string>,
+): { movable: string[]; notMembers: string[] } {
+  const unique = [...new Set(requested)];
+  return {
+    movable: unique.filter((id) => sourceMemberIds.has(id)),
+    notMembers: unique.filter((id) => !sourceMemberIds.has(id)),
+  };
+}
+
+/**
+ * Move (or copy) students from one class to another, e.g. at the end of the school year.
+ * Both classes must be managed by the actor. Assignments and attempts stay as they are.
+ */
+export async function transferMembersForUser(
+  actor: PublicUser,
+  sourceClassId: string,
+  input: { userIds: string[]; targetClassId: string; removeFromSource: boolean },
+) {
+  if (sourceClassId === input.targetClassId) {
+    throw new AppError(422, 'Target class must differ from source', 'SAME_CLASS');
+  }
+  await getManagedClass(actor, sourceClassId);
+  await getManagedClass(actor, input.targetClassId);
+
+  const { movable, notMembers } = splitTransferIds(
+    input.userIds,
+    new Set(await listMemberUserIds(sourceClassId)),
+  );
+  if (movable.length === 0) {
+    throw new AppError(422, 'None of these students are in the source class', 'NO_VALID_MEMBERS');
+  }
+
+  await addMembers(input.targetClassId, movable);
+  if (input.removeFromSource) {
+    for (const userId of movable) await removeMember(sourceClassId, userId);
+  }
+  return { moved: movable.length, removedFromSource: input.removeFromSource, notMembers };
 }

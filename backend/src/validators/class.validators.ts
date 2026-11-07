@@ -32,3 +32,9 @@ export const addMembersSchema = z
       (data.userIds?.length ?? 0) + (data.emails?.length ?? 0) + (data.usernames?.length ?? 0) > 0,
     { message: 'Provide userIds, emails or usernames' },
   );
+
+export const transferMembersSchema = z.object({
+  userIds: z.array(z.string().uuid()).min(1).max(200),
+  targetClassId: z.string().uuid(),
+  removeFromSource: z.boolean().default(true),
+});

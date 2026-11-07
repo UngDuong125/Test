@@ -119,3 +119,17 @@ Không có route `/classes/[id]` riêng. Student có thể thấy tên lớp tr�
 | Schema | [database-target.md](../database-target.md) |
 | Distribution | [exam-distribution.md](./exam-distribution.md) |
 | Quy ước | [_cross-cutting.md](./_cross-cutting.md) |
+
+## 10. Chuyển lớp (cuối năm)
+
+```text
+POST /api/classes/:id/members/transfer
+{ "userIds": ["…"], "targetClassId": "…", "removeFromSource": true }
+```
+
+- Người gọi phải quản lý cả lớp nguồn và lớp đích (admin: mọi lớp).
+- Chỉ học sinh đang thuộc lớp nguồn được chuyển; id khác trả trong `notMembers`.
+- `removeFromSource = false` → thêm vào lớp đích nhưng vẫn ở lớp cũ.
+- Không đổi assignment, attempt hay EXP cũ (assignment vẫn giữ `sourceClassId` lớp cũ). Không tự giao bài của lớp đích.
+- UI: `/classes`, chọn học sinh (hoặc "Chọn tất cả") → chọn lớp đích → **Chuyển lớp**.
+- Thêm học sinh bằng email hoặc tên đăng nhập (`usernames`).

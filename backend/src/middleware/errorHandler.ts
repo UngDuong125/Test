@@ -24,7 +24,7 @@ function unknownErrorMessage(err: unknown): string {
   return String(err);
 }
 
-export function errorHandler(err: unknown, _req: Request, res: Response, _next: NextFunction) {
+export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction) {
   if (err instanceof ZodError) {
     res.status(422).json({
       error: {
@@ -47,7 +47,15 @@ export function errorHandler(err: unknown, _req: Request, res: Response, _next: 
     return;
   }
 
-  console.error(err);
+  console.error(
+    JSON.stringify({
+      level: 'error',
+      msg: 'unhandled error',
+      requestId: req.requestId ?? null,
+      error: unknownErrorMessage(err),
+      stack: err instanceof Error ? err.stack : undefined,
+    }),
+  );
   res.status(500).json({
     error: {
       code: 'INTERNAL_ERROR',

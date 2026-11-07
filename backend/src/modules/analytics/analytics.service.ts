@@ -2,6 +2,7 @@ import { AppError } from '../../domain/errors.js';
 import type { PublicUser, TagKey } from '../../types/domain.js';
 import {
   listAttemptStatsForExam,
+  listAnswerTimesForAttempts,
   listAttemptsForAssignments,
   listAssignmentIdsForClass,
   listGradedAnswerStatsForQuestion,
@@ -20,6 +21,37 @@ function assertTeacherOrAdmin(actor: PublicUser) {
   if (actor.role !== 'admin' && actor.role !== 'teacher') {
     throw new AppError(403, 'Forbidden', 'FORBIDDEN');
   }
+}
+
+/** Gaps longer than this are treated as idle time, not work on the question. */
+export const MAX_QUESTION_SECONDS = 30 * 60;
+
+/**
+ * Estimated seconds spent on `questionId` in each attempt: time since the previous
+ * answer's last save (or since the attempt started). `answered_at` is overwritten on
+ * every save, so this is an estimate; idle gaps and negative gaps are dropped.
+ */
+export function estimateQuestionSeconds(
+  questionId: string,
+  answers: { attemptId: string; questionId: string; answeredAt: string }[],
+  startedAtByAttempt: Map<string, string>,
+): number[] {
+  const byAttempt = new Map<string, { questionId: string; at: number }[]>();
+  for (const a of answers) {
+    const list = byAttempt.get(a.attemptId) ?? [];
+    list.push({ questionId: a.questionId, at: Date.parse(a.answeredAt) });
+    byAttempt.set(a.attemptId, list);
+  }
+  const out: number[] = [];
+  for (const [attemptId, list] of byAttempt) {
+    list.sort((x, y) => x.at - y.at);
+    const i = list.findIndex((x) => x.questionId === questionId);
+    if (i < 0) continue;
+    const prev = i === 0 ? Date.parse(startedAtByAttempt.get(attemptId) ?? '') : list[i - 1].at;
+    const secs = (list[i].at - prev) / 1000;
+    if (Number.isFinite(secs) && secs >= 0 && secs <= MAX_QUESTION_SECONDS) out.push(secs);
+  }
+  return out;
 }
 
 const CHOICE_TYPES = new Set(['multiple_choice', 'true_false', 'multiple_select']);
@@ -75,8 +107,6 @@ export async function getQuestionStats(
   let answeredWithFlag = 0;
   let pointsSum = 0;
   let pointsCount = 0;
-  let timeSum = 0;
-  let timeCount = 0;
 
   for (const r of rows) {
     if (r.isCorrect === true) correct += 1;
@@ -90,17 +120,17 @@ export async function getQuestionStats(
       pointsSum += r.pointsEarned;
       pointsCount += 1;
     }
-    const secs =
-      (new Date(r.answeredAt).getTime() - new Date(r.attemptStartedAt).getTime()) / 1000;
-    if (secs >= 0 && secs < 86_400) {
-      timeSum += secs;
-      timeCount += 1;
-    }
   }
 
   const correctRate = answeredWithFlag > 0 ? correct / answeredWithFlag : null;
   const averagePointsEarned = pointsCount > 0 ? pointsSum / pointsCount : null;
-  const averageTimeSeconds = timeCount > 0 ? Math.round(timeSum / timeCount) : null;
+  const times = estimateQuestionSeconds(
+    questionId,
+    await listAnswerTimesForAttempts([...new Set(rows.map((r) => r.attemptId))]),
+    new Map(rows.map((r) => [r.attemptId, r.attemptStartedAt])),
+  );
+  const averageTimeSeconds =
+    times.length > 0 ? Math.round(times.reduce((s, t) => s + t, 0) / times.length) : null;
   const difficultyObserved = observeDifficulty(correctRate);
 
   // Materialize cache (best-effort)

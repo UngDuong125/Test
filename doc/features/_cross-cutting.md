@@ -150,10 +150,11 @@ Backend chạy Render Free có thể ngủ; cronjob buổi tối giữ thức (v
 - Bổ sung **test tích hợp** (backend + database thử) cho các luồng dễ lỗi do đồng thời và idempotency: bấm **Bắt đầu** hai lần song song (một attempt, một snapshot); nộp hai lần; ghi `exp_ledger` trùng; regrade không cộng trùng; hết hạn khi đang làm; giao lớp bỏ qua trùng.
 - Bổ sung một **e2e smoke test** cho đường chính: đăng nhập → bắt đầu → trả lời → nộp → xem kết quả; và một cho ôn từ (thẻ đầu → thuộc).
 - Chạy trong CI trước khi deploy.
+- Lint frontend: `npm run lint -w frontend` (`.eslintrc.json` = `next/core-web-vitals`, ESLint 8 theo Next 14); `next build` cũng chạy lint.
 
 ### Quan sát và vận hành
 
-- Log có cấu trúc (JSON) kèm `requestId`, `userId`, route, thời gian xử lý; không ghi mật khẩu, token, đáp án.
+- Log có cấu trúc (đã cài, `middleware/requestLog.ts`): một dòng JSON mỗi request — `requestId` (nhận `x-request-id` hợp lệ hoặc tự sinh, trả lại trong header), method, path không kèm query, status, `durationMs`, `userId`; bỏ `/api/health`. Lỗi 500 ghi kèm `requestId`. Không ghi body, header, query.
 - Theo dõi lỗi (ví dụ Sentry) cho cả frontend và backend; cảnh báo khi tỷ lệ lỗi 5xx tăng.
 - Đo độ trễ theo route cho các endpoint trong ngân sách học sinh ([student-response.md](./student-response.md)); cảnh báo khi vượt ngưỡng.
 - Cảnh báo khi gửi email mời/reset thất bại; admin thấy trạng thái gửi và có nút gửi lại.

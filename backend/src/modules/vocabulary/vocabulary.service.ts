@@ -48,10 +48,12 @@ import {
   updateVocabularyEntry,
   listCardsForAssignments,
   listLiveVocabularyAssignmentsForBank,
+  listActiveVocabularyAssignmentsForClass,
   listRecentReviewDays,
   recordReviewDay,
 } from '../../repositories/vocabulary.repository.js';
 import {
+  computeBestStreak,
   computeStreak,
   initialCardSchedule,
   localDayKey,
@@ -671,6 +673,7 @@ export async function getMyVocabularyStats(actor: PublicUser) {
       today,
     ),
     reviewedToday: days.find((d) => d.day === today)?.reviews ?? 0,
+    bestStreak: computeBestStreak(days.map((d) => d.day)),
   };
 }
 
@@ -801,4 +804,67 @@ export async function getBankProgressForUser(
       definition: entryMap.get(w.entryId)?.definition ?? null,
     })),
   };
+}
+
+/**
+ * One active assignment per bank among a class's vocabulary assignments whose deadline
+ * has not passed; the most recent one is the template for newcomers.
+ */
+export function pickOpenVocabularyTemplates(
+  assignments: VocabularyAssignment[],
+  now = new Date(),
+): VocabularyAssignment[] {
+  const byBank = new Map<string, VocabularyAssignment>();
+  for (const a of assignments) {
+    if (a.status !== 'active') continue;
+    if (a.deadline && new Date(a.deadline) <= now) continue;
+    const cur = byBank.get(a.bankId);
+    if (!cur || a.assignedAt > cur.assignedAt) byBank.set(a.bankId, a);
+  }
+  return [...byBank.values()];
+}
+
+/** Give students who just joined a class the class's open vocabulary banks. */
+export async function syncOpenClassVocabulary(
+  actor: PublicUser,
+  classId: string,
+  studentIds: string[],
+): Promise<{ created: number; warnings: string[] }> {
+  assertTeacherOrAdmin(actor);
+  if (studentIds.length === 0) return { created: 0, warnings: [] };
+
+  const templates = pickOpenVocabularyTemplates(
+    await listActiveVocabularyAssignmentsForClass(classId),
+  );
+  let created = 0;
+  const warnings: string[] = [];
+  for (const t of templates) {
+    const bank = await findVocabularyBankById(t.bankId);
+    if (!bank) continue;
+    try {
+      assertCanManageBank(actor, bank);
+    } catch {
+      warnings.push(`Bỏ qua bộ từ ${bank.name}: không phải bộ từ của bạn`);
+      continue;
+    }
+    for (const studentId of studentIds) {
+      try {
+        const result = await createOneAssignment({
+          actor,
+          bankId: t.bankId,
+          targetId: studentId,
+          sourceClassId: classId,
+          availableFrom: t.availableFrom,
+          deadline: t.deadline,
+        });
+        if (result.assignment) created += 1;
+      } catch (err) {
+        warnings.push(
+          `Bỏ qua bộ từ ${bank.name}: ${err instanceof AppError ? err.message : 'không giao được'}`,
+        );
+        break;
+      }
+    }
+  }
+  return { created, warnings };
 }

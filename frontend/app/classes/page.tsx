@@ -13,6 +13,7 @@ import {
   listClassMembers,
   listClasses,
   removeClassMember,
+  transferClassMembers,
 } from '@/lib/api-client';
 import type { ClassMember, ClassRecord } from '@/types/content';
 
@@ -105,7 +106,9 @@ function ClassesBody() {
       if (problems.length) setError(problems.join('; '));
       setNotice(
         `Đã thêm ${res.added.length} học sinh` +
-          (syncAssignments ? ` · giao thêm ${res.syncedAssignments ?? 0} bài đang mở của lớp.` : '.'),
+          (syncAssignments
+            ? ` · giao thêm ${res.syncedAssignments ?? 0} đề và ${res.syncedVocabulary ?? 0} bộ từ đang mở của lớp.`
+            : '.'),
       );
       setEmails('');
       await openClass(selectedId);
@@ -128,6 +131,38 @@ function ClassesBody() {
   }
 
   const selected = items.find((c) => c.id === selectedId) ?? null;
+
+  const [picked, setPicked] = useState<Set<string>>(() => new Set());
+  const [transferTarget, setTransferTarget] = useState('');
+  const [removeFromSource, setRemoveFromSource] = useState(true);
+
+  useEffect(() => {
+    setPicked(new Set());
+  }, [selectedId]);
+
+  async function onTransfer() {
+    if (!selectedId || !transferTarget || picked.size === 0) return;
+    const target = items.find((c) => c.id === transferTarget);
+    const verb = removeFromSource ? 'Chuyển' : 'Thêm';
+    if (!window.confirm(`${verb} ${picked.size} học sinh sang lớp ${target?.name ?? ''}?`)) return;
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await transferClassMembers(selectedId, {
+        userIds: [...picked],
+        targetClassId: transferTarget,
+        removeFromSource,
+      });
+      setNotice(
+        `${verb} ${res.moved} học sinh sang lớp ${target?.name ?? ''}. Bài đã giao và lịch sử làm bài giữ nguyên.`,
+      );
+      setPicked(new Set());
+      await openClass(selectedId);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Chuyển lớp thất bại');
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -256,7 +291,7 @@ function ClassesBody() {
                     checked={syncAssignments}
                     onChange={(e) => setSyncAssignments(e.target.checked)}
                   />
-                  Giao luôn các đề lớp đang làm (còn hạn) cho học sinh mới
+                  Giao luôn các đề và bộ từ lớp đang làm (còn hạn) cho học sinh mới
                 </label>
                 {notice && <p className="text-sm text-emerald-700">{notice}</p>}
                 <button
@@ -267,10 +302,71 @@ function ClassesBody() {
                 </button>
               </form>
 
+              {members.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 rounded-md bg-slate-50 px-3 py-2 text-sm">
+                  <label className="flex items-center gap-1">
+                    <input
+                      type="checkbox"
+                      checked={picked.size === members.length}
+                      onChange={(e) =>
+                        setPicked(e.target.checked ? new Set(members.map((m) => m.userId)) : new Set())
+                      }
+                    />
+                    Chọn tất cả
+                  </label>
+                  <span className="text-slate-500">· đã chọn {picked.size}</span>
+                  <select
+                    value={transferTarget}
+                    onChange={(e) => setTransferTarget(e.target.value)}
+                    aria-label="Lớp đích"
+                    className="rounded-md border border-mist px-2 py-1"
+                  >
+                    <option value="">Chuyển sang lớp…</option>
+                    {items
+                      .filter((c) => c.id !== selectedId)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} (khối {c.grade})
+                        </option>
+                      ))}
+                  </select>
+                  <label className="flex items-center gap-1">
+                    <input
+                      type="checkbox"
+                      checked={removeFromSource}
+                      onChange={(e) => setRemoveFromSource(e.target.checked)}
+                    />
+                    Bỏ khỏi lớp này
+                  </label>
+                  <button
+                    type="button"
+                    disabled={picked.size === 0 || !transferTarget}
+                    onClick={() => void onTransfer()}
+                    className="rounded-md border border-accent px-3 py-1 text-accentDark hover:bg-accent hover:text-white disabled:opacity-50"
+                  >
+                    {removeFromSource ? 'Chuyển lớp' : 'Thêm vào lớp'}
+                  </button>
+                </div>
+              )}
+
               <ul className="divide-y divide-mist text-sm">
                 {members.map((m) => (
                   <li key={m.userId} className="flex items-center justify-between gap-2 py-2">
                     <span>
+                      <input
+                        type="checkbox"
+                        className="mr-2"
+                        checked={picked.has(m.userId)}
+                        aria-label={`Chọn ${m.displayName || m.username || 'học sinh'}`}
+                        onChange={(e) =>
+                          setPicked((prev) => {
+                            const next = new Set(prev);
+                            if (e.target.checked) next.add(m.userId);
+                            else next.delete(m.userId);
+                            return next;
+                          })
+                        }
+                      />
                       {m.displayName || m.username || m.email}{' '}
                       <span className="text-slate-400">{m.email ?? `@${m.username ?? ''}`}</span>
                     </span>

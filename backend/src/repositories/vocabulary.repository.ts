@@ -747,3 +747,17 @@ export async function listRecentReviewDays(
   if (error) throw error;
   return (data ?? []) as { day: string; reviews: number }[];
 }
+
+/** Active vocabulary assignments created for a class (newcomers may get the same bank). */
+export async function listActiveVocabularyAssignmentsForClass(
+  classId: string,
+): Promise<VocabularyAssignment[]> {
+  const { data, error } = await getDb()
+    .from('vocabulary_assignments')
+    .select(ASSIGNMENT_COLUMNS)
+    .eq('source_class_id', classId)
+    .eq('status', 'active')
+    .limit(1000);
+  if (error) throw error;
+  return ((data ?? []) as VocabularyAssignmentRow[]).map(mapVocabularyAssignment);
+}

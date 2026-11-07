@@ -7,6 +7,7 @@ import { authMiddleware, enforcePasswordChangeGate } from './middleware/auth.js'
 import { errorHandler } from './middleware/errorHandler.js';
 import { assignmentsRouter } from './routes/assignments.routes.js';
 import { attemptsRouter } from './routes/attempts.routes.js';
+import { requestLog } from './middleware/requestLog.js';
 import { accountsRouter } from './routes/accounts.routes.js';
 import { feedbackTemplatesRouter } from './routes/feedback.routes.js';
 import { authRouter } from './routes/auth.routes.js';
@@ -45,6 +46,8 @@ export function createApp() {
     });
   });
 
+  // After /api/health so the keep-awake pings do not flood the logs.
+  app.use(requestLog);
   app.use(express.json({ limit: '2mb' }));
   app.use(cookieParser());
   app.use(authMiddleware);

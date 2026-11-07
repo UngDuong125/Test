@@ -89,7 +89,9 @@ Query chung: `from`, `to` (ISO datetime) để giới hạn cửa sổ thời gi
 - **Xuất CSV (đã cài, phía client):** nút **Xuất CSV** ở `/exams/[id]/results` tạo file từ dữ liệu trang đã tải, mỗi học sinh được giao một dòng, kể cả học sinh chưa làm ("Chưa làm"); ô bắt đầu bằng `= + - @` được thêm `'` để chống chèn công thức. Bản server `?format=csv` chưa làm. Các cột học sinh, lớp, số lượt, điểm tốt nhất, điểm lần cuối, trạng thái, thời điểm nộp. File UTF-8 có BOM để mở đúng tiếng Việt trong Excel; cùng quyền và phạm vi như bản JSON.
 - **Học sinh cần chú ý:** danh sách học sinh chưa làm bài sau hạn, hoặc điểm dưới ngưỡng do teacher chọn.
 
-Chưa làm: thời gian làm từng câu, so sánh lớp, danh sách học sinh cần chú ý.
+**Thời gian làm từng câu (đã cài, ước lượng):** `averageTimeSeconds` của `GET /api/questions/:id/stats` = trung bình, qua các lượt đã chấm, của khoảng từ lần lưu cuối của câu đứng trước (hoặc `started_at`) tới lần lưu cuối của câu này; bỏ khoảng > 30 phút. Trước đây giá trị này là `answered_at - started_at` (thời gian từ đầu bài). Vì `answered_at` bị ghi đè mỗi lần lưu, quay lại sửa câu sẽ làm sai lệch.
+
+Chưa làm: so sánh lớp, danh sách học sinh cần chú ý.
 
 Tiêu chí xong: CSV mở được trong Excel không lỗi dấu; `optionStats` cộng lại bằng 1 với câu một đáp án (câu nhiều đáp án có thể vượt 1); không thể xem dữ liệu ngoài phạm vi sở hữu.
 

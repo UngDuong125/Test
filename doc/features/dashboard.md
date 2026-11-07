@@ -126,7 +126,7 @@ Request lưu answer chỉ chứa giá trị student chọn/nhập, ví dụ:
 Không thêm request trước lần vẽ danh sách; mọi thứ dưới đây suy ra từ payload `GET /api/students/me/assignments` và dữ liệu tải sau.
 
 - **Sắp hết hạn:** hàng bài còn lượt và `deadline` trong 48 giờ hiện nhãn "Còn X giờ/ngày"; dưới 6 giờ đổi sang màu cảnh báo. Sắp xếp mặc định: đang làm, rồi sắp hết hạn, rồi còn lại.
-- **Thẻ từ đến hạn:** mục "Ôn từ vựng" trên dashboard hiện badge số thẻ đến hạn (`due` từ `GET /api/students/me/vocabulary/stats`). Badge trên thanh nav: chưa làm (sẽ thêm một request trên mọi trang). Badge tải sau lần vẽ đầu (cùng nhóm với stats), lỗi thì ẩn badge, không chặn gì.
+- **Thẻ từ đến hạn:** mục "Ôn từ vựng" trên dashboard hiện badge số thẻ đến hạn (`due` từ `GET /api/students/me/vocabulary/stats`). Badge trên thanh nav (đã cài): header của học sinh gọi stats một lần mỗi lần tải trang, sau lần vẽ đầu, dùng chung với dashboard (`lib/vocab-stats.ts`); ẩn trên `/vocabulary/review` vì số đổi theo từng thẻ. Badge tải sau lần vẽ đầu (cùng nhóm với stats), lỗi thì ẩn badge, không chặn gì.
 - **Bài đã chấm xong:** khi `latestFinishedAttempt` chuyển từ `needs_grading` sang `graded` kể từ lần xem trước, hàng bài hiện chấm "Có điểm mới". Trạng thái "đã xem" lưu phía client (`localStorage`, khóa `testarchive:seen-grades`); chấm mất khi học sinh bấm **Xem kết quả**.
 - Thông báo email nhắc hạn/ôn từ: xem [vocabulary-srs.md](./vocabulary-srs.md#16-nhắc-ôn-và-theo-dõi-tiến-độ-ngoài-mvp-ban-đầu), mặc định tắt.
 
@@ -159,3 +159,9 @@ Trang `/history` (link từ dashboard), dành cho `student` xem dữ liệu củ
 Dashboard dùng mô hình đích: `GET /api/students/me/assignments` để liệt kê đề được giao, `POST /api/exam-assignments/:id/attempts` để bắt đầu attempt (backend tạo snapshot và thứ tự câu), `PATCH /api/attempts/:id/answers` và `POST /api/attempts/:id/submit` để lưu và nộp bài. Mô hình legacy (`/api/quizzes`, `high_score`, lấy mẫu câu phía client) đã bị loại khỏi code; lộ trình cũ ở [migration-legacy.md](../migration-legacy.md) chỉ để tham chiếu.
 
 Danh sách bài, nút làm bài và đồng hồ làm theo [student-response.md](./student-response.md): một payload assignment, stats/EXP/lớp tải sau.
+
+### Huy hiệu (đã cài)
+
+Tính ở client từ số liệu dashboard đã có, không lưu riêng: tổng EXP (`me/stats`), chuỗi ngày ôn **dài nhất** và số từ đã thuộc
+(`me/vocabulary/stats`: `bestStreak` trong ~400 ngày gần nhất, `mastered`). Mốc: EXP 10/50/100/250/500; chuỗi ôn 3/7/14/30 ngày;
+từ đã thuộc 10/50/100. Huy hiệu không mất khi chuỗi đứt. Hiện thêm mốc kế tiếp mỗi loại ("Sắp đạt").

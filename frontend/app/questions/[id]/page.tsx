@@ -120,7 +120,7 @@ function QuestionDetailBody() {
                   : null,
             },
             {
-              label: 'Thời gian TB (s)',
+              label: 'Thời gian TB/câu (s, ước lượng)',
               value: stats.averageTimeSeconds,
             },
             { label: 'Độ khó quan sát', value: stats.difficultyObserved },

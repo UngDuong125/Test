@@ -111,3 +111,17 @@ function zoneOffsetMs(date: Date, timeZone: string): number {
   const asUtc = Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute, p.second);
   return asUtc - Math.floor(date.getTime() / 1000) * 1000;
 }
+
+/** Longest run of consecutive review days (badges keep it even after a streak breaks). */
+export function computeBestStreak(dayKeys: Iterable<string>): number {
+  const days = [...new Set(dayKeys)].sort();
+  let best = 0;
+  let run = 0;
+  let prev: string | null = null;
+  for (const day of days) {
+    run = prev != null && previousDayKey(day) === prev ? run + 1 : 1;
+    best = Math.max(best, run);
+    prev = day;
+  }
+  return best;
+}

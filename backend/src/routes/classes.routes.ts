@@ -6,6 +6,7 @@ import * as classesService from '../modules/classes/classes.service.js';
 import { analyticsWindowSchema } from '../validators/leaderboard.validators.js';
 import {
   addMembersSchema,
+  transferMembersSchema,
   createClassSchema,
   listClassesQuerySchema,
   updateClassSchema,
@@ -82,6 +83,20 @@ classesRouter.post('/:id/members', requireRole('admin', 'teacher'), async (req, 
     next(err);
   }
 });
+
+classesRouter.post(
+  '/:id/members/transfer',
+  requireRole('admin', 'teacher'),
+  async (req, res, next) => {
+    try {
+      const body = transferMembersSchema.parse(req.body);
+      const result = await classesService.transferMembersForUser(req.auth!.user, req.params.id, body);
+      res.json(result);
+    } catch (err) {
+      next(err);
+    }
+  },
+);
 
 classesRouter.delete(
   '/:id/members/:userId',

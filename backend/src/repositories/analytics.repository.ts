@@ -205,3 +205,22 @@ export function observeDifficulty(correctRate: number | null): Difficulty | null
 }
 
 export type { TagKey };
+
+/** Last-save time of every answer in these attempts (to estimate time per question). */
+export async function listAnswerTimesForAttempts(
+  attemptIds: string[],
+): Promise<{ attemptId: string; questionId: string; answeredAt: string }[]> {
+  const out: { attemptId: string; questionId: string; answeredAt: string }[] = [];
+  for (let i = 0; i < attemptIds.length; i += 200) {
+    const { data, error } = await getDb()
+      .from('attempt_answers')
+      .select('attempt_id, question_id, answered_at')
+      .in('attempt_id', attemptIds.slice(i, i + 200))
+      .limit(10_000);
+    if (error) throw error;
+    for (const r of (data ?? []) as { attempt_id: string; question_id: string; answered_at: string }[]) {
+      out.push({ attemptId: r.attempt_id, questionId: r.question_id, answeredAt: r.answered_at });
+    }
+  }
+  return out;
+}

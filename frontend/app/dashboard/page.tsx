@@ -8,13 +8,13 @@ import {
   ApiError,
   getMyExp,
   getMyStats,
-  getMyVocabularyStats,
   listMyAssignments,
   listMyClasses,
   startAttempt,
 } from '@/lib/api-client';
 import { rememberAttemptDetail } from '@/lib/attempt-handoff';
 import { assignmentStatusLabel } from '@/lib/attempt-labels';
+import { loadVocabStatsOnce } from '@/lib/vocab-stats';
 import {
   deadlineUrgency,
   hasNewGrade,
@@ -27,6 +27,7 @@ import {
 import { displayNameOf, useSession } from '@/lib/auth';
 import type { ClassRecord, ExamAssignment } from '@/types/content';
 import { StatsPanel } from '@/components/analytics/StatsPanel';
+import { BadgesPanel } from '@/components/analytics/BadgesPanel';
 import { SUBJECT_TAGS } from '@/constants/tags';
 
 function AssignmentRow({
@@ -145,6 +146,9 @@ function DashboardBody() {
   } | null>(null);
   const [myExp, setMyExp] = useState<Record<string, number> | null>(null);
   const [dueCount, setDueCount] = useState<number | null>(null);
+  const [vocabProgress, setVocabProgress] = useState<{ mastered: number; bestStreak: number } | null>(
+    null,
+  );
   const [seenGrades, setSeenGrades] = useState<SeenGrades>({});
   const [now] = useState(() => Date.now());
 
@@ -224,9 +228,11 @@ function DashboardBody() {
         if (!cancelled) setMyExp(exp.subjectExp);
       })
       .catch(() => {});
-    void getMyVocabularyStats()
+    void loadVocabStatsOnce()
       .then((stats) => {
-        if (!cancelled) setDueCount(stats.due);
+        if (cancelled) return;
+        setDueCount(stats.due);
+        setVocabProgress({ mastered: stats.mastered, bestStreak: stats.bestStreak ?? 0 });
       })
       .catch(() => {});
     return () => {
@@ -311,6 +317,16 @@ function DashboardBody() {
                   value: myExp?.[s.key] ?? 0,
                 })),
               ]}
+            />
+          )}
+
+          {myStats && (
+            <BadgesPanel
+              input={{
+                expTotal: myStats.expTotal,
+                bestStreak: vocabProgress?.bestStreak ?? 0,
+                mastered: vocabProgress?.mastered ?? 0,
+              }}
             />
           )}
 

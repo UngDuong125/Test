@@ -374,8 +374,19 @@ export function addClassMembers(
     added: ClassMember[];
     errors: { identifier: string; code: string; message: string }[];
     syncedAssignments?: number;
+    syncedVocabulary?: number;
     syncWarnings?: string[];
   }>(`/api/classes/${classId}/members`, { method: 'POST', body });
+}
+
+export function transferClassMembers(
+  classId: string,
+  body: { userIds: string[]; targetClassId: string; removeFromSource: boolean },
+) {
+  return api<{ moved: number; removedFromSource: boolean; notMembers: string[] }>(
+    `/api/classes/${classId}/members/transfer`,
+    { method: 'POST', body },
+  );
 }
 
 export function removeClassMember(classId: string, userId: string) {
@@ -895,6 +906,8 @@ export function getMyVocabularyStats() {
     /** Consecutive days with at least one review (alive until today ends). */
     streak?: number;
     reviewedToday?: number;
+    /** Longest streak in the last ~400 review days. */
+    bestStreak?: number;
   }>(
     '/api/students/me/vocabulary/stats',
   );
