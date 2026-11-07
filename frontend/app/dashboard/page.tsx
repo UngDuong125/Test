@@ -20,7 +20,7 @@ import {
   hasNewGrade,
   nextSeenGrades,
   readSeenGrades,
-  sortAssignmentsForStudent,
+  groupAssignmentsForStudent,
   writeSeenGrades,
   type SeenGrades,
 } from '@/lib/dashboard-reminders';
@@ -152,10 +152,8 @@ function DashboardBody() {
   const [seenGrades, setSeenGrades] = useState<SeenGrades>({});
   const [now] = useState(() => Date.now());
 
-  const sortedAssignments = useMemo(
-    () => sortAssignmentsForStudent(assignments, now),
-    [assignments, now],
-  );
+  const grouped = useMemo(() => groupAssignmentsForStudent(assignments, now), [assignments, now]);
+  const [showFinished, setShowFinished] = useState(false);
 
   // Compare with what the student saw last time, then remember the current statuses.
   useEffect(() => {
@@ -245,9 +243,10 @@ function DashboardBody() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="font-display text-3xl font-bold text-ink">Dashboard</h1>
+        <h1 className="font-display text-3xl font-bold text-ink">Trang chủ</h1>
         <p className="mt-2 text-slate-600">
-          Xin chào {displayNameOf(user)} ({user.role}).
+          Xin chào {displayNameOf(user)}
+          {user.role !== 'student' && ` (${user.role})`}.
         </p>
       </div>
 
@@ -370,22 +369,54 @@ function DashboardBody() {
             </div>
             {loading ? (
               <p className="mt-2 text-sm text-slate-500">Đang tải…</p>
-            ) : assignments.length === 0 ? (
+            ) : grouped.current.length === 0 && grouped.finished.length === 0 ? (
               <p className="mt-2 text-sm text-slate-500">
-                Chưa có assignment. Teacher giao đề qua trang /assignments.
+                Chưa có bài nào được giao. Khi thầy cô giao bài, bài sẽ hiện ở đây.
               </p>
             ) : (
-              <ul className="mt-3 divide-y divide-mist text-sm">
-                {sortedAssignments.map((a) => (
-                  <AssignmentRow
-                    key={a.id}
-                    assignment={a}
-                    now={now}
-                    newGrade={hasNewGrade(a, seenGrades)}
-                    onViewResult={markResultSeen}
-                  />
-                ))}
-              </ul>
+              <>
+                {grouped.current.length === 0 ? (
+                  <p className="mt-2 text-sm text-slate-500">Không còn bài nào cần làm. 🎉</p>
+                ) : (
+                  <ul className="mt-3 divide-y divide-mist text-sm">
+                    {grouped.current.map((a) => (
+                      <AssignmentRow
+                        key={a.id}
+                        assignment={a}
+                        now={now}
+                        newGrade={hasNewGrade(a, seenGrades)}
+                        onViewResult={markResultSeen}
+                      />
+                    ))}
+                  </ul>
+                )}
+                {grouped.finished.length > 0 && (
+                  <div className="mt-4 border-t border-mist pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowFinished((v) => !v)}
+                      aria-expanded={showFinished}
+                      className="text-sm text-accentDark hover:underline"
+                    >
+                      {showFinished ? '▾' : '▸'} Đã kết thúc ({grouped.finished.length})
+                      {grouped.finished.some((a) => hasNewGrade(a, seenGrades)) && ' · có điểm mới'}
+                    </button>
+                    {showFinished && (
+                      <ul className="mt-2 divide-y divide-mist text-sm">
+                        {grouped.finished.map((a) => (
+                          <AssignmentRow
+                            key={a.id}
+                            assignment={a}
+                            now={now}
+                            newGrade={hasNewGrade(a, seenGrades)}
+                            onViewResult={markResultSeen}
+                          />
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )}
+              </>
             )}
           </section>
 

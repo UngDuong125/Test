@@ -49,6 +49,7 @@ import {
   listCardsForAssignments,
   listLiveVocabularyAssignmentsForBank,
   listActiveVocabularyAssignmentsForClass,
+  listExtraPracticeCards,
   listRecentReviewDays,
   recordReviewDay,
 } from '../../repositories/vocabulary.repository.js';
@@ -648,6 +649,26 @@ export async function listDueForStudent(
   );
   return {
     dueCount,
+    items: cards.map(({ card, entry }) => ({
+      card,
+      entry,
+      assignmentId: card.assignmentId,
+      bankName: bankByAssignment.get(card.assignmentId),
+    })),
+  };
+}
+
+/** Cards to practise beyond today's due list. Does not touch the SRS schedule. */
+export async function listExtraPracticeForStudent(actor: PublicUser): Promise<{ items: DueVocabularyCard[] }> {
+  if (actor.role !== 'student') {
+    throw new AppError(403, 'Forbidden', 'FORBIDDEN');
+  }
+  const { cards, assignments, bankNames } = await listExtraPracticeCards(
+    actor.id,
+    new Date().toISOString(),
+  );
+  const bankByAssignment = new Map(assignments.map((a) => [a.id, bankNames.get(a.bankId)]));
+  return {
     items: cards.map(({ card, entry }) => ({
       card,
       entry,

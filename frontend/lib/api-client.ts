@@ -13,6 +13,7 @@ import type {
   ExamQuestion,
   ExamSection,
   Question,
+  SnapshotQuestion,
   StudentAnswerValue,
   StudentVocabularyCard,
   Subject,
@@ -989,4 +990,36 @@ export function addFeedbackTemplate(text: string) {
 
 export function deleteFeedbackTemplate(id: string) {
   return api<void>(`/api/feedback-templates/${id}`, { method: 'DELETE' });
+}
+
+// --- Practice wrong questions (no score, no EXP) ---
+
+export interface PracticeItem {
+  attemptId: string;
+  examTitle: string;
+  subjectId: string;
+  question: SnapshotQuestion;
+}
+
+export function listPracticeQuestions() {
+  return api<{ items: PracticeItem[]; total: number }>('/api/students/me/practice');
+}
+
+export function checkPracticeAnswer(body: {
+  attemptId: string;
+  questionId: string;
+  value: StudentAnswerValue;
+}) {
+  return api<{
+    isCorrect: boolean;
+    pointsEarned: number;
+    points: number;
+    answer: SnapshotQuestion['answer'] | null;
+    explanation: SnapshotQuestion['explanation'] | null;
+  }>('/api/students/me/practice/check', { method: 'POST', body });
+}
+
+/** Not-yet-due cards for extra practice; reviewing them locally changes nothing. */
+export function listExtraVocabulary() {
+  return api<{ items: DueVocabularyCard[] }>('/api/students/me/vocabulary/extra');
 }

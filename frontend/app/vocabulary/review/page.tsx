@@ -6,6 +6,8 @@ import { AuthGate } from '@/components/auth/AuthGate';
 import { RichText } from '@/components/questions/QuestionPreview';
 import { MatchGame } from '@/components/vocabulary/MatchGame';
 import { ReviewChallenge } from '@/components/vocabulary/ReviewChallenge';
+import { SpeakButton } from '@/components/vocabulary/SpeakButton';
+import { ExtraPractice } from '@/components/vocabulary/ExtraPractice';
 import {
   ApiError,
   getMyVocabularyStats,
@@ -75,6 +77,7 @@ function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
   const [sessionDone, setSessionDone] = useState(0);
   const [mode, setMode] = useState<ReviewMode>('flashcard');
   const [goal, setGoal] = useState(DEFAULT_GOAL);
+  const [extraOpen, setExtraOpen] = useState(false);
 
   useEffect(() => {
     setGoal(readGoal());
@@ -291,7 +294,7 @@ function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
             ))}
           </div>
           <Link href="/dashboard" className="text-sm text-accentDark hover:underline">
-            ← Dashboard
+            ← Trang chủ
           </Link>
         </div>
       </div>
@@ -343,7 +346,7 @@ function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
 
       {stats && (
         <p className="mb-4 text-sm text-slate-500">
-          Due: {stats.due} · Đang học: {stats.learning} · Đã thuộc: {stats.mastered} · Tổng thẻ:{' '}
+          Đến hạn: {stats.due} · Đang học: {stats.learning} · Đã thuộc: {stats.mastered} · Tổng thẻ:{' '}
           {stats.total}
           {sessionDone > 0 && ` · Đã ôn phiên này: ${sessionDone}`}
           {pendingSaves > 0 && ' · Đang lưu…'}
@@ -358,6 +361,8 @@ function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
 
       {loading ? (
         <p className="text-slate-500">Đang tải…</p>
+      ) : extraOpen ? (
+        <ExtraPractice onClose={() => setExtraOpen(false)} />
       ) : mode === 'match' ? (
         <MatchGame items={queue.slice(index)} />
       ) : !current ? (
@@ -370,13 +375,24 @@ function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
               ? 'Thẻ tiếp theo sẽ hiện ngay khi danh sách được cập nhật.'
               : 'Không còn thẻ đến hạn. Quay lại khi đến mốc ôn tiếp theo, hoặc chờ giáo viên giao bộ từ mới.'}
           </p>
-          <button
-            type="button"
-            onClick={() => void load(true)}
-            className="mt-6 rounded-md border border-mist px-4 py-2 text-sm hover:border-accent"
-          >
-            Làm mới
-          </button>
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            {!(pendingSaves > 0 || hasMore) && (
+              <button
+                type="button"
+                onClick={() => setExtraOpen(true)}
+                className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accentDark"
+              >
+                Ôn thêm (không đổi lịch ôn)
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => void load(true)}
+              className="rounded-md border border-mist px-4 py-2 text-sm hover:border-accent"
+            >
+              Làm mới
+            </button>
+          </div>
         </div>
       ) : mode === 'quiz' || mode === 'typing' ? (
         <div className="flex flex-1 flex-col">
@@ -414,13 +430,20 @@ function VocabularyReviewBody({ preload }: { preload: Promise<DuePage> }) {
                 {current.entry.reading && (
                   <p className="mt-3 text-lg text-slate-500">/{current.entry.reading}/</p>
                 )}
-                <p className="mt-8 text-sm text-slate-400 group-hover:text-accentDark">
+                <div className="mt-2">
+                  <SpeakButton text={current.entry.term} subjectId={current.entry.subjectId} />
+                </div>
+                <p className="mt-6 text-sm text-slate-400 group-hover:text-accentDark">
                   Nhấn hoặc phím cách để lật thẻ
                 </p>
               </>
             ) : (
               <>
                 <p className="text-xs uppercase tracking-wide text-slate-400">Mặt sau</p>
+                <div className="mt-1 flex items-center gap-1 text-slate-600">
+                  <RichText value={current.entry.term} />
+                  <SpeakButton text={current.entry.term} subjectId={current.entry.subjectId} />
+                </div>
                 <p className="mt-4 font-display text-3xl font-semibold text-ink">
                   <RichText value={current.entry.definition} />
                 </p>

@@ -89,3 +89,21 @@ export function writeSeenGrades(seen: SeenGrades): void {
     // Storage blocked: the badge just will not persist.
   }
 }
+
+/**
+ * Split for the student list: work still to do (including not-yet-open) and finished
+ * work (completed, expired, no attempts left). Cancelled assignments are dropped.
+ */
+export function groupAssignmentsForStudent(
+  items: ExamAssignment[],
+  now: number,
+): { current: ExamAssignment[]; finished: ExamAssignment[] } {
+  const visible = items.filter((a) => a.status !== 'cancelled');
+  const isCurrent = (a: ExamAssignment) => isActionable(a) || a.status === 'assigned';
+  return {
+    current: sortAssignmentsForStudent(visible.filter(isCurrent), now),
+    finished: visible
+      .filter((a) => !isCurrent(a))
+      .sort((x, y) => new Date(y.deadline).getTime() - new Date(x.deadline).getTime()),
+  };
+}

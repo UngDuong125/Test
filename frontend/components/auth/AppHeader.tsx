@@ -40,10 +40,10 @@ export function AppHeader() {
           {user && (
             <>
               <Link href="/dashboard" className="hover:text-accentDark">
-                Dashboard
+                Trang chủ
               </Link>
               <Link href="/leaderboard" className="hover:text-accentDark">
-                XH
+                Xếp hạng
               </Link>
               {user.role === 'student' && (
                 <>

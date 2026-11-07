@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react';
 import { RichText } from '@/components/questions/QuestionPreview';
+import { SpeakButton } from '@/components/vocabulary/SpeakButton';
 import { buildQuizOptions, isTypedAnswerCorrect } from '@/lib/vocab-modes';
 import type { DueVocabularyCard } from '@/types/content';
 
@@ -66,6 +67,7 @@ export function ReviewChallenge({
             {card.entry.reading && (
               <p className="mt-2 text-lg text-slate-500">/{card.entry.reading}/</p>
             )}
+            <SpeakButton text={card.entry.term} subjectId={card.entry.subjectId} />
           </>
         ) : (
           <>
@@ -143,7 +145,11 @@ export function ReviewChallenge({
           }`}
           role="status"
         >
-          <p className="font-medium">{result === 'pass' ? '✓ Chính xác!' : '✗ Chưa đúng'}</p>
+          <p className="flex items-center gap-1 font-medium">
+            {result === 'pass' ? '✓ Chính xác!' : '✗ Chưa đúng'}
+            {/* Only after answering: in typing mode hearing the word would give it away. */}
+            <SpeakButton text={card.entry.term} subjectId={card.entry.subjectId} />
+          </p>
           {result === 'fail' && (
             <p className="mt-1">
               Đáp án: <strong><RichText value={card.entry.term} /></strong> —{' '}

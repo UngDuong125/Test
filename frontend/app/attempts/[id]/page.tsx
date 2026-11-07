@@ -12,15 +12,18 @@ import {
   checkAttemptAnswer,
   getAttempt,
   saveAttemptAnswer,
+  login,
   saveAttemptAnswerKeepalive,
   submitAttempt,
 } from '@/lib/api-client';
+import { useSession } from '@/lib/auth';
 import { takeAttemptDetail } from '@/lib/attempt-handoff';
 import {
   TIME_WARNINGS,
   currentTimeWarning,
   isAnswered,
   isRetryableSaveError,
+  isSessionExpiredError,
   saveRetryDelay,
   type TimeWarning,
 } from '@/lib/attempt-ux';
@@ -243,6 +246,81 @@ function SubmitDialog({
   );
 }
 
+/**
+ * Log in again without leaving the attempt: unsaved answers stay in memory and are
+ * saved once the new session exists.
+ */
+function ReloginDialog({ onDone }: { onDone: () => void }) {
+  const { user, setUser } = useSession();
+  const [loginId, setLoginId] = useState(user?.username ?? '');
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await login(loginId, password);
+      setUser(res.user);
+      if (res.user.mustChangePassword) {
+        setError('Tài khoản cần đổi mật khẩu trước. Câu đã lưu vẫn còn; câu đang gõ dở có thể bị mất.');
+        return;
+      }
+      onDone();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Đăng nhập thất bại');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="relogin-title"
+    >
+      <form onSubmit={onSubmit} className="w-full max-w-sm space-y-3 rounded-xl bg-white p-6 shadow-xl">
+        <h2 id="relogin-title" className="font-display text-lg font-semibold text-ink">
+          Phiên đăng nhập đã hết hạn
+        </h2>
+        <p className="text-sm text-slate-600">
+          Đăng nhập lại để lưu tiếp. Câu trả lời của bạn vẫn đang được giữ trên trang này — đừng tải lại trang.
+        </p>
+        <input
+          value={loginId}
+          onChange={(e) => setLoginId(e.target.value)}
+          autoComplete="username"
+          required
+          aria-label="Email hoặc tên đăng nhập"
+          className="w-full rounded-md border border-mist px-3 py-2 text-sm"
+        />
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          autoComplete="current-password"
+          required
+          autoFocus
+          aria-label="Mật khẩu"
+          className="w-full rounded-md border border-mist px-3 py-2 text-sm"
+        />
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <button
+          type="submit"
+          disabled={busy}
+          className="w-full rounded-md bg-accent py-2 text-sm font-semibold text-white hover:bg-accentDark disabled:opacity-60"
+        >
+          {busy ? 'Đang đăng nhập…' : 'Đăng nhập và lưu tiếp'}
+        </button>
+      </form>
+    </div>
+  );
+}
+
 function AttemptBody() {
   const params = useParams();
   const router = useRouter();
@@ -255,6 +333,7 @@ function AttemptBody() {
   const [lastSavedAt, setLastSavedAt] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
   const [navigatorOpen, setNavigatorOpen] = useState(false);
   const [flagged, setFlagged] = useState<Set<string>>(() => new Set());
   const [dismissedWarning, setDismissedWarning] = useState<TimeWarning | null>(null);
@@ -364,7 +443,10 @@ function AttemptBody() {
         setLastSavedAt(Date.now());
       } catch (err) {
         setSaveStates((prev) => ({ ...prev, [questionId]: 'error' }));
-        if (isRetryableSaveError(err)) {
+        if (isSessionExpiredError(err)) {
+          // Stays dirty; saved again after the student logs back in.
+          setSessionExpired(true);
+        } else if (isRetryableSaveError(err)) {
           // Keep the answer on screen and dirty; retry with backoff.
           scheduleRetry(questionId);
         } else {
@@ -535,6 +617,11 @@ function AttemptBody() {
           return;
         }
         setSubmitting(false);
+        if (isSessionExpiredError(err)) {
+          setSessionExpired(true);
+          setError('Phiên đăng nhập hết hạn. Đăng nhập lại rồi bấm Nộp bài.');
+          return;
+        }
         setError(
           auto
             ? 'Hết giờ nhưng nộp chưa xong. Bấm Nộp bài để thử lại.'
@@ -603,7 +690,7 @@ function AttemptBody() {
         <div>
           <p className="text-sm text-slate-500">
             <Link href="/dashboard" className="hover:text-accentDark">
-              Dashboard
+              Trang chủ
             </Link>
             {' / '}
             Làm bài
@@ -765,6 +852,16 @@ function AttemptBody() {
           </button>
         </div>
       </div>
+
+      {sessionExpired && (
+        <ReloginDialog
+          onDone={() => {
+            setSessionExpired(false);
+            setError(null);
+            void flushAllSavesRef.current().catch(() => undefined);
+          }}
+        />
+      )}
 
       {confirmOpen && (
         <SubmitDialog

@@ -503,3 +503,52 @@ export async function listStudentHistoryRows(
     };
   });
 }
+
+/** Everything practice needs for a set of a student's attempts, in four queries. */
+export async function loadPracticeData(userId: string, attemptIds: string[]) {
+  if (attemptIds.length === 0) {
+    return { snapshots: new Map(), wrong: new Map(), assignments: new Map(), usedByAssignment: new Map() };
+  }
+  const { data: attemptRows, error: aErr } = await getDb()
+    .from('attempts')
+    .select('id, assignment_id')
+    .eq('user_id', userId)
+    .in('id', attemptIds);
+  if (aErr) throw aErr;
+  const assignmentIds = [
+    ...new Set(((attemptRows ?? []) as { assignment_id: string }[]).map((r) => r.assignment_id)),
+  ];
+
+  const [snapRes, wrongRes, asgRes, usedRes] = await Promise.all([
+    getDb().from('attempt_snapshots').select('attempt_id, payload').in('attempt_id', attemptIds),
+    getDb()
+      .from('attempt_answers')
+      .select('attempt_id, question_id')
+      .in('attempt_id', attemptIds)
+      .eq('is_correct', false),
+    getDb().from('exam_assignments').select('id, attempt_limit').in('id', assignmentIds),
+    getDb()
+      .from('attempts')
+      .select('assignment_id')
+      .eq('user_id', userId)
+      .in('assignment_id', assignmentIds)
+      .neq('status', 'cancelled'),
+  ]);
+  for (const r of [snapRes, wrongRes, asgRes, usedRes]) if (r.error) throw r.error;
+
+  const snapshots = new Map(
+    ((snapRes.data ?? []) as AttemptSnapshotRow[]).map((r) => [r.attempt_id, r.payload]),
+  );
+  const wrong = new Map<string, Set<string>>();
+  for (const r of (wrongRes.data ?? []) as { attempt_id: string; question_id: string }[]) {
+    wrong.set(r.attempt_id, (wrong.get(r.attempt_id) ?? new Set()).add(r.question_id));
+  }
+  const assignments = new Map(
+    ((asgRes.data ?? []) as { id: string; attempt_limit: number }[]).map((r) => [r.id, r.attempt_limit]),
+  );
+  const usedByAssignment = new Map<string, number>();
+  for (const r of (usedRes.data ?? []) as { assignment_id: string }[]) {
+    usedByAssignment.set(r.assignment_id, (usedByAssignment.get(r.assignment_id) ?? 0) + 1);
+  }
+  return { snapshots, wrong, assignments, usedByAssignment };
+}

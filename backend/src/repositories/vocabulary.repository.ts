@@ -761,3 +761,42 @@ export async function listActiveVocabularyAssignmentsForClass(
   if (error) throw error;
   return ((data ?? []) as VocabularyAssignmentRow[]).map(mapVocabularyAssignment);
 }
+
+/**
+ * Extra practice when nothing is due: learning cards of open assignments that are not
+ * due yet, words failed most often first, then the most recently reviewed. Read-only.
+ */
+export async function listExtraPracticeCards(
+  userId: string,
+  nowIso: string,
+  limit = 20,
+): Promise<{ cards: { card: StudentVocabularyCard; entry: VocabularyEntry }[]; bankNames: Map<string, string>; assignments: VocabularyAssignment[] }> {
+  const assignments = await listOpenAssignmentsForUser(userId, nowIso);
+  if (!assignments.length) return { cards: [], bankNames: new Map(), assignments: [] };
+
+  const [cardsRes, banks] = await Promise.all([
+    getDb()
+      .from('student_vocabulary_cards')
+      .select(`${CARD_COLUMNS}, vocabulary_entries (${ENTRY_COLUMNS})`)
+      .eq('user_id', userId)
+      .eq('status', 'learning')
+      .in('assignment_id', assignments.map((a) => a.id))
+      .gt('next_review_at', nowIso)
+      .order('fail_count', { ascending: false })
+      .order('last_reviewed_at', { ascending: false, nullsFirst: false })
+      .limit(limit),
+    findVocabularyBanksByIds([...new Set(assignments.map((a) => a.bankId))]),
+  ]);
+  if (cardsRes.error) throw cardsRes.error;
+
+  const cards = ((cardsRes.data ?? []) as (StudentVocabularyCardRow & {
+    vocabulary_entries: VocabularyEntryRow | VocabularyEntryRow[] | null;
+  })[]).flatMap((row) => {
+    const entryRow = Array.isArray(row.vocabulary_entries)
+      ? (row.vocabulary_entries[0] ?? null)
+      : row.vocabulary_entries;
+    if (!entryRow) return [];
+    return [{ card: mapStudentVocabularyCard(row), entry: mapVocabularyEntry(entryRow) }];
+  });
+  return { cards, bankNames: new Map(banks.map((b) => [b.id, b.name])), assignments };
+}

@@ -165,3 +165,16 @@ Danh sách bài, nút làm bài và đồng hồ làm theo [student-response.md]
 Tính ở client từ số liệu dashboard đã có, không lưu riêng: tổng EXP (`me/stats`), chuỗi ngày ôn **dài nhất** và số từ đã thuộc
 (`me/vocabulary/stats`: `bestStreak` trong ~400 ngày gần nhất, `mastered`). Mốc: EXP 10/50/100/250/500; chuỗi ôn 3/7/14/30 ngày;
 từ đã thuộc 10/50/100. Huy hiệu không mất khi chuỗi đứt. Hiện thêm mốc kế tiếp mỗi loại ("Sắp đạt").
+
+### Danh sách bài, làm lại, luyện câu sai (đã cài)
+
+- Bài `cancelled` không hiện. Bài còn làm được hoặc chưa mở ở trên; bài đã xong / hết hạn / hết lượt gom vào mục thu gọn
+  **Đã kết thúc** (ghi "có điểm mới" nếu trong đó có bài vừa chấm).
+- Chữ cho học sinh bằng tiếng Việt: "Trang chủ", "Xếp hạng", không in role của học sinh.
+- Trang kết quả: nút **Làm lại (còn N lượt)** (cùng `POST /api/exam-assignments/:id/attempts` như dashboard); nhận xét giáo
+  viên hiển thị là "Nhận xét của thầy cô".
+- **Luyện lại câu sai** `/practice` (link từ `/history`): `GET /api/students/me/practice` lấy câu chấm tự động bị sai ở
+  tối đa 20 bài đã chấm gần nhất, chỉ bài mà quy tắc lộ đáp án đã cho phép (`showExplanation` và hết lượt — cùng
+  `isAnswerKeyRevealAllowed`), mỗi câu một lần, **không kèm đáp án**. `POST /api/students/me/practice/check`
+  `{ attemptId, questionId, value }` kiểm tra lại quyền trên server, chấm bằng `autoGradeAnswer` và trả đáp án + lời giải.
+  Không ghi gì: không điểm, không EXP, attempt giữ nguyên. Câu tự luận không có trong luyện tập.

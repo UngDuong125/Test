@@ -1,15 +1,51 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { AuthGate } from '@/components/auth/AuthGate';
 import { ContentBlocksView, OptionContentView } from '@/components/questions/QuestionPreview';
 import { formatAnswerValue } from '@/lib/answer-display';
-import { ApiError, getAttempt, getAttemptResult } from '@/lib/api-client';
+import { ApiError, getAttempt, getAttemptResult, startAttempt } from '@/lib/api-client';
+import { rememberAttemptDetail } from '@/lib/attempt-handoff';
 import { attemptStatusLabel } from '@/lib/attempt-labels';
 import { useSession } from '@/lib/auth';
 import type { Attempt, AttemptAnswer, AttemptSnapshot } from '@/types/content';
+
+/** Start the next attempt straight from the result page (same path as the dashboard). */
+function RetryButton({ assignmentId, remaining }: { assignmentId: string; remaining: number }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function onRetry() {
+    setBusy(true);
+    setError(null);
+    try {
+      const receivedAt = Date.now();
+      const detail = await startAttempt(assignmentId);
+      rememberAttemptDetail(detail, receivedAt);
+      router.push(`/attempts/${detail.attempt.id}`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Không bắt đầu được lượt mới');
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void onRetry()}
+        className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accentDark disabled:opacity-60"
+      >
+        {busy ? 'Đang mở…' : `Làm lại (còn ${remaining} lượt)`}
+      </button>
+      {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
 
 function ResultBody() {
   const params = useParams();
@@ -114,7 +150,7 @@ function ResultBody() {
           ) : (
             <>
               <Link href="/dashboard" className="hover:text-accentDark">
-                Dashboard
+                Trang chủ
               </Link>
               {' / '}
               Kết quả
@@ -202,6 +238,9 @@ function ResultBody() {
             hiển thị đúng/sai (nếu được phép xem kết quả).
           </p>
         )}
+        {!isStaff && !isLive && remainingAttempts > 0 && (
+          <RetryButton assignmentId={attempt.assignmentId} remaining={remainingAttempts} />
+        )}
         {isStaff && attempt.status === 'needs_grading' && (
           <Link
             href={`/grading/${attempt.id}`}
@@ -254,7 +293,9 @@ function ResultBody() {
                   {!hasAnswer ? '(trống)' : formatAnswerValue(q.options, ans?.value ?? null)}
                 </p>
                 {ans?.feedback && (
-                  <p className="mt-2 text-slate-600">Feedback: {ans.feedback}</p>
+                  <p className="mt-2 rounded-md border-l-4 border-accent bg-accent/5 px-3 py-2 text-slate-700">
+                    <span className="font-medium text-ink">Nhận xét của thầy cô:</span> {ans.feedback}
+                  </p>
                 )}
               </div>
               {!isLive && q.answer && (

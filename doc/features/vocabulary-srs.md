@@ -453,3 +453,12 @@ Mỗi học sinh: số thẻ `learning` / `mastered` / `suspended`, số thẻ �
 - Quy ước API: [_cross-cutting.md](./_cross-cutting.md)
 - Tốc độ màn ôn: [student-response.md](./student-response.md)
 - Schema đích: [database-target.md](../database-target.md)
+
+## 18. Phát âm và ôn thêm (đã cài)
+
+- **Phát âm:** nút 🔊 dùng `speechSynthesis` của trình duyệt (không cần audio upload). Ngôn ngữ theo môn của từ: `flang`
+  → `en-US`, môn khác → `vi-VN` (bộ từ chưa có trường ngôn ngữ). Có ở mặt trước/sau flashcard và trắc nghiệm; ở **Gõ từ**
+  chỉ hiện sau khi trả lời (nghe trước là lộ đáp án). Trình duyệt không hỗ trợ thì ẩn nút.
+- **Ôn thêm:** khi hết thẻ đến hạn, nút **Ôn thêm** gọi `GET /api/students/me/vocabulary/extra` — tối đa 20 thẻ `learning`
+  chưa đến hạn của assignment còn hiệu lực, thẻ hay quên trước. Kết quả "Nhớ rồi / Chưa nhớ" chỉ đếm ở trình duyệt: không
+  gọi `POST .../review`, không đổi lịch SRS, không cộng EXP, không tính vào streak.

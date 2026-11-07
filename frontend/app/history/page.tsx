@@ -177,7 +177,7 @@ function HistoryBody() {
       <div>
         <p className="text-sm text-slate-500">
           <Link href="/dashboard" className="hover:text-accentDark">
-            Dashboard
+            Trang chủ
           </Link>
           {' / '}Lịch sử
         </p>
@@ -185,6 +185,12 @@ function HistoryBody() {
         <p className="mt-2 text-slate-600">
           Các bài đã nộp, điểm theo thời gian và những bài còn câu sai để ôn lại.
         </p>
+        <Link
+          href="/practice"
+          className="mt-3 inline-block rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accentDark"
+        >
+          Luyện lại câu sai →
+        </Link>
       </div>
 
       {error && (

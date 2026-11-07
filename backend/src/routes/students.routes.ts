@@ -9,7 +9,9 @@ import * as classesService from '../modules/classes/classes.service.js';
 import * as leaderboardService from '../modules/leaderboard/leaderboard.service.js';
 import { listAssignmentsQuerySchema } from '../validators/assignment.validators.js';
 import * as vocabularyService from '../modules/vocabulary/vocabulary.service.js';
+import * as practiceService from '../modules/practice/practice.service.js';
 import { listVocabularyAssignmentsQuerySchema } from '../validators/vocabulary.validators.js';
+import { saveAnswerSchema } from '../validators/attempt.validators.js';
 
 export const studentsRouter = Router();
 
@@ -53,6 +55,14 @@ studentsRouter.get('/me/vocabulary/due', requireRole('student'), async (req, res
   }
 });
 
+studentsRouter.get('/me/vocabulary/extra', requireRole('student'), async (req, res, next) => {
+  try {
+    res.json(await vocabularyService.listExtraPracticeForStudent(req.auth!.user));
+  } catch (err) {
+    next(err);
+  }
+});
+
 studentsRouter.get('/me/vocabulary/stats', requireRole('student'), async (req, res, next) => {
   try {
     const stats = await vocabularyService.getMyVocabularyStats(req.auth!.user);
@@ -85,6 +95,25 @@ studentsRouter.get('/me/history', requireRole('student'), async (req, res, next)
     const query = z.object({ subjectId: z.string().min(1).optional() }).parse(req.query);
     const result = await attemptsService.getMyHistory(req.auth!.user, query);
     res.json(result);
+  } catch (err) {
+    next(err);
+  }
+});
+
+studentsRouter.get('/me/practice', requireRole('student'), async (req, res, next) => {
+  try {
+    res.json(await practiceService.listPracticeQuestions(req.auth!.user));
+  } catch (err) {
+    next(err);
+  }
+});
+
+studentsRouter.post('/me/practice/check', requireRole('student'), async (req, res, next) => {
+  try {
+    const body = saveAnswerSchema
+      .extend({ attemptId: z.string().uuid() })
+      .parse(req.body);
+    res.json(await practiceService.checkPracticeAnswer(req.auth!.user, body));
   } catch (err) {
     next(err);
   }

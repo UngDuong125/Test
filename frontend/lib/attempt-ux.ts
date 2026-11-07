@@ -50,3 +50,8 @@ export function currentTimeWarning(remainingMs: number | null): TimeWarning | nu
   }
   return hit;
 }
+
+/** The session ended (logout elsewhere, expiry): ask to log in again, keep the answers. */
+export function isSessionExpiredError(err: unknown): boolean {
+  return Boolean(err && typeof err === 'object' && 'status' in err && (err as { status: unknown }).status === 401);
+}

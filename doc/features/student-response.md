@@ -235,3 +235,9 @@ Phần này bổ sung hành vi giao diện cho `/attempts/[id]`. Không thêm re
 | Ôn từ theo trang | `backend/src/modules/vocabulary/vocabulary.service.ts`, `frontend/app/vocabulary/review/page.tsx` |
 | Cronjob giữ thức (vận hành) | `.github/workflows/keep-backend-awake.yml` |
 | Skeleton "đang khởi động" | `frontend/components/auth/AuthGate.tsx`, `frontend/lib/api-client.ts` |
+
+### Phiên hết hạn khi đang làm bài (đã cài)
+
+`PATCH .../answers` hoặc `POST .../submit` trả `401` → hộp **Phiên đăng nhập đã hết hạn** ngay trên trang làm bài (không
+chuyển trang, không lưu đáp án vào bộ nhớ trình duyệt). Câu chưa lưu vẫn nằm trong bộ nhớ của trang; đăng nhập lại
+(`POST /api/auth/login`) thì lưu tiếp mọi câu đang chờ. Nếu tài khoản phải đổi mật khẩu, hộp báo không lưu tiếp được.
