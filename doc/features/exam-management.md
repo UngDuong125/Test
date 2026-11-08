@@ -163,7 +163,7 @@ Tạo đề nháp
 | Vùng | Nội dung |
 | :--- | :--- |
 | Cột trái | Thông tin đề: tên, môn, lớp, thời lượng, loại, tổng điểm, hướng dẫn |
-| Giữa | Section + danh sách câu trên đề: chỉnh điểm, bỏ khỏi đề, (phase 2: kéo-thả); panel **Tạo câu mới** (form) hoặc **Dán text** (tạo hàng loạt) |
+| Giữa | Section + danh sách câu trên đề: chỉnh điểm, **Sửa** nội dung câu `draft`/`review` (mở `/questions/:id` ở tab mới; câu `published` bị khóa), bỏ khỏi đề, (phase 2: kéo-thả); panel **Tạo câu mới** (form) hoặc **Dán text** (tạo hàng loạt) |
 | Phải / modal | “Câu có sẵn” (tìm kiếm **chủ đề**, hiện 8 chủ đề đầu và “Xem thêm”), “Tạo câu hỏi mới”, “Dán text” |
 
 Form “Tạo câu hỏi mới” trong composer cho chọn/tạo chủ đề như form câu hỏi độc lập (môn/lớp theo đề) — xem [question-management.md](./question-management.md#chủ-đề-trong-form-câu-hỏi).

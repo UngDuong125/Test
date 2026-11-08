@@ -725,6 +725,16 @@ export function ExamComposer({
                         onBlur={(e) => void onChangePoints(eq.questionId, Number(e.target.value))}
                       />
                     </label>
+                    {editable && (q?.status === 'draft' || q?.status === 'review') && (
+                      <Link
+                        href={`/questions/${eq.questionId}`}
+                        target="_blank"
+                        className="text-xs text-accentDark hover:underline"
+                        title="Mở trang sửa câu ở tab mới"
+                      >
+                        Sửa
+                      </Link>
+                    )}
                     {editable && (
                       <button
                         type="button"
