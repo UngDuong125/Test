@@ -26,6 +26,7 @@ import { TopicFilter } from '@/components/exams/TopicFilter';
 import { useTopics } from '@/lib/topics';
 import type { TagKey } from '@/types/auth';
 import type {
+  ContentBlock,
   Exam,
   ExamQuestion,
   ExamSection,
@@ -291,10 +292,10 @@ export function ExamComposer({
     }
   }
 
-  async function attachCreatedQuestion(payload: Record<string, unknown>) {
+  async function attachCreatedQuestion(payload: Record<string, unknown>, sectionIdOverride?: string) {
     if (!editable) return;
     setError(null);
-    const sectionId = await ensureDefaultSection();
+    const sectionId = sectionIdOverride ?? (await ensureDefaultSection());
     const body = {
       ...payload,
       subjectId: meta.subjectId,
@@ -320,8 +321,14 @@ export function ExamComposer({
     setFormNonce((n) => n + 1);
   }
 
-  async function onBulkCreateOne(payload: BulkQuestionCreatePayload) {
-    await attachCreatedQuestion(payload as unknown as Record<string, unknown>);
+  async function onBulkCreateOne(payload: BulkQuestionCreatePayload, sectionId?: string) {
+    await attachCreatedQuestion(payload as unknown as Record<string, unknown>, sectionId);
+  }
+
+  async function onBulkCreateSection(title: string, content: ContentBlock[]) {
+    const { section } = await addExamSection(exam.id, { title, description: '', content });
+    setSections((prev) => [...prev, section]);
+    return section.id;
   }
 
   async function onChangePoints(questionId: string, points: number) {
@@ -927,6 +934,7 @@ export function ExamComposer({
             subjectId={meta.subjectId}
             grade={meta.grade}
             onCreateOne={onBulkCreateOne}
+            onCreateSection={meta.type === 'lesson' ? onBulkCreateSection : undefined}
             onClose={() => setRightTab('pick')}
             onComplete={(count) => {
               showFlash(`Đã tạo ${count} câu từ text và gắn vào đề`);

@@ -95,6 +95,32 @@ Ví dụ câu nối 2 điểm, đúng 1/2 cặp → 1 điểm, `isCorrect = fals
 
 `description` của section vẫn là text ngắn. Nếu `content` rỗng mà `description` có chữ, player hiện description như một block text.
 
+### Dán text lý thuyết và câu hỏi
+
+Tab **Dán text** của composer, khi đề là `lesson`, nhận thêm khối phần lý thuyết (không tạo bảng hay API mới):
+
+```text
+===
+SECTION: Phân số cơ bản
+THEORY:
+Phân số $rac{a}{b}$ có mẫu số $b 
+e 0$.
+Muốn cộng hai phân số, **quy đồng mẫu** rồi cộng tử.
+===
+TYPE: multiple_choice
+Q: $rac{1}{2} + rac{1}{3}$ = ?
+A) $rac{5}{6}$*
+B) 1
+===
+```
+
+- `SECTION:` (alias `PHẦN:`) là tên phần; `THEORY:` (alias `LÝ THUYẾT:`) là nội dung nhiều dòng đến hết khối, hỗ trợ `**đậm**`, `*nghiêng*`, `$LaTeX$` như câu hỏi. Có thể bỏ `THEORY:` để tạo phần chưa có lý thuyết.
+- Khối `SECTION` chỉ chứa `SECTION:` và `THEORY:`. Câu hỏi để khối riêng bên dưới; mọi câu đứng sau khối `SECTION` thuộc phần đó cho đến khối `SECTION` kế tiếp.
+- Câu đứng trước khối `SECTION` đầu tiên vào phần đầu của đề, như dán text thường.
+- Khi bấm tạo: mỗi khối `SECTION` gọi `POST /api/exams/:id/sections` (kèm `content`), rồi các câu của nó gọi `POST .../questions/create` với `sectionId` của phần đó.
+- Với đề không phải `lesson`, khối `SECTION` báo lỗi và không có nút chèn mẫu **Phần lý thuyết**.
+- Ảnh trong lý thuyết vẫn thêm bằng ô **Lý thuyết** của từng phần.
+
 EXP của `lesson` bằng `practice`: `floor(score)`, trần `floor(maxScore)`.
 
 ## 8. Kiểm tra tức thì

@@ -139,7 +139,7 @@ TestArchive/
 │   │   ├── auth.tsx                    # SessionProvider, useSession
 │   │   ├── validation.ts               # Form validation, không thay thế backend
 │   │   ├── latex.ts                    # Render LaTeX (KaTeX)
-│   │   ├── bulk-question-text.ts       # Parse nhập câu hỏi hàng loạt từ text
+│   │   ├── bulk-question-text.ts       # Parse nhập câu hỏi hàng loạt từ text (+ khối SECTION/THEORY cho bài học)
 │   │   ├── topics.ts
 │   │   └── attempt-labels.ts
 │   ├── constants/                      # tags.ts (môn học), questions.ts

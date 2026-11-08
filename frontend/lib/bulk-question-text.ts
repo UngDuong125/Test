@@ -1088,3 +1088,107 @@ Q: Sắp xếp các bước giải phương trình
 POINTS: 1`;
   }
 }
+
+// --- Bài học: khối SECTION / THEORY ---
+
+export type BulkSectionOk = {
+  ok: true;
+  kind: 'section';
+  index: number;
+  title: string;
+  /** Lý thuyết của phần (rỗng nếu không ghi THEORY). */
+  content: ContentBlock[];
+  preview: string;
+};
+
+export type BulkLessonItem = (BulkParseOk & { kind: 'question' }) | BulkSectionOk | BulkParseErr;
+
+const SECTION_LINE_RE = /^(?:SECTION|PHẦN|PHAN)\s*:\s*(.*)$/i;
+const THEORY_LINE_RE = /^(?:THEORY|LÝ\s*THUYẾT|LY\s*THUYET)\s*:\s*(.*)$/i;
+
+function parseSectionBlock(raw: string, index: number): BulkSectionOk | BulkParseErr {
+  const fail = (message: string): BulkParseErr => ({ ok: false, index, message, raw });
+  const lines = raw.split('\n');
+  const first = lines[0]?.trim().match(SECTION_LINE_RE);
+  if (!first) return fail('Khối phần phải bắt đầu bằng SECTION: tên phần');
+  const title = first[1]!.trim();
+  if (!title) return fail('Thiếu tên phần sau SECTION:');
+  if (title.length > 200) return fail('Tên phần dài quá 200 ký tự');
+
+  const theoryLines: string[] = [];
+  let inTheory = false;
+  for (const line of lines.slice(1)) {
+    const theory = line.trim().match(THEORY_LINE_RE);
+    if (!inTheory && theory) {
+      inTheory = true;
+      if (theory[1]!.trim()) theoryLines.push(theory[1]!.trim());
+    } else if (inTheory) {
+      theoryLines.push(line.trimEnd());
+    } else if (line.trim()) {
+      return fail('Khối SECTION chỉ có SECTION: và THEORY: — câu hỏi để khối riêng bên dưới');
+    }
+  }
+  const theoryText = theoryLines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  try {
+    const content = theoryText ? parseContentBlocks(theoryText, 'THEORY') : [];
+    return { ok: true, kind: 'section', index, title, content, preview: contentPreview(content) };
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : 'Parse thất bại');
+  }
+}
+
+/**
+ * Như parseBulkQuestionText, nhưng nhận thêm khối `SECTION:` (+ `THEORY:`).
+ * Khối SECTION mở phần mới; các câu hỏi đứng sau nó thuộc phần đó.
+ * Khi `allowSections` là false (đề không phải bài học), khối SECTION báo lỗi.
+ */
+export function parseBulkLessonText(
+  text: string,
+  options?: { defaultType?: BulkSupportedType; allowSections?: boolean },
+): BulkLessonItem[] {
+  return splitBlocks(text).map((raw, index): BulkLessonItem => {
+    if (SECTION_LINE_RE.test(raw.split('\n')[0]!.trim())) {
+      if (!options?.allowSections) {
+        return { ok: false, index, message: 'SECTION chỉ dùng được trong bài học (loại đề "lesson")', raw };
+      }
+      return parseSectionBlock(raw, index);
+    }
+    const [item] = parseBulkQuestionText(raw, { defaultType: options?.defaultType });
+    if (!item) return { ok: false, index, message: 'Khối trống', raw };
+    return item.ok ? { ...item, index, kind: 'question' } : { ...item, index };
+  });
+}
+
+export const BULK_LESSON_EXAMPLE_TEXT = `===
+SECTION: Phân số cơ bản
+THEORY:
+Phân số $\frac{a}{b}$ có tử số $a$ và mẫu số $b \ne 0$.
+Muốn cộng hai phân số, **quy đồng mẫu** rồi cộng tử.
+
+Ví dụ: $$\frac{1}{2} + \frac{1}{3} = \frac{5}{6}$$
+===
+TYPE: multiple_choice
+Q: Giá trị của $\frac{1}{2} + \frac{1}{3}$ là?
+A) $\frac{1}{5}$
+B) $\frac{5}{6}$*
+C) 1
+===
+SECTION: Từ vựng
+THEORY:
+apple là quả táo, book là quyển sách.
+===
+TYPE: matching
+Q: Nối từ với nghĩa
+apple | quả táo
+book | quyển sách
+===`;
+
+export const BULK_LESSON_FORMAT_HELP = `Bài học: thêm khối phần lý thuyết bằng
+SECTION: tên phần
+THEORY:
+nội dung lý thuyết (nhiều dòng, hỗ trợ **đậm**, *nghiêng*, $LaTeX$)
+Các câu hỏi đứng sau khối SECTION thuộc phần đó. Câu đứng trước khối SECTION đầu tiên vào phần đầu của đề. Ảnh trong lý thuyết thêm bằng ô "Lý thuyết" của từng phần.`;
+
+export const SECTION_TEMPLATE = `SECTION: Tên phần
+THEORY:
+Nội dung lý thuyết, có thể dùng $x^2$ và **chữ đậm**.`;

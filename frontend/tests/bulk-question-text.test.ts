@@ -2,6 +2,8 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   BULK_EXAMPLE_TEXT,
+  BULK_LESSON_EXAMPLE_TEXT,
+  parseBulkLessonText,
   parseBulkQuestionText,
   parseContentBlocks,
   type BulkParseItem,
@@ -237,5 +239,37 @@ POINTS: 1`);
     assert.match(stem, /a\. I started learning/);
     assert.match(stem, /b\. I often play/);
     assert.match(stem, /c\. It helps me relax/);
+  });
+});
+
+describe('parseBulkLessonText', () => {
+  it('parses SECTION/THEORY blocks and keeps questions', () => {
+    const items = parseBulkLessonText(BULK_LESSON_EXAMPLE_TEXT, { allowSections: true });
+    assert.ok(items.every((i) => i.ok), JSON.stringify(items.filter((i) => !i.ok)));
+    assert.deepEqual(
+      items.map((i) => (i.ok ? i.kind : 'err')),
+      ['section', 'question', 'section', 'question'],
+    );
+    const section = items[0]!;
+    assert.ok(section.ok && section.kind === 'section');
+    assert.equal(section.title, 'Phân số cơ bản');
+    assert.ok(section.content.some((b) => b.type === 'latex'));
+    assert.ok(section.content.some((b) => b.type === 'text' && b.value.includes('**quy đồng mẫu**')));
+  });
+
+  it('allows a section without theory', () => {
+    const [item] = parseBulkLessonText('SECTION: Chỉ tiêu đề', { allowSections: true });
+    assert.ok(item?.ok && item.kind === 'section');
+    assert.deepEqual(item.content, []);
+  });
+
+  it('rejects SECTION outside lessons, missing title and stray lines', () => {
+    assert.equal(parseBulkLessonText('SECTION: A\nTHEORY: x')[0]?.ok, false);
+    assert.equal(parseBulkLessonText('SECTION:\nTHEORY: x', { allowSections: true })[0]?.ok, false);
+    assert.equal(parseBulkLessonText('SECTION: A\nQ: câu hỏi\nTHEORY: x', { allowSections: true })[0]?.ok, false);
+  });
+
+  it('reports bad LaTeX in theory', () => {
+    assert.equal(parseBulkLessonText('SECTION: A\nTHEORY: $x^2', { allowSections: true })[0]?.ok, false);
   });
 });

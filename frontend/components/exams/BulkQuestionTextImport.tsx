@@ -4,8 +4,11 @@ import { useMemo, useState, type ReactNode } from 'react';
 import {
   BULK_EXAMPLE_TEXT,
   BULK_FORMAT_HELP,
+  BULK_LESSON_EXAMPLE_TEXT,
+  BULK_LESSON_FORMAT_HELP,
   BULK_SUPPORTED_TYPES,
-  parseBulkQuestionText,
+  SECTION_TEMPLATE,
+  parseBulkLessonText,
   templateForType,
   type BulkQuestionCreatePayload,
   type BulkSupportedType,
@@ -15,7 +18,7 @@ import { topicNameKey, useTopics } from '@/lib/topics';
 import { ContentBlocksView, OptionContentView } from '@/components/questions/QuestionPreview';
 import { TopicPicker } from '@/components/questions/TopicPicker';
 import type { TagKey } from '@/types/auth';
-import type { Topic } from '@/types/content';
+import type { ContentBlock, Topic } from '@/types/content';
 
 const TYPE_LABEL: Record<BulkSupportedType, string> = {
   multiple_choice: 'Trắc nghiệm',
@@ -31,7 +34,10 @@ type Props = {
   /** Môn/lớp của đề — dùng để đổi tên chủ đề thành id và tạo chủ đề thiếu. */
   subjectId: TagKey;
   grade: number;
-  onCreateOne: (payload: BulkQuestionCreatePayload) => Promise<void>;
+  /** `sectionId` có khi câu đứng sau một khối SECTION trong text. */
+  onCreateOne: (payload: BulkQuestionCreatePayload, sectionId?: string) => Promise<void>;
+  /** Có (chỉ với bài học) thì cho phép khối SECTION / THEORY; trả về id phần vừa tạo. */
+  onCreateSection?: (title: string, content: ContentBlock[]) => Promise<string>;
   footerExtra?: ReactNode;
   onClose?: () => void;
   onComplete?: (count: number) => void;
@@ -41,11 +47,14 @@ export function BulkQuestionTextImport({
   subjectId,
   grade,
   onCreateOne,
+  onCreateSection,
   footerExtra,
   onClose,
   onComplete,
 }: Props) {
-  const [text, setText] = useState(BULK_EXAMPLE_TEXT);
+  const allowSections = Boolean(onCreateSection);
+  const exampleText = allowSections ? BULK_LESSON_EXAMPLE_TEXT : BULK_EXAMPLE_TEXT;
+  const [text, setText] = useState(exampleText);
   const [defaultType, setDefaultType] = useState<BulkSupportedType | ''>('');
   const topicSource = useTopics(subjectId, grade);
   const [defaultTopicIds, setDefaultTopicIds] = useState<string[]>([]);
@@ -56,13 +65,16 @@ export function BulkQuestionTextImport({
 
   const parsed = useMemo(
     () =>
-      parseBulkQuestionText(text, {
+      parseBulkLessonText(text, {
         defaultType: defaultType || undefined,
+        allowSections,
       }),
-    [text, defaultType],
+    [text, defaultType, allowSections],
   );
 
   const okItems = parsed.filter((p) => p.ok);
+  const questionCount = parsed.filter((p) => p.ok && p.kind === 'question').length;
+  const sectionCount = okItems.length - questionCount;
   const errItems = parsed.filter((p) => !p.ok);
 
   const topicByKey = useMemo(() => {
@@ -96,7 +108,7 @@ export function BulkQuestionTextImport({
     const ids = new Map<string, string>();
     for (const [key, t] of topicByKey) ids.set(key, t.id);
     for (const item of okItems) {
-      if (!item.ok) continue;
+      if (!item.ok || item.kind !== 'question') continue;
       for (const name of item.payload.topicNames) {
         const key = topicNameKey(name);
         if (ids.has(key)) continue;
@@ -108,8 +120,8 @@ export function BulkQuestionTextImport({
     return ids;
   }
 
-  function insertTemplate(type: BulkSupportedType) {
-    const block = templateForType(type);
+  function insertTemplate(type: BulkSupportedType | 'section') {
+    const block = type === 'section' ? SECTION_TEMPLATE : templateForType(type);
     setText((prev) => {
       const trimmed = prev.trim();
       if (!trimmed) return `===\n${block}\n===`;
@@ -123,6 +135,7 @@ export function BulkQuestionTextImport({
     setError(null);
     setCreatedCount(0);
     let done = 0;
+    let sectionId: string | undefined;
     let topicIdByKey: Map<string, string>;
     try {
       setProgress('Đang chuẩn bị chủ đề…');
@@ -140,7 +153,12 @@ export function BulkQuestionTextImport({
     try {
       for (const item of okItems) {
         if (!item.ok) continue;
-        setProgress(`Đang tạo câu ${done + 1}/${okItems.length}…`);
+        if (item.kind === 'section') {
+          setProgress(`Đang tạo phần “${item.title}”…`);
+          sectionId = await onCreateSection!(item.title, item.content);
+          continue;
+        }
+        setProgress(`Đang tạo câu ${done + 1}/${questionCount}…`);
         const { topicNames, ...rest } = item.payload;
         const topicIds = [
           ...new Set([
@@ -150,7 +168,7 @@ export function BulkQuestionTextImport({
               .filter((id): id is string => Boolean(id)),
           ]),
         ];
-        await onCreateOne({ ...rest, topicIds });
+        await onCreateOne({ ...rest, topicIds }, sectionId);
         done += 1;
         setCreatedCount(done);
       }
@@ -161,8 +179,8 @@ export function BulkQuestionTextImport({
     } catch (err) {
       setError(
         err instanceof ApiError
-          ? `Dừng ở câu ${done + 1}/${okItems.length}: ${err.message}`
-          : `Dừng ở câu ${done + 1}/${okItems.length}: tạo thất bại`,
+          ? `Dừng ở câu ${done + 1}/${questionCount}: ${err.message}`
+          : `Dừng ở câu ${done + 1}/${questionCount}: tạo thất bại`,
       );
       setProgress(null);
     } finally {
@@ -177,7 +195,8 @@ export function BulkQuestionTextImport({
           <h2 className="font-semibold text-ink">Tạo nhanh từ text</h2>
           <p className="text-xs text-slate-500">
             Dán nhiều câu theo định dạng field → xem trước → tạo hàng loạt (trắc nghiệm, chọn
-            thẻ, Đ/S, điền, ngắn, nối cặp, sắp xếp).
+            thẻ, Đ/S, điền, ngắn, nối cặp, sắp xếp
+            {allowSections ? '; thêm khối SECTION để tạo phần lý thuyết' : ''}).
           </p>
         </div>
         {onClose && (
@@ -192,11 +211,22 @@ export function BulkQuestionTextImport({
       </div>
 
       <div className="rounded-md border border-mist/70 bg-slate-50/60 px-3 py-2 text-xs whitespace-pre-wrap text-slate-600">
-        {BULK_FORMAT_HELP}
+        {allowSections ? `${BULK_FORMAT_HELP}
+
+${BULK_LESSON_FORMAT_HELP}` : BULK_FORMAT_HELP}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs text-slate-500">Chèn mẫu:</span>
+        {allowSections && (
+          <button
+            type="button"
+            onClick={() => insertTemplate('section')}
+            className="rounded-md border border-mist px-2 py-1 text-xs hover:border-accent"
+          >
+            Phần lý thuyết
+          </button>
+        )}
         {BULK_SUPPORTED_TYPES.map((t) => (
           <button
             key={t}
@@ -252,14 +282,28 @@ export function BulkQuestionTextImport({
 
       <div className="rounded-lg border border-mist/80 bg-slate-50/80 px-3 py-2">
         <p className="text-xs font-medium text-slate-600">
-          Xem trước: {okItems.length} hợp lệ
+          Xem trước: {okItems.length} hợp lệ{sectionCount ? ` (${sectionCount} phần)` : ''}
           {errItems.length ? ` · ${errItems.length} lỗi` : ''}
           {!parsed.length ? ' · chưa có khối nào' : ''}
         </p>
         {parsed.length > 0 && (
           <ul className="mt-2 max-h-72 space-y-2 overflow-y-auto text-xs">
             {parsed.map((item) =>
-              item.ok ? (
+              item.ok && item.kind === 'section' ? (
+                <li
+                  key={item.index}
+                  className="rounded-md border border-sky-100 bg-white/80 px-2.5 py-2 text-sky-900"
+                >
+                  <p className="mb-1.5 font-medium text-sky-800">
+                    #{item.index + 1} · Phần: {item.title}
+                  </p>
+                  {item.content.length > 0 ? (
+                    <ContentBlocksView blocks={item.content} compact />
+                  ) : (
+                    <p className="text-slate-500">Chưa có lý thuyết</p>
+                  )}
+                </li>
+              ) : item.ok ? (
                 <li
                   key={item.index}
                   className="rounded-md border border-emerald-100 bg-white/80 px-2.5 py-2 text-emerald-900"
@@ -357,14 +401,14 @@ export function BulkQuestionTextImport({
             : errItems.length
               ? 'Sửa lỗi trước khi tạo'
               : okItems.length
-                ? `Tạo ${okItems.length} câu`
+                ? `Tạo ${questionCount} câu${sectionCount ? ` + ${sectionCount} phần` : ''}`
                 : 'Tạo câu'}
         </button>
         <button
           type="button"
           disabled={busy}
           onClick={() => {
-            setText(BULK_EXAMPLE_TEXT);
+            setText(exampleText);
             setError(null);
             setCreatedCount(0);
           }}

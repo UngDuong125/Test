@@ -241,6 +241,8 @@ Q: Sắp xếp các bước
 ===
 ```
 
+**Bài học (`lesson`):** ngoài câu hỏi, text còn nhận khối `SECTION:` + `THEORY:` để tạo phần lý thuyết, các câu bên dưới thuộc phần đó. Chi tiết và ví dụ ở [interactive-lessons.md](./interactive-lessons.md#dán-text-lý-thuyết-và-câu-hỏi).
+
 Parse chạy trên frontend; câu không hợp lệ phải sửa trước khi tạo. Ảnh/media vẫn dùng form UI.
 
 **Text / LaTeX:** Trong `Q` và phương án `A)`… có thể xen text với LaTeX:
