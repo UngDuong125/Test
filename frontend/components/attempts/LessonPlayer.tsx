@@ -1,13 +1,20 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { isAnswered } from '@/lib/attempt-ux';
 import { ContentBlocksView } from '@/components/questions/QuestionPreview';
 import type { AnswerCheckResult, ExamSection, SnapshotQuestion, StudentAnswerValue } from '@/types/content';
 import { AttemptQuestionCard } from './AttemptQuestionCard';
 
 type Step =
   | { kind: 'theory'; section: ExamSection }
-  | { kind: 'question'; question: SnapshotQuestion; index: number; sectionTitle: string };
+  | {
+      kind: 'question';
+      question: SnapshotQuestion;
+      index: number;
+      sectionTitle: string;
+      sectionId: string | null;
+    };
 
 function theoryBlocks(section: ExamSection) {
   if (section.content?.length) return section.content;
@@ -39,12 +46,18 @@ export function buildLessonSteps(sections: ExamSection[], questions: SnapshotQue
       steps.push({ kind: 'theory', section });
     }
     for (const question of grouped.get(section.id) ?? []) {
-      steps.push({ kind: 'question', question, index, sectionTitle: section.title });
+      steps.push({
+        kind: 'question',
+        question,
+        index,
+        sectionTitle: section.title,
+        sectionId: section.id,
+      });
       index += 1;
     }
   }
   for (const question of loose) {
-    steps.push({ kind: 'question', question, index, sectionTitle: '' });
+    steps.push({ kind: 'question', question, index, sectionTitle: '', sectionId: null });
     index += 1;
   }
   return steps;
@@ -70,7 +83,16 @@ export function LessonPlayer({
   const [feedback, setFeedback] = useState<AnswerCheckResult | null>(null);
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
+  /** Bước câu hỏi để quay về sau khi bấm "Xem lại lý thuyết". */
+  const [returnTo, setReturnTo] = useState<number | null>(null);
   const step = steps[cursor] ?? null;
+
+  function goTo(next: number, keepReturn = false) {
+    setFeedback(null);
+    setCheckError(null);
+    if (!keepReturn) setReturnTo(null);
+    setCursor(Math.max(0, Math.min(steps.length - 1, next)));
+  }
 
   if (!step) {
     return <p className="text-sm text-slate-500">Bài học chưa có nội dung.</p>;
@@ -79,8 +101,43 @@ export function LessonPlayer({
   const pairMarks = Object.fromEntries((feedback?.pairs ?? []).map((item) => [item.leftId, item.correct]));
   const positionMarks = feedback?.positions?.map((item) => item.correct);
 
+  const theoryIndex =
+    step.kind === 'question' && step.sectionId
+      ? steps.findIndex((item) => item.kind === 'theory' && item.section.id === step.sectionId)
+      : -1;
+
   return (
     <div className="space-y-4">
+      <nav aria-label="Điều hướng bài học" className="flex flex-wrap gap-1.5">
+        {steps.map((item, i) => {
+          const isTheory = item.kind === 'theory';
+          const done = !isTheory && isAnswered(answers[item.question.id]);
+          const label = isTheory ? 'LT' : String(item.index + 1);
+          const title = isTheory ? `Lý thuyết: ${item.section.title}` : `Câu ${item.index + 1}`;
+          return (
+            <button
+              key={isTheory ? `t-${item.section.id}` : item.question.id}
+              type="button"
+              title={title}
+              aria-label={title}
+              aria-current={i === cursor ? 'step' : undefined}
+              onClick={() => goTo(i)}
+              className={`min-w-[2rem] rounded-md border px-2 py-1 text-xs font-medium ${
+                i === cursor
+                  ? 'border-accent bg-accent text-white'
+                  : done
+                    ? 'border-emerald-300 bg-emerald-50 text-emerald-800'
+                    : isTheory
+                      ? 'border-sky-200 bg-sky-50 text-sky-800'
+                      : 'border-mist bg-white text-slate-600'
+              }`}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </nav>
+
       <p className="text-sm text-slate-500">
         Bước {cursor + 1}/{steps.length}
         {step.kind === 'question' && step.sectionTitle ? ` · ${step.sectionTitle}` : ''}
@@ -139,16 +196,25 @@ export function LessonPlayer({
         <button
           type="button"
           disabled={cursor === 0}
-          onClick={() => {
-            setFeedback(null);
-            setCheckError(null);
-            setCursor((current) => Math.max(0, current - 1));
-          }}
+          onClick={() => goTo(cursor - 1)}
           className="rounded-md border border-mist px-3 py-2 text-sm disabled:opacity-40"
         >
           Quay lại
         </button>
         <div className="flex gap-2">
+          {step.kind === 'question' && theoryIndex >= 0 && (
+            <button
+              type="button"
+              onClick={() => {
+                const back = cursor;
+                goTo(theoryIndex);
+                setReturnTo(back);
+              }}
+              className="rounded-md border border-sky-300 px-3 py-2 text-sm text-sky-800 hover:bg-sky-50"
+            >
+              Xem lại lý thuyết
+            </button>
+          )}
           {step.kind === 'question' && (
             <button
               type="button"
@@ -168,18 +234,24 @@ export function LessonPlayer({
               {checking ? 'Đang kiểm tra…' : 'Kiểm tra'}
             </button>
           )}
-          <button
-            type="button"
-            disabled={cursor >= steps.length - 1}
-            onClick={() => {
-              setFeedback(null);
-              setCheckError(null);
-              setCursor((current) => Math.min(steps.length - 1, current + 1));
-            }}
-            className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
-          >
-            {step.kind === 'theory' ? 'Làm bài tập' : 'Tiếp tục'}
-          </button>
+          {step.kind === 'theory' && returnTo !== null ? (
+            <button
+              type="button"
+              onClick={() => goTo(returnTo)}
+              className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white"
+            >
+              Về câu đang làm
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={cursor >= steps.length - 1}
+              onClick={() => goTo(cursor + 1)}
+              className="rounded-md bg-accent px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
+            >
+              {step.kind === 'theory' ? 'Làm bài tập' : 'Tiếp tục'}
+            </button>
+          )}
         </div>
       </div>
     </div>

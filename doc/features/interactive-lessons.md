@@ -91,6 +91,8 @@ Ví dụ câu nối 2 điểm, đúng 1/2 cặp → 1 điểm, `isCorrect = fals
 - Composer hiện khối **Lý thuyết từng phần**. Mỗi section có `title` và `content` (block). Nút **Lưu lý thuyết** gọi `PATCH /api/exams/:id/sections/:sectionId`.
 - Câu trên đề vẫn gắn `sectionId` như cũ. Câu không thuộc section nào hiện sau các phần.
 - Học sinh làm từng bước: lý thuyết của section (nếu có `content` hoặc `description`), rồi từng câu của section đó.
+- **Thanh điều hướng** phía trên: mỗi bước là một ô (`LT` cho lý thuyết, số cho câu). Bấm ô để nhảy tới bước đó. Ô đang xem được tô đậm, câu đã có trả lời có viền xanh lá. Nhảy bước xóa kết quả "Kiểm tra" đang hiện.
+- **Xem lại lý thuyết:** ở bước câu hỏi có nút này khi phần có lý thuyết; bấm để sang lý thuyết của phần đó. Ở trang lý thuyết lúc này nút chính là **Về câu đang làm** (thay cho "Làm bài tập"). Đi bằng thanh điều hướng hoặc "Quay lại" thì bỏ trạng thái quay về.
 - Nộp bài, snapshot, attempt limit, deadline và EXP vẫn đi qua luồng attempt.
 
 `description` của section vẫn là text ngắn. Nếu `content` rỗng mà `description` có chữ, player hiện description như một block text.
